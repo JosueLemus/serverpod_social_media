@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/widgets/nexo_logo.dart';
+import '../../../auth/domain/entities/app_user.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/profile_cubit.dart';
 
@@ -11,6 +14,26 @@ import '../bloc/profile_cubit.dart';
 /// preventing the former nested ListView/TabBarView transition issue.
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, required this.username});
+  final String username;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<AppUser?>(
+    future: sl<AuthRepository>().currentUser(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final user = snapshot.data;
+      if (user == null || user.role == UserRole.visitor) {
+        return const _GuestProfilePage();
+      }
+      return _CreatorProfilePage(username: username);
+    },
+  );
+}
+
+class _CreatorProfilePage extends StatelessWidget {
+  const _CreatorProfilePage({required this.username});
   final String username;
 
   @override
@@ -30,6 +53,70 @@ class ProfilePage extends StatelessWidget {
           ],
           body: const TabBarView(
             children: [_PostsTab(), _LivesTab(), _PremiumTab()],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _GuestProfilePage extends StatelessWidget {
+  const _GuestProfilePage();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const NexoLogo(size: 108),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Tu perfil te está esperando.',
+                  style: Theme.of(context).textTheme.displaySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Inicia sesión o crea una cuenta para publicar, seguir creadores y construir tu comunidad.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => context.go('/sign-in'),
+                    child: const Text('Iniciar sesión'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => context.go('/sign-up'),
+                    child: const Text('Crear cuenta'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const Text(
+                  'Estás explorando como invitado. Tu acceso no se guardará al cerrar la app.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

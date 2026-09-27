@@ -15,7 +15,9 @@ class MockAuthRepository implements AuthRepository {
       name: 'Invitado',
       role: UserRole.visitor,
     );
-    await _local.save(user);
+    // Guest access is intentionally ephemeral. It exists only in the active
+    // AuthCubit session and must not restore after the app is reopened.
+    await _local.clear();
     return user;
   }
 
