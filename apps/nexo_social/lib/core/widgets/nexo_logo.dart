@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/app_tokens.dart';
 
-/// Reusable vector mark based on the Nexo Social Stitch identity.
-/// It is drawn with Flutter primitives so it stays sharp on mobile, web and desktop.
+/// The Nexo Social brand mark, sourced from the shared SVG asset.
+/// Keep this widget as the single entry point for the logo in the UI.
 class NexoLogo extends StatelessWidget {
   const NexoLogo({super.key, this.size = 92, this.showBadge = true});
 
@@ -29,14 +30,8 @@ class NexoLogo extends StatelessWidget {
             ],
           ),
           child: Padding(
-            padding: EdgeInsets.all(size * .11),
-            child: const DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface,
-                shape: BoxShape.circle,
-              ),
-              child: CustomPaint(painter: _NexoMarkPainter()),
-            ),
+            padding: EdgeInsets.all(size * .08),
+            child: SvgPicture.asset('assets/branding/nexo_mark.svg'),
           ),
         ),
         if (showBadge)
@@ -63,82 +58,4 @@ class NexoLogo extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _NexoMarkPainter extends CustomPainter {
-  const _NexoMarkPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final blue = Paint()
-      ..color = AppColors.primaryDark
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .19
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-    final mark = Path()
-      ..moveTo(size.width * .25, size.height * .74)
-      ..lineTo(size.width * .25, size.height * .34)
-      ..quadraticBezierTo(
-        size.width * .25,
-        size.height * .21,
-        size.width * .39,
-        size.height * .21,
-      )
-      ..quadraticBezierTo(
-        size.width * .51,
-        size.height * .21,
-        size.width * .51,
-        size.height * .36,
-      )
-      ..lineTo(size.width * .51, size.height * .65)
-      ..quadraticBezierTo(
-        size.width * .51,
-        size.height * .78,
-        size.width * .64,
-        size.height * .78,
-      )
-      ..quadraticBezierTo(
-        size.width * .77,
-        size.height * .78,
-        size.width * .77,
-        size.height * .64,
-      )
-      ..lineTo(size.width * .77, size.height * .34)
-      ..quadraticBezierTo(
-        size.width * .77,
-        size.height * .21,
-        size.width * .64,
-        size.height * .21,
-      );
-    canvas.drawPath(mark, blue);
-
-    final white = Paint()
-      ..color = Colors.white
-      ..strokeWidth = size.width * .055
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      Offset(size.width * .25, size.height * .33),
-      Offset(size.width * .25, size.height * .58),
-      white,
-    );
-    canvas.drawLine(
-      Offset(size.width * .77, size.height * .46),
-      Offset(size.width * .77, size.height * .67),
-      white,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .25, size.height * .31),
-      size.width * .08,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(size.width * .77, size.height * .7),
-      size.width * .08,
-      Paint()..color = Colors.white,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _NexoMarkPainter oldDelegate) => false;
 }

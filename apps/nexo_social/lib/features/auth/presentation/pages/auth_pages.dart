@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:animate_do/animate_do.dart';
 import '../../../../app/di/injection.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/widgets/nexo_logo.dart';
@@ -16,14 +17,20 @@ class SplashPage extends StatelessWidget {
         if (state is AuthAuthenticated) context.go('/');
         if (state is AuthUnauthenticated) context.go('/sign-in');
       },
-      child: const Scaffold(
+      child: Scaffold(
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              NexoLogo(size: 86),
-              SizedBox(height: AppSpacing.lg),
-              CircularProgressIndicator(),
+              ZoomIn(
+                duration: const Duration(milliseconds: 650),
+                child: const NexoLogo(size: 86),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              FadeInUp(
+                delay: const Duration(milliseconds: 260),
+                child: const CircularProgressIndicator(),
+              ),
             ],
           ),
         ),
@@ -68,37 +75,55 @@ class _WelcomePage extends StatelessWidget {
                     child: _CommunityBadge(),
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  const Center(child: NexoLogo(size: 116)),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Encuentra tu comunidad.',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.displaySmall?.copyWith(fontSize: 32),
-                    textAlign: TextAlign.center,
+                  FadeInDown(
+                    duration: const Duration(milliseconds: 600),
+                    child: const Center(child: NexoLogo(size: 116)),
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Conecta con creadores auténticos, accede a contenido exclusivo y participa en conversaciones en vivo.',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                      height: 1.45,
+                  const SizedBox(height: AppSpacing.lg),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 120),
+                    child: Text(
+                      'Encuentra tu comunidad.',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.displaySmall?.copyWith(fontSize: 32),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  const _Highlights(),
-                  const SizedBox(height: AppSpacing.lg),
-                  FilledButton.icon(
-                    onPressed: () => context.go('/sign-up'),
-                    iconAlignment: IconAlignment.end,
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: const Text('Crear cuenta'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton(
-                    onPressed: () => _showSignInSheet(context),
-                    child: const Text('Iniciar sesión'),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 220),
+                    child: Text(
+                      'Conecta con creadores auténticos, accede a contenido exclusivo y participa en conversaciones en vivo.',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.45,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 310),
+                    child: const _Highlights(),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 390),
+                    child: FilledButton.icon(
+                      onPressed: () => context.go('/sign-up'),
+                      iconAlignment: IconAlignment.end,
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('Crear cuenta'),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  FadeInUp(
+                    delay: const Duration(milliseconds: 460),
+                    child: OutlinedButton(
+                      onPressed: () => _showSignInSheet(context),
+                      child: const Text('Iniciar sesión'),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   const _ContinueWith(),
