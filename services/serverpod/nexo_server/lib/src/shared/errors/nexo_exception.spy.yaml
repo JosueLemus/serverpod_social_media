@@ -1,0 +1,5 @@
+### Error de negocio tipado. Nunca incluir datos sensibles: se envía al cliente.
+exception: NexoException
+fields:
+  code: NexoErrorCode
+  message: String

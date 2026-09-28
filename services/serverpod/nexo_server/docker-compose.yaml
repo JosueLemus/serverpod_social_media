@@ -1,0 +1,30 @@
+services:
+  # Development services
+  postgres:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "8090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: nexo
+      POSTGRES_PASSWORD: "Ldr9qty0qNT4ndfw0VkzPrHGDi1Gdkld"
+    volumes:
+      - nexo_data:/var/lib/postgresql/data
+
+
+  # Test services
+  postgres_test:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "9090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: nexo_test
+      POSTGRES_PASSWORD: "wBvGA5rax2fZ2o3Qtv6FjrllyiEAMMA6"
+    volumes:
+      - nexo_test_data:/var/lib/postgresql/data
+
+
+volumes:
+  nexo_data:
+  nexo_test_data:

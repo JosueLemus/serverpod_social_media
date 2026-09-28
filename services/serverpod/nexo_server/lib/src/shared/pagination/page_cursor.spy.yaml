@@ -1,0 +1,5 @@
+### Cursor keyset: el último elemento visto, ordenado por (createdAt, id).
+class: PageCursor
+fields:
+  createdAt: DateTime
+  id: int

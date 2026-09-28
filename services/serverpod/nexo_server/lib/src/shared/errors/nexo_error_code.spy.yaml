@@ -1,0 +1,9 @@
+### Códigos de error de negocio que el cliente puede mapear a un Failure.
+enum: NexoErrorCode
+values:
+  - unauthenticated
+  - forbidden
+  - notFound
+  - conflict
+  - invalidInput
+  - rateLimited

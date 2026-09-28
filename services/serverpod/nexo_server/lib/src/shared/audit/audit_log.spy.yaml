@@ -1,0 +1,16 @@
+### Registro inmutable de acciones sensibles (moderación, roles, lives).
+class: AuditLog
+table: audit_log
+serverOnly: true
+fields:
+  actorId: UuidValue?
+  action: String
+  entityType: String
+  entityId: String
+  metadataJson: String?
+  createdAt: DateTime, default=now
+indexes:
+  audit_log_entity_idx:
+    fields: entityType, entityId
+  audit_log_actor_idx:
+    fields: actorId

@@ -1,0 +1,15 @@
+name: _
+publish_to: none
+
+environment:
+  sdk: '^3.12.2'
+
+workspace:
+  - nexo_client
+  - nexo_server
+
+# Para tool/api_map.dart (mapa de la API).
+dev_dependencies:
+  analyzer: ^14.4.0
+  yaml: ^3.1.3
+

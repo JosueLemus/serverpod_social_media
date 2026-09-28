@@ -1,0 +1,32 @@
+name: nexo_server
+description: Starting point for a Serverpod server.
+# version: 1.0.0
+# homepage: https://www.example.com
+
+environment:
+  sdk: '^3.12.2'
+
+resolution: workspace
+
+dependencies:
+  serverpod: 4.0.3
+  serverpod_auth_idp_server: 4.0.3
+  serverpod_cloud_storage: 4.0.3
+
+dev_dependencies:
+  lints: '>=3.0.0 <7.0.0'
+  serverpod_test: 4.0.3
+  test: ^1.25.5
+
+
+# App Flutter que `serverpod start` puede lanzar (Ctrl+R), con hot reload.
+# La app vive fuera de este workspace, en apps/nexo_social.
+serverpod:
+  flutter_apps:
+    nexo_social:
+      path: ../../../apps/nexo_social
+      displayName: Nexo Social
+      dart-define:
+        # Cambiar a `api` cuando los repositorios Serverpod estén listos.
+        DATA_SOURCE: mock
+        API_BASE_URL: http://localhost:8080/
