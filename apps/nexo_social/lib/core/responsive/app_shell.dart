@@ -77,28 +77,42 @@ class _ShellBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final destinations = ShellDestinations.compact;
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 70,
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: Row(
-          children: [
-            for (var slot = 0; slot < destinations.length + 1; slot++)
-              Expanded(
-                child: slot == _composeSlot
-                    ? const _ComposeButton()
-                    : _BottomBarItem(
-                        destination:
-                            destinations[slot < _composeSlot ? slot : slot - 1],
-                        currentBranch: currentBranch,
-                        onSelected: onSelected,
-                      ),
-              ),
-          ],
+    // The material includes the home-indicator inset and owns all tap ink.
+    return Material(
+      color: AppColors.surface,
+      elevation: 8,
+      shadowColor: AppColors.shadow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xs,
+            vertical: AppSpacing.xs,
+          ),
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                for (var slot = 0; slot < destinations.length + 1; slot++)
+                  Expanded(
+                    child: slot == _composeSlot
+                        ? const _ComposeButton()
+                        : _BottomBarItem(
+                            destination:
+                                destinations[slot < _composeSlot
+                                    ? slot
+                                    : slot - 1],
+                            currentBranch: currentBranch,
+                            onSelected: onSelected,
+                          ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -119,32 +133,45 @@ class _BottomBarItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final selected = destination.branch == currentBranch;
-    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    final color = selected ? AppColors.primaryDeep : AppColors.textSecondary;
     return Semantics(
       selected: selected,
       button: true,
       label: destination.label,
-      child: InkResponse(
+      child: InkWell(
         onTap: () => onSelected(destination.branch),
-        radius: 34,
+        borderRadius: AppRadii.medium,
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: AppColors.primary.withValues(alpha: 0.06),
+        excludeFromSemantics: true,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedScale(
-              scale: selected ? 1.08 : 1,
-              duration: AppMotion.feedbackDuration,
-              curve: Curves.easeOutBack,
+            AnimatedContainer(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.feedbackDuration,
+              curve: Curves.easeOutCubic,
+              width: 52,
+              height: 32,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.primarySurface
+                    : AppColors.primarySurface.withValues(alpha: 0),
+                borderRadius: AppRadii.pill,
+              ),
               child: Icon(
                 selected ? destination.selectedIcon : destination.icon,
-                size: 24,
+                size: 23,
                 color: color,
               ),
             ),
             const SizedBox(height: 3),
             Text(
               destination.label,
-              style: TextStyle(
-                fontSize: 10,
+              style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                fontSize: 11,
+                height: 1.2,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: color,
               ),
@@ -156,37 +183,37 @@ class _BottomBarItem extends StatelessWidget {
   }
 }
 
-/// El botón de componer: un disco azul elevado, sin etiqueta.
-///
-/// Sin etiqueta a propósito. Es la única acción de la barra —las otras cuatro
-/// son destinos— y una palabra debajo lo alinearía visualmente con ellas, que
-/// es justo lo que no es. El disco elevado ya dice qué hace.
+/// Primary action, with feedback clipped to its own rounded surface.
 class _ComposeButton extends StatelessWidget {
   const _ComposeButton();
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: 'Crear publicación',
-    child: Center(
-      child: InkResponse(
-        onTap: () => context.push(AppRoutes.create),
-        radius: 32,
-        child: Container(
-          width: 50,
-          height: 50,
-          decoration: const BoxDecoration(
-            color: AppColors.primaryDeep,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.brandShadow,
-                blurRadius: 14,
-                offset: Offset(0, 5),
+  Widget build(BuildContext context) => Center(
+    child: Tooltip(
+      message: 'Crear publicación',
+      child: SizedBox.square(
+        dimension: 50,
+        child: Material(
+          color: AppColors.primaryDeep,
+          elevation: 3,
+          shadowColor: AppColors.brandShadow,
+          borderRadius: AppRadii.medium,
+          clipBehavior: Clip.antiAlias,
+          child: Semantics(
+            button: true,
+            label: 'Crear publicación',
+            child: InkWell(
+              onTap: () => context.push(AppRoutes.create),
+              excludeFromSemantics: true,
+              splashFactory: NoSplash.splashFactory,
+              highlightColor: Colors.white.withValues(alpha: 0.16),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 27,
               ),
-            ],
+            ),
           ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
         ),
       ),
     ),

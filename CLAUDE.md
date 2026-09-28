@@ -28,7 +28,8 @@ un cambio de una línea en `injection.dart` y no una reescritura.
 | Datos | **Mock**, seleccionable por entorno (`--dart-define=DATA_SOURCE=api`) |
 | Sesión | Mock persistida en `SharedPreferences`; el invitado es efímero a propósito |
 | Agora / pagos / IA / grabación | No integrados. Interfaces y mocks, como decide el Notion |
-| Plataformas verificadas | iOS simulador, Web (Chrome) |
+| Plataformas verificadas | iOS simulador, macOS, Web (Chrome) |
+| SDK mínimo | **Flutter 3.47.5 / Dart 3.12.2.** No es una recomendación |
 
 Nada de lo que hay en `lib/` habla con un backend real todavía. Un repositorio
 mock que *parece* real es la forma más rápida de que alguien construya encima
@@ -434,6 +435,31 @@ pantalla rota.
 Si un test de guarda molesta, la respuesta es arreglar el código o **agregar la
 excepción con su motivo escrito** en la allowlist del propio test — nunca
 borrar el test. Una red más ancha que el pez obliga a tirar la red.
+
+---
+
+## El piso de Flutter es 3.47.5, y falla de forma poco obvia
+
+`nexo_client` —el cliente generado por Serverpod— declara `sdk: '^3.12.2'`, y
+esa restricción la hereda el app por depender de él por path. Con un SDK menor
+**no falla al compilar: falla al resolver**, así que `pub get`, `analyze`,
+`test` y `run` se caen todos juntos con un mensaje sobre *version solving* que
+no nombra a Serverpod:
+
+```
+Because nexo_social depends on nexo_client from path
+which requires SDK version ^3.12.2, version solving failed.
+```
+
+Es fácil leerlo como un problema del app, porque el app declara `^3.12.1` y su
+propio pubspec se ve bien. El constraint que manda está en
+`services/serverpod/nexo_client/pubspec.yaml`, y lo regenera Serverpod: no se
+edita a mano, se actualiza el SDK.
+
+Subir de 3.44 a 3.47 además **sube el deployment target de iOS de 13.0 a
+15.0** (`Podfile`, `project.pbxproj`). Lo hace el propio tooling la primera vez
+que se buildea, así que esos archivos aparecen modificados sin que nadie los
+haya tocado.
 
 ---
 
