@@ -41,6 +41,9 @@ dependencies:
   animate_do: ^4.2.0
   shared_preferences: ^2.5.4
   cupertino_icons: ^1.0.8
+  # Cliente generado por Serverpod: modelos y endpoints tipados del backend.
+  nexo_client:
+    path: ../../services/serverpod/nexo_client
 
 dev_dependencies:
   flutter_test:
