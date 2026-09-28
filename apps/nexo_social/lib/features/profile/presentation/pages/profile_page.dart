@@ -14,6 +14,9 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/profile_cubit.dart';
+import '../bloc/profile_status_cubit.dart';
+
+part 'account_profile_view.dart';
 
 /// Perfil de creador. La portada y las pestañas comparten un solo scroll view,
 /// que es lo que mantiene la tab bar fijada sin pelearse con las listas
@@ -42,6 +45,13 @@ class ProfilePage extends StatelessWidget {
     if (user == null || user.role == UserRole.visitor) {
       return const _GuestProfileView();
     }
+    // El perfil propio de una cuenta que no crea contenido. Antes todas
+    // caían en la vista de creadora, que está escrita con el contenido de
+    // Elena: el operador abría "su" perfil y leía @elena_ux, y no había
+    // forma de ver con qué cuenta y con qué rol se estaba.
+    if (username == null && !user.isCreator) {
+      return _AccountProfileView(user: user);
+    }
     return _CreatorProfileView(username: username ?? user.username);
   }
 }
@@ -52,8 +62,11 @@ class _CreatorProfileView extends StatelessWidget {
   final String username;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => ProfileCubit(sl(), username),
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(create: (_) => ProfileCubit(sl(), username)),
+      BlocProvider(create: (_) => ProfileStatusCubit(sl(), username)..load()),
+    ],
     child: DefaultTabController(
       length: 3,
       // La pantalla se muestra en dos lugares: como pestaña Perfil dentro del
@@ -188,10 +201,49 @@ class _ProfileHeader extends StatelessWidget {
             ],
           ),
         ),
+        const _SanctionBanner(),
         const _ProfileSummary(),
       ],
     ),
   );
+}
+
+/// Una sanción que no se ve desde afuera no se puede demostrar. El banner va
+/// arriba del resumen, donde se lee antes que cualquier otra cosa del perfil.
+class _SanctionBanner extends StatelessWidget {
+  const _SanctionBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final status = context.watch<ProfileStatusCubit>().state.status;
+    if (status == AccountStatus.active) return const SizedBox.shrink();
+    return Container(
+      key: const Key('profile-sanctioned'),
+      width: double.infinity,
+      color: AppColors.error,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.gpp_bad_outlined, color: Colors.white, size: 18),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              status == AccountStatus.banned
+                  ? 'Esta cuenta fue dada de baja por incumplir las normas.'
+                  : 'Esta cuenta está suspendida por incumplir las normas.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CoverToolbar extends StatelessWidget {
@@ -287,6 +339,8 @@ class _CoverBackground extends StatelessWidget {
 }
 
 Future<void> _showProfileActions(BuildContext context) async {
+  final auth = context.read<AuthCubit>().state;
+  final user = auth is AuthAuthenticated ? auth.user : null;
   final shouldSignOut = await showModalBottomSheet<bool>(
     context: context,
     showDragHandle: true,
@@ -309,14 +363,27 @@ Future<void> _showProfileActions(BuildContext context) async {
                 context.go(AppRoutes.studio);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.shield_outlined),
-              title: const Text('Moderación'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                context.go(AppRoutes.moderation);
-              },
-            ),
+            // Por rol, igual que el rail. En el teléfono la barra ya tiene
+            // cinco entradas, así que la consola se alcanza desde acá.
+            if (user?.canModerate ?? false)
+              ListTile(
+                leading: const Icon(Icons.shield_outlined),
+                title: const Text('Moderación'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go(AppRoutes.moderation);
+                },
+              ),
+            if (user?.isOperator ?? false)
+              ListTile(
+                key: const Key('profile-admin'),
+                leading: const Icon(Icons.admin_panel_settings_outlined),
+                title: const Text('Consola de operador'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.go(AppRoutes.admin);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Ajustes'),

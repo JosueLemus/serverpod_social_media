@@ -1,31 +1,29 @@
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../domain/entities/app_user.dart';
 
+import '../../../../core/storage/session_storage.dart';
+
+/// Guarda **qué cuenta** tiene la sesión, no la cuenta en sí.
+///
+/// Guardar el usuario entero congelaba su rol y su estado al momento del
+/// login: una cuenta suspendida o desverificada seguía restaurándose como
+/// estaba. La cuenta se resuelve siempre contra la fuente de verdad.
 class AuthLocalDataSource {
-  AuthLocalDataSource(this._preferences);
-  final SharedPreferences _preferences;
+  AuthLocalDataSource(this._storage);
+  final SessionStorage _storage;
   static const _key = 'mock_session';
-  AppUser? read() {
-    final raw = _preferences.getString(_key);
+
+  String? readAccountId() {
+    final raw = _storage.read(_key);
     if (raw == null) return null;
-    final json = jsonDecode(raw) as Map<String, dynamic>;
-    return AppUser(
-      id: json['id'] as String,
-      username: json['username'] as String,
-      name: json['name'] as String,
-      role: UserRole.values.byName(json['role'] as String),
-    );
+    try {
+      return (jsonDecode(raw) as Map<String, dynamic>)['id'] as String?;
+    } on FormatException {
+      return null;
+    }
   }
 
-  Future<void> save(AppUser user) => _preferences.setString(
-    _key,
-    jsonEncode({
-      'id': user.id,
-      'username': user.username,
-      'name': user.name,
-      'role': user.role.name,
-    }),
-  );
-  Future<void> clear() => _preferences.remove(_key);
+  Future<void> save(String accountId) =>
+      _storage.write(_key, jsonEncode({'id': accountId}));
+
+  Future<void> clear() => _storage.remove(_key);
 }

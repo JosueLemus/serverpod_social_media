@@ -19,9 +19,28 @@ void main() {
       id: 'creator-1',
       username: 'elena_ux',
       name: 'Elena Vega',
-      role: UserRole.creator,
+      role: UserRole.user,
+      isCreator: true,
+      verification: VerificationStatus.verified,
     ),
   );
+  const moderator = AuthAuthenticated(
+    AppUser(
+      id: 'mod-1',
+      username: 'mod_lucia',
+      name: 'Lucía Moderadora',
+      role: UserRole.moderator,
+    ),
+  );
+  const operator = AuthAuthenticated(
+    AppUser(
+      id: 'op-1',
+      username: 'nexo_ops',
+      name: 'Operaciones Nexo',
+      role: UserRole.operator,
+    ),
+  );
+  const suspended = AuthSuspended(status: AccountStatus.suspended);
   const visitor = AuthAuthenticated(
     AppUser(
       id: 'guest',
@@ -33,9 +52,50 @@ void main() {
 
   group('while the session is still being read', () {
     test('every location is held at the splash', () {
-      expect(guardRedirect(loading, AppRoutes.feed), AppRoutes.splash);
-      expect(guardRedirect(loading, AppRoutes.explore), AppRoutes.splash);
-      expect(guardRedirect(loading, AppRoutes.signIn), AppRoutes.splash);
+      for (final location in [
+        AppRoutes.feed,
+        AppRoutes.explore,
+        AppRoutes.signIn,
+      ]) {
+        expect(
+          Uri.parse(guardRedirect(loading, location)!).path,
+          AppRoutes.splash,
+        );
+      }
+    });
+
+    // Regresión: escribir `/admin` en la barra —o recargar la pestaña—
+    // terminaba siempre en el feed, porque el splash no recordaba a dónde se
+    // iba. Para el operador, entrar a la consola por URL "no hacía nada".
+    test('the splash remembers where the user was going', () {
+      final held = Uri.parse(guardRedirect(loading, AppRoutes.admin)!);
+      expect(held.queryParameters['from'], AppRoutes.admin);
+
+      expect(
+        guardRedirect(operator, AppRoutes.splash, from: AppRoutes.admin),
+        AppRoutes.admin,
+      );
+    });
+
+    test('resuming the destination does not skip the guard', () {
+      final resumed = guardRedirect(
+        creator,
+        AppRoutes.splash,
+        from: AppRoutes.admin,
+      );
+      expect(resumed, AppRoutes.admin);
+      expect(guardRedirect(creator, resumed!), AppRoutes.feed);
+    });
+
+    test('only in-app paths are resumed', () {
+      expect(
+        guardRedirect(operator, AppRoutes.splash, from: 'https://evil.test'),
+        AppRoutes.feed,
+      );
+      expect(
+        guardRedirect(signedOut, AppRoutes.splash, from: AppRoutes.admin),
+        AppRoutes.signIn,
+      );
     });
 
     test('the splash itself is allowed, or the redirect would loop', () {
@@ -126,12 +186,11 @@ void main() {
       expect(guardRedirect(creator, AppRoutes.signUp), AppRoutes.feed);
     });
 
-    test('reaches every app route', () {
+    test('reaches every route that needs no scope', () {
       for (final location in [
         AppRoutes.feed,
         AppRoutes.create,
         AppRoutes.studio,
-        AppRoutes.moderation,
         AppRoutes.premium,
         AppRoutes.settings,
       ]) {
@@ -141,6 +200,58 @@ void main() {
           reason: '$location should be open to a creator',
         );
       }
+    });
+
+    // Regresión: `/moderation` sólo se le cerraba al invitado, así que
+    // cualquier cuenta logueada entraba a la cola de reportes.
+    test('does not reach moderation nor the operator console', () {
+      expect(guardRedirect(creator, AppRoutes.moderation), AppRoutes.feed);
+      expect(guardRedirect(creator, AppRoutes.admin), AppRoutes.feed);
+      expect(
+        guardRedirect(creator, AppRoutes.adminAccount('user-troll')),
+        AppRoutes.feed,
+        reason: 'una sub-ruta de la consola también está cerrada',
+      );
+    });
+  });
+
+  group('moderator', () {
+    test('reaches the moderation queue', () {
+      expect(guardRedirect(moderator, AppRoutes.moderation), isNull);
+    });
+
+    test('does not reach the operator console', () {
+      expect(guardRedirect(moderator, AppRoutes.admin), AppRoutes.feed);
+    });
+  });
+
+  group('operator', () {
+    test('reaches the console, its sub-routes and moderation', () {
+      expect(guardRedirect(operator, AppRoutes.admin), isNull);
+      expect(
+        guardRedirect(operator, AppRoutes.adminAccount('user-troll')),
+        isNull,
+      );
+      expect(guardRedirect(operator, AppRoutes.moderation), isNull);
+    });
+  });
+
+  group('suspended session', () {
+    test('every location is held at the suspended screen', () {
+      for (final location in [
+        AppRoutes.feed,
+        AppRoutes.signIn,
+        AppRoutes.admin,
+        AppRoutes.splash,
+      ]) {
+        expect(guardRedirect(suspended, location), AppRoutes.suspended);
+      }
+      expect(guardRedirect(suspended, AppRoutes.suspended), isNull);
+    });
+
+    test('nobody else can sit on the suspended screen', () {
+      expect(guardRedirect(creator, AppRoutes.suspended), AppRoutes.feed);
+      expect(guardRedirect(signedOut, AppRoutes.suspended), AppRoutes.signIn);
     });
   });
 
@@ -160,16 +271,28 @@ void main() {
         AppRoutes.create,
         AppRoutes.studio,
         AppRoutes.moderation,
+        AppRoutes.admin,
+        AppRoutes.suspended,
         AppRoutes.premium,
         AppRoutes.settings,
       ];
 
-      for (final auth in [loading, signedOut, visitor, creator]) {
+      for (final auth in [
+        loading,
+        signedOut,
+        visitor,
+        creator,
+        moderator,
+        operator,
+        suspended,
+      ]) {
         for (final location in locations) {
           final first = guardRedirect(auth, location);
           if (first == null) continue;
+          // go_router matches on the path; the query travels separately.
+          final hop = Uri.parse(first);
           expect(
-            guardRedirect(auth, first),
+            guardRedirect(auth, hop.path, from: hop.queryParameters['from']),
             isNull,
             reason:
                 '$auth at $location redirects to $first, which redirects again',

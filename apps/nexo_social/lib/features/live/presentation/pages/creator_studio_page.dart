@@ -12,8 +12,8 @@ import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/entities/live_session.dart';
-import '../../domain/repositories/live_repository.dart';
 import '../bloc/live_room_cubit.dart';
+import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 
 /// El panel del host. Pensado para escritorio, donde un creador corre la
@@ -23,7 +23,7 @@ class CreatorStudioPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-    create: (_) => LiveRoomCubit(sl<LiveRepository>())..load('live-2'),
+    create: (_) => LiveRoomCubit(sl(), sl())..load('live-2'),
     child: const _StudioView(),
   );
 }
@@ -33,44 +33,55 @@ class _StudioView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      BlocBuilder<LiveRoomCubit, LiveRoomState>(
-        builder: (context, state) {
-          final session = state.session;
-          return NexoPage(
-            section: 'Studio',
-            title: 'Creator Studio',
-            subtitle: 'Controla tu transmisión, tus invitados y tu comunidad',
-            children: [
-              if (state.isLoading)
-                const FeedSkeleton(count: 1)
-              else if (session == null)
-                AppEmptyView(
-                  icon: Icons.videocam_outlined,
-                  title: 'Sin sesiones programadas',
-                  message: 'Programa un vivo para verlo aquí.',
-                  actionLabel: 'Ver vivos',
-                  onAction: () => context.go(AppRoutes.explore),
-                )
-              else ...[
-                Enter(
-                  child: _BroadcastBar(session: session, state: state),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Enter(index: 1, child: _StudioMetrics(state: state)),
-                const SizedBox(height: AppSpacing.sm),
-                Enter(index: 2, child: _StagePreview(session: session)),
-                const SizedBox(height: AppSpacing.sm),
-                const Enter(index: 3, child: _StudioControls()),
-                Enter(
-                  index: 4,
-                  child: _GuestRequests(guests: state.pendingGuests),
-                ),
-                Enter(index: 5, child: _AuditTrail(entries: state.audit)),
-                const SizedBox(height: AppSpacing.md),
+      BlocListener<LiveRoomCubit, LiveRoomState>(
+        // El rechazo del servidor. El botón de iniciar no se esconde para un
+        // creador desverificado: esconderlo sería la UI decidiendo un permiso,
+        // que es justo lo que la demo tiene que refutar.
+        listenWhen: (previous, current) =>
+            current.issue != null &&
+            previous.issueSerial != current.issueSerial,
+        listener: (context, state) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(state.issue!.message))),
+        child: BlocBuilder<LiveRoomCubit, LiveRoomState>(
+          builder: (context, state) {
+            final session = state.session;
+            return NexoPage(
+              section: 'Studio',
+              title: 'Creator Studio',
+              subtitle: 'Controla tu transmisión, tus invitados y tu comunidad',
+              children: [
+                if (state.isLoading)
+                  const FeedSkeleton(count: 1)
+                else if (session == null)
+                  AppEmptyView(
+                    icon: Icons.videocam_outlined,
+                    title: 'Sin sesiones programadas',
+                    message: 'Programa un vivo para verlo aquí.',
+                    actionLabel: 'Ver vivos',
+                    onAction: () => context.go(AppRoutes.explore),
+                  )
+                else ...[
+                  Enter(
+                    child: _BroadcastBar(session: session, state: state),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Enter(index: 1, child: _StudioMetrics(state: state)),
+                  const SizedBox(height: AppSpacing.sm),
+                  Enter(index: 2, child: _StagePreview(session: session)),
+                  const SizedBox(height: AppSpacing.sm),
+                  const Enter(index: 3, child: _StudioControls()),
+                  Enter(
+                    index: 4,
+                    child: _GuestRequests(guests: state.pendingGuests),
+                  ),
+                  Enter(index: 5, child: _AuditTrail(entries: state.audit)),
+                  const SizedBox(height: AppSpacing.md),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       );
 }
 
@@ -110,7 +121,9 @@ class _BroadcastBar extends StatelessWidget {
             ),
             if (onAir)
               const _MetaChip(icon: Icons.hd_rounded, label: '1080p 60fps'),
-            const Spacer(),
+            // Sin Spacer: un Spacer es un Expanded, y dentro de un Wrap
+            // revienta ("Incorrect use of ParentDataWidget") y pinta la caja
+            // roja de error en debug.
             // Sólo se ofrecen las transiciones que el backend acepta desde
             // este estado. La máquina de estados es del servidor, y un botón
             // para una transición ilegal es una petición que se rechaza

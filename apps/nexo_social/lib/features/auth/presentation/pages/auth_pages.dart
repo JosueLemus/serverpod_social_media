@@ -6,8 +6,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/constants/environment.dart';
+import '../../../../core/mock/demo_accounts.dart';
 import '../../../../core/widgets/nexo_logo.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../widgets/demo_account_picker.dart';
 import '../bloc/auth_cubit.dart';
 
 // None of these pages creates an AuthCubit. It is a singleton provided above
@@ -144,6 +147,11 @@ class _WelcomePage extends StatelessWidget {
                   child: const Text('Iniciar sesión'),
                 ),
               ),
+              // Arriba y no al pie: al pie quedaba fuera de pantalla en un
+              // teléfono, y quien no lo veía entraba por "Iniciar sesión" con
+              // su correo — que en el mock es siempre Elena. Todas las cuentas
+              // parecían la misma porque eran la misma.
+              const EnterStatic(index: 6, child: DemoAccountButton()),
               const SizedBox(height: AppSpacing.md),
               const _ContinueWith(),
               const SizedBox(height: AppSpacing.md),
@@ -174,6 +182,7 @@ class _WelcomePage extends StatelessWidget {
                   child: const Text('Explora como invitado sin registrarte'),
                 ),
               ),
+
               const SizedBox(height: AppSpacing.sm),
               const Text(
                 'Al continuar, confirmas que aceptas nuestros Términos de Servicio y nuestra Política de Privacidad.',
@@ -526,6 +535,17 @@ void _showSignInSheet(BuildContext context) {
             'Iniciar sesión',
             style: Theme.of(sheetContext).textTheme.titleLarge,
           ),
+          if (Environment.dataSourceMode == DataSourceMode.mock) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Modo demo: un correo desconocido entra como Elena. Para otro '
+              'rol usa ${DemoAccounts.operator.email} o '
+              '${DemoAccounts.moderator.email}.',
+              key: const Key('sign-in-demo-hint'),
+              textAlign: TextAlign.center,
+              style: Theme.of(sheetContext).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           TextField(
             key: const Key('sheet-email'),

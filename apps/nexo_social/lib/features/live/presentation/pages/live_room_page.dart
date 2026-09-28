@@ -14,8 +14,8 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../moderation/presentation/widgets/moderation_sheet.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../domain/entities/live_session.dart';
-import '../../domain/repositories/live_repository.dart';
 import '../bloc/live_room_cubit.dart';
+import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_card.dart';
 
@@ -32,7 +32,7 @@ class LiveRoomPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-    create: (_) => LiveRoomCubit(sl<LiveRepository>())..load(liveId),
+    create: (_) => LiveRoomCubit(sl(), sl())..load(liveId),
     child: const _RoomView(),
   );
 }
@@ -57,71 +57,93 @@ class _RoomViewState extends State<_RoomView> {
   }
 
   void _send() {
-    context.read<LiveRoomCubit>().sendComment(_composer.text);
+    unawaited(context.read<LiveRoomCubit>().sendComment(_composer.text));
     _composer.clear();
   }
 
   void _leave() => context.go(AppRoutes.explore);
 
   @override
-  Widget build(BuildContext context) =>
-      BlocBuilder<LiveRoomCubit, LiveRoomState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Scaffold(
-              backgroundColor: AppColors.stageDark,
-              body: Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-            );
-          }
-
-          final session = state.session;
-          if (session == null) {
-            return Scaffold(
-              appBar: AppBar(),
-              body: AppEmptyView(
-                icon: Icons.videocam_off_outlined,
-                title: 'Este vivo ya no está disponible',
-                message: 'Puede haber terminado o haber sido retirado.',
-                actionLabel: 'Ver otros vivos',
-                onAction: _leave,
-              ),
-            );
-          }
-
-          return Scaffold(
+  Widget build(
+    BuildContext context,
+  ) => BlocListener<LiveRoomCubit, LiveRoomState>(
+    // Un rechazo del servidor se avisa una vez, en el momento. No es parte de
+    // lo que la sala dibuja, así que no vive en el builder.
+    listenWhen: (previous, current) =>
+        current.issue != null && previous.issueSerial != current.issueSerial,
+    listener: (context, state) => ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(state.issue!.message))),
+    child: BlocBuilder<LiveRoomCubit, LiveRoomState>(
+      builder: (context, state) {
+        if (state.isLoading) {
+          return const Scaffold(
             backgroundColor: AppColors.stageDark,
-            // El teclado no debe redimensionar el video: con resize, escribir
-            // un comentario encoge la transmisión a una franja.
-            resizeToAvoidBottomInset: false,
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                const _Stage(),
-                const _StageScrim(),
-                SafeArea(
-                  child: Column(
-                    children: [
-                      _RoomTopBar(session: session, onLeave: _leave),
-                      const Spacer(),
-                      if (state.pinnedComment != null)
-                        _PinnedComment(comment: state.pinnedComment!),
-                      _ChatOverlay(comments: state.comments),
-                      _Composer(
-                        controller: _composer,
-                        loved: state.loved,
-                        onSend: _send,
-                        onLove: context.read<LiveRoomCubit>().toggleLove,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            body: Center(child: CircularProgressIndicator(color: Colors.white)),
+          );
+        }
+
+        final session = state.session;
+        if (session != null && session.endedByModeration) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: AppEmptyView(
+              icon: Icons.gpp_maybe_outlined,
+              title: 'El vivo terminó',
+              message:
+                  'El equipo de Nexo finalizó esta transmisión por no '
+                  'cumplir las normas de la comunidad.',
+              actionLabel: 'Ver otros vivos',
+              onAction: _leave,
             ),
           );
-        },
-      );
+        }
+        if (session == null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: AppEmptyView(
+              icon: Icons.videocam_off_outlined,
+              title: 'Este vivo ya no está disponible',
+              message: 'Puede haber terminado o haber sido retirado.',
+              actionLabel: 'Ver otros vivos',
+              onAction: _leave,
+            ),
+          );
+        }
+
+        return Scaffold(
+          backgroundColor: AppColors.stageDark,
+          // El teclado no debe redimensionar el video: con resize, escribir
+          // un comentario encoge la transmisión a una franja.
+          resizeToAvoidBottomInset: false,
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              const _Stage(),
+              const _StageScrim(),
+              SafeArea(
+                child: Column(
+                  children: [
+                    _RoomTopBar(session: session, onLeave: _leave),
+                    const Spacer(),
+                    if (state.pinnedComment != null)
+                      _PinnedComment(comment: state.pinnedComment!),
+                    _ChatOverlay(comments: state.comments),
+                    _Composer(
+                      controller: _composer,
+                      loved: state.loved,
+                      onSend: _send,
+                      onLove: context.read<LiveRoomCubit>().toggleLove,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
 }
 
 /// El video. Simulado y dicho con todas las letras: Agora llega detrás de
@@ -385,17 +407,28 @@ class _ChatLine extends StatelessWidget {
   Future<void> _moderate(BuildContext context) async {
     final cubit = context.read<LiveRoomCubit>();
     final messenger = ScaffoldMessenger.of(context);
+    final issueBefore = cubit.state.issueSerial;
     final decision = await showModerationSheet(
       context,
       author: comment.author,
       comment: comment.body,
+      canModerate: cubit.state.canModerate,
     );
     if (decision == null) return;
 
-    if (decision.type == ModerationType.hideComment) {
-      cubit.hideComment(comment);
-    } else {
-      cubit.recordModeration('${decision.confirmation} (${comment.author})');
+    switch (decision.type) {
+      case ModerationType.hideComment:
+        await cubit.hideComment(comment);
+      case ModerationType.report:
+        await cubit.reportComment(comment);
+      case ModerationType.muteUser ||
+          ModerationType.banUser ||
+          ModerationType.dismissReport:
+        cubit.recordModeration('${decision.confirmation} (${comment.author})');
+    }
+    // Si el servidor lo rechazó, el listener ya avisó por qué.
+    if (cubit.state.issue != null && cubit.state.issueSerial != issueBefore) {
+      return;
     }
     // Se confirma qué pasó. Una acción de moderación que no deja rastro
     // visible se siente como que no se aplicó, y el moderador la repite.

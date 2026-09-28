@@ -14,6 +14,7 @@ import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/bloc/live_list_cubit.dart';
 import '../../../live/presentation/widgets/featured_live_card.dart';
 import '../../../live/presentation/widgets/live_stories_row.dart';
+import '../../../moderation/presentation/widgets/staff_shortcut_card.dart';
 import '../../domain/entities/feed_filter.dart';
 import '../bloc/feed_cubit.dart';
 import '../widgets/empty_feed_view.dart';
@@ -61,6 +62,7 @@ class _FeedView extends StatelessWidget {
           return Future.wait([cubit.refresh(), live.load()]);
         },
         children: [
+          const StaffShortcutCard(),
           const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
           const SizedBox(height: AppSpacing.sm),
           // La fila de filtros queda montada en todos los estados: perder el
