@@ -1,0 +1,329 @@
+{
+  "info": {
+    "name": "Nexo API (Serverpod)",
+    "description": "Pruebas manuales del backend de Nexo Social.\n\nServerpod es RPC: todas las llamadas son POST {{baseUrl}}/<endpoint>/<metodo> con los argumentos en un JSON.\n\nOrden recomendado: 1 Health → 2 Registro (pasos 2.1 a 2.3) → 3 Sesión → 4 Recuperar contraseña.\n\nLos códigos de verificación se imprimen en la consola de `serverpod start`: cópialos en la variable `verificationCode` de la colección.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "email", "value": "ana@nexo.test" },
+    { "key": "password", "value": "Nexo-Prueba-2026!" },
+    { "key": "newPassword", "value": "Nexo-Nueva-2026!" },
+    { "key": "verificationCode", "value": "" },
+    { "key": "accountRequestId", "value": "" },
+    { "key": "registrationToken", "value": "" },
+    { "key": "passwordResetRequestId", "value": "" },
+    { "key": "finishPasswordResetToken", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "refreshToken", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'Content-Type', value: 'application/json' });"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1 Health",
+      "item": [
+        {
+          "name": "ping",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/health/ping",
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('devuelve \"ok\"', () => pm.expect(pm.response.json()).to.eql('ok'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2 Registro",
+      "item": [
+        {
+          "name": "2.1 startRegistration",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/startRegistration",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+            "description": "Envía el código de verificación. En desarrollo aparece en la consola del servidor: cópialo en la variable `verificationCode`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const id = pm.response.json();",
+                  "pm.test('devuelve un id de solicitud', () => pm.expect(id).to.match(/^[0-9a-f-]{36}$/));",
+                  "pm.collectionVariables.set('accountRequestId', id);",
+                  "console.log('Copia el código de la consola del servidor en la variable verificationCode');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 verifyRegistrationCode",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/verifyRegistrationCode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accountRequestId\": \"{{accountRequestId}}\",\n  \"verificationCode\": \"{{verificationCode}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const token = pm.response.json();",
+                  "pm.test('devuelve un token de registro', () => pm.expect(token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('registrationToken', token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 finishRegistration",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/finishRegistration",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationToken\": \"{{registrationToken}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const auth = pm.response.json();",
+                  "pm.test('devuelve sesión', () => {",
+                  "  pm.expect(auth.token).to.be.a('string').and.not.empty;",
+                  "  pm.expect(auth.authUserId).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set('token', auth.token);",
+                  "if (auth.refreshToken) pm.collectionVariables.set('refreshToken', auth.refreshToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3 Sesión",
+      "item": [
+        {
+          "name": "login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const auth = pm.response.json();",
+                  "pm.test('devuelve token', () => pm.expect(auth.token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('token', auth.token);",
+                  "if (auth.refreshToken) pm.collectionVariables.set('refreshToken', auth.refreshToken);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "login con contraseña incorrecta (debe fallar)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"incorrecta\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('no responde 200', () => pm.expect(pm.response.code).to.not.eql(200));",
+                  "pm.test('es un error de login', () => pm.expect(pm.response.text()).to.include('EmailAccountLoginException'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "hasAccount (con token)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/hasAccount",
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('el usuario tiene cuenta de email', () => pm.expect(pm.response.json()).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "refreshAccessToken",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/jwtRefresh/refreshAccessToken",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const auth = pm.response.json();",
+                  "pm.test('devuelve un token nuevo', () => pm.expect(auth.token).to.be.a('string').and.not.empty);",
+                  "pm.collectionVariables.set('token', auth.token);",
+                  "if (auth.refreshToken) pm.collectionVariables.set('refreshToken', auth.refreshToken);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4 Recuperar contraseña",
+      "item": [
+        {
+          "name": "4.1 startPasswordReset",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/startPasswordReset",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\"\n}" },
+            "description": "El código nuevo aparece en la consola del servidor: cópialo en `verificationCode`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('passwordResetRequestId', pm.response.json());",
+                  "console.log('Copia el código de la consola del servidor en la variable verificationCode');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 verifyPasswordResetCode",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/verifyPasswordResetCode",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"passwordResetRequestId\": \"{{passwordResetRequestId}}\",\n  \"verificationCode\": \"{{verificationCode}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('finishPasswordResetToken', pm.response.json());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 finishPasswordReset",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": "{{baseUrl}}/emailIdp/finishPasswordReset",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"finishPasswordResetToken\": \"{{finishPasswordResetToken}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "// A partir de aquí la contraseña es newPassword.",
+                  "pm.collectionVariables.set('password', pm.collectionVariables.get('newPassword'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
