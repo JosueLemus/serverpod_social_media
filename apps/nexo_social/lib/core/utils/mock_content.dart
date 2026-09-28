@@ -1,62 +1,60 @@
 import '../../features/feed/domain/entities/post.dart';
 
+/// Seed content for the mock data source.
+///
+/// Timestamps are relative to process start so the feed always reads as fresh
+/// — a fixed date would show "hace 3 años" at the demo.
 abstract final class MockContent {
-  static final posts = <Post>[
-    const Post(
+  static DateTime _ago(Duration elapsed) => DateTime.now().subtract(elapsed);
+
+  static List<Post> seed() => [
+    Post(
       id: 'post-1',
       author: 'elena_ux',
       name: 'Elena Vega',
       body:
           'Rediseñando la experiencia de micro-comunidades. ¿Qué parte de tu comunidad quieres hacer más humana?',
-      tags: ['UIUX', 'Flutter'],
+      tags: const ['UIUX', 'Flutter'],
       likes: 482,
       comments: 64,
+      createdAt: _ago(const Duration(minutes: 25)),
+      media: PostMedia.image,
       isLive: true,
+      isFollowed: true,
+      authorIsVerified: true,
     ),
-    const Post(
+    Post(
       id: 'post-2',
       author: 'carlos_dev',
       name: 'Carlos Méndez',
       body:
           'Publicamos una guía corta para organizar proyectos creativos sin perder foco. Disponible para toda la comunidad.',
-      tags: ['Creadores', 'Productividad'],
+      tags: const ['Creadores', 'Productividad'],
       likes: 319,
       comments: 41,
+      createdAt: _ago(const Duration(hours: 3)),
+      isFollowed: true,
+      authorIsVerified: true,
+      authorIsPro: true,
     ),
-    const Post(
+    Post(
       id: 'post-3',
       author: 'lucia_design',
       name: 'Lucía Torres',
       body:
           'Hoy comparto tres aprendizajes después de diseñar para audiencias en vivo.',
-      tags: ['Diseño', 'Live'],
+      tags: const ['Diseño', 'Live'],
       likes: 124,
       comments: 18,
+      createdAt: _ago(const Duration(days: 1)),
+      media: PostMedia.video,
+      authorIsVerified: true,
     ),
   ];
+
   static const liveTitles = [
     'Masterclass de Diseño Mobile',
     'Café entre creadores',
     'Construyendo en público',
   ];
-  static const notifications = [
-    'Marcos comenzó a seguirte',
-    'Sofía comentó tu publicación',
-    'Elena inicia un live en 15 min',
-  ];
-
-  static void addPost(String body) {
-    posts.insert(
-      0,
-      Post(
-        id: 'draft-${posts.length + 1}',
-        author: 'nexo',
-        name: 'Tu comunidad',
-        body: body,
-        tags: const ['Nuevo'],
-        likes: 0,
-        comments: 0,
-      ),
-    );
-  }
 }

@@ -23,13 +23,25 @@ class MockLiveRepository implements LiveRepository {
       hostName: 'Lucía Torres',
       status: LiveStatus.recorded,
       viewers: 940,
+      isPremium: true,
     ),
   ];
+
   @override
   Future<List<LiveSession>> list() async => List.of(_items);
+
+  @override
+  Future<LiveSession?> byId(String id) async {
+    final index = _items.indexWhere((item) => item.id == id);
+    return index == -1 ? null : _items[index];
+  }
+
   @override
   Future<LiveSession> transition(String id, LiveStatus status) async {
     final index = _items.indexWhere((item) => item.id == id);
+    if (index == -1) {
+      throw StateError('No existe la sesión $id');
+    }
     final updated = _items[index].copyWith(status: status);
     _items[index] = updated;
     return updated;

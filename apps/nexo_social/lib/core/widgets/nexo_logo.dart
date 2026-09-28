@@ -3,8 +3,10 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/theme/app_tokens.dart';
 
-/// The Nexo Social brand mark, sourced from the shared SVG asset.
-/// Keep this widget as the single entry point for the logo in the UI.
+/// La marca sobre su disco claro, con la insignia de verificado.
+///
+/// Es la forma "de presentación": onboarding, splash y muros de acceso.
+/// Para el header usá [NexoWordmark], que es la marca chica junto al nombre.
 class NexoLogo extends StatelessWidget {
   const NexoLogo({super.key, this.size = 92, this.showBadge = true});
 
@@ -23,7 +25,7 @@ class NexoLogo extends StatelessWidget {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Color(0x1A172033),
+                color: AppColors.shadow,
                 blurRadius: 18,
                 offset: Offset(0, 8),
               ),
@@ -42,7 +44,7 @@ class NexoLogo extends StatelessWidget {
               width: size * .31,
               height: size * .31,
               decoration: const BoxDecoration(
-                color: AppColors.primaryDark,
+                color: AppColors.primaryDeep,
                 shape: BoxShape.circle,
                 border: Border.fromBorderSide(
                   BorderSide(color: AppColors.surface, width: 2),
@@ -57,5 +59,47 @@ class NexoLogo extends StatelessWidget {
           ),
       ],
     ),
+  );
+}
+
+/// La marca sola, sin disco ni insignia.
+///
+/// El asset trae su propio círculo de fondo, así que se recorta a un círculo
+/// en vez de dibujarse suelto: sin el recorte el disco claro del SVG aparece
+/// como un cuadrado detrás de la marca.
+class NexoMark extends StatelessWidget {
+  const NexoMark({super.key, this.size = 26});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => ClipOval(
+    child: SvgPicture.asset(
+      'assets/branding/nexo_mark.svg',
+      width: size,
+      height: size,
+    ),
+  );
+}
+
+/// Marca + nombre, tal como aparece arriba a la izquierda en todas las
+/// pantallas del diseño.
+class NexoWordmark extends StatelessWidget {
+  const NexoWordmark({super.key, this.markSize = 26});
+
+  final double markSize;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      NexoMark(size: markSize),
+      const SizedBox(width: AppSpacing.xs),
+      Text(
+        // Nombre propio: no se traduce y no se acorta.
+        'Nexo',
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
+      ),
+    ],
   );
 }

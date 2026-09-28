@@ -1,9 +1,13 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-sealed class AuthState {
+sealed class AuthState extends Equatable {
   const AuthState();
+
+  @override
+  List<Object?> get props => const [];
 }
 
 class AuthLoading extends AuthState {
@@ -16,7 +20,14 @@ class AuthUnauthenticated extends AuthState {
 
 class AuthAuthenticated extends AuthState {
   const AuthAuthenticated(this.user);
+
   final AppUser user;
+
+  // Without this, two identical sessions compare unequal and every emit looks
+  // like a real change — which makes the router's refreshListenable re-run the
+  // guard for nothing.
+  @override
+  List<Object?> get props => [user];
 }
 
 class AuthCubit extends Cubit<AuthState> {

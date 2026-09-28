@@ -4,7 +4,22 @@ import '../datasources/auth_local_data_source.dart';
 
 class MockAuthRepository implements AuthRepository {
   MockAuthRepository(this._local);
+
   final AuthLocalDataSource _local;
+
+  /// La cuenta de demo.
+  ///
+  /// Iniciar sesión y registrarse devuelven **la misma** identidad a
+  /// propósito: todo el contenido mock de la app —el feed, el perfil, los
+  /// vivos— es el de Elena, y una sesión con otro nombre deja la barra
+  /// diciendo `@creador` mientras el perfil debajo dice `@elena_ux`. Cuando
+  /// Serverpod exista, cada método devolverá la cuenta real.
+  static const _demoCreator = AppUser(
+    id: 'creator-1',
+    username: 'elena_ux',
+    name: 'Elena Vega',
+    role: UserRole.creator,
+  );
   @override
   Future<AppUser?> currentUser() async => _local.read();
   @override
@@ -26,14 +41,8 @@ class MockAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    const user = AppUser(
-      id: 'creator-1',
-      username: 'elena_ux',
-      name: 'Elena Vega',
-      role: UserRole.creator,
-    );
-    await _local.save(user);
-    return user;
+    await _local.save(_demoCreator);
+    return _demoCreator;
   }
 
   @override
@@ -43,14 +52,9 @@ class MockAuthRepository implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    final user = AppUser(
-      id: 'user-$username',
-      username: username,
-      name: name,
-      role: UserRole.creator,
-    );
-    await _local.save(user);
-    return user;
+    // Los datos del formulario se ignoran en el mock: ver [_demoCreator].
+    await _local.save(_demoCreator);
+    return _demoCreator;
   }
 
   @override

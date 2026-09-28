@@ -1,0 +1,334 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../app/di/injection.dart';
+import '../../app/router/app_routes.dart';
+import '../../app/theme/app_tokens.dart';
+import '../../features/explore/presentation/bloc/explore_cubit.dart';
+import '../../features/explore/presentation/widgets/discovery_sections.dart';
+import '../animations/app_motion.dart';
+import '../widgets/nexo_logo.dart';
+import '../widgets/section_header.dart';
+import 'breakpoints.dart';
+import 'shell_destinations.dart';
+
+/// The persistent frame around every signed-in surface.
+///
+/// It wraps a [StatefulNavigationShell], so each tab keeps its own navigator
+/// and its own scroll position. The previous shell used a plain `ShellRoute`
+/// plus `context.go`, which rebuilt the whole subtree on every tab change:
+/// opening a live room and returning to Inicio put the feed back at the top,
+/// and there was no per-tab back stack at all.
+class AppShell extends StatelessWidget {
+  const AppShell({super.key, required this.navigationShell});
+
+  final StatefulNavigationShell navigationShell;
+
+  /// Switches branch, and taps on the branch you are already in pop that
+  /// branch back to its root — the standard tab-bar gesture, and the only way
+  /// out of a deep stack without hunting for the back button.
+  void _select(int branch) => navigationShell.goBranch(
+    branch,
+    initialLocation: branch == navigationShell.currentIndex,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final form = AppBreakpoints.of(context);
+    return Scaffold(
+      body: Row(
+        children: [
+          if (form.hasRail)
+            _ShellRail(
+              form: form,
+              currentBranch: navigationShell.currentIndex,
+              onSelected: _select,
+            ),
+          Expanded(child: SafeArea(bottom: false, child: navigationShell)),
+          if (form.isExpanded) const _SidePanel(),
+        ],
+      ),
+      bottomNavigationBar: form.isCompact
+          ? _ShellBottomBar(
+              currentBranch: navigationShell.currentIndex,
+              onSelected: _select,
+            )
+          : null,
+    );
+  }
+}
+
+class _ShellBottomBar extends StatelessWidget {
+  const _ShellBottomBar({
+    required this.currentBranch,
+    required this.onSelected,
+  });
+
+  final int currentBranch;
+  final ValueChanged<int> onSelected;
+
+  /// Dónde cae el botón de componer entre los destinos. Componer es una
+  /// acción, no una pestaña: empuja una ruta a pantalla completa sobre el
+  /// shell en vez de tener branch propio, así que no hay estado que preservar
+  /// y al volver el usuario queda en la pestaña de la que salió.
+  static const _composeSlot = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final destinations = ShellDestinations.compact;
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 70,
+        decoration: const BoxDecoration(
+          color: AppColors.surface,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: Row(
+          children: [
+            for (var slot = 0; slot < destinations.length + 1; slot++)
+              Expanded(
+                child: slot == _composeSlot
+                    ? const _ComposeButton()
+                    : _BottomBarItem(
+                        destination:
+                            destinations[slot < _composeSlot ? slot : slot - 1],
+                        currentBranch: currentBranch,
+                        onSelected: onSelected,
+                      ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomBarItem extends StatelessWidget {
+  const _BottomBarItem({
+    required this.destination,
+    required this.currentBranch,
+    required this.onSelected,
+  });
+
+  final ShellDestination destination;
+  final int currentBranch;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = destination.branch == currentBranch;
+    final color = selected ? AppColors.primary : AppColors.textSecondary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: destination.label,
+      child: InkResponse(
+        onTap: () => onSelected(destination.branch),
+        radius: 34,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedScale(
+              scale: selected ? 1.08 : 1,
+              duration: AppMotion.feedbackDuration,
+              curve: Curves.easeOutBack,
+              child: Icon(
+                selected ? destination.selectedIcon : destination.icon,
+                size: 24,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              destination.label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// El botón de componer: un disco azul elevado, sin etiqueta.
+///
+/// Sin etiqueta a propósito. Es la única acción de la barra —las otras cuatro
+/// son destinos— y una palabra debajo lo alinearía visualmente con ellas, que
+/// es justo lo que no es. El disco elevado ya dice qué hace.
+class _ComposeButton extends StatelessWidget {
+  const _ComposeButton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Crear publicación',
+    child: Center(
+      child: InkResponse(
+        onTap: () => context.push(AppRoutes.create),
+        radius: 32,
+        child: Container(
+          width: 50,
+          height: 50,
+          decoration: const BoxDecoration(
+            color: AppColors.primaryDeep,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.brandShadow,
+                blurRadius: 14,
+                offset: Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
+        ),
+      ),
+    ),
+  );
+}
+
+class _ShellRail extends StatelessWidget {
+  const _ShellRail({
+    required this.form,
+    required this.currentBranch,
+    required this.onSelected,
+  });
+
+  final FormFactor form;
+  final int currentBranch;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final extended = form.isExpanded;
+    // Creator surfaces need the width, so they only join the rail once the
+    // layout is expanded. On a tablet the phone set is what fits.
+    final destinations = extended
+        ? ShellDestinations.all
+        : ShellDestinations.compact;
+    // The rail's selected index is a position in the list it was given, which
+    // is not the branch index once desktop-only entries are filtered out.
+    final selectedIndex = destinations.indexWhere(
+      (destination) => destination.branch == currentBranch,
+    );
+
+    return NavigationRail(
+      extended: extended,
+      labelType: extended ? null : NavigationRailLabelType.all,
+      backgroundColor: AppColors.surface,
+      // A branch with no rail entry (a pushed detail, or Studio on tablet)
+      // leaves nothing selected. NavigationRail rejects a negative index, so
+      // it gets null — no highlight, rather than a wrong one. The old shell
+      // clamped -1 to 0 and lit up "Inicio" while the user was elsewhere.
+      selectedIndex: selectedIndex >= 0 ? selectedIndex : null,
+      onDestinationSelected: (index) => onSelected(destinations[index].branch),
+      leading: _RailLeading(extended: extended),
+      destinations: [
+        for (final destination in destinations)
+          NavigationRailDestination(
+            icon: Icon(destination.icon),
+            selectedIcon: Icon(destination.selectedIcon),
+            label: Text(destination.label),
+          ),
+      ],
+    );
+  }
+}
+
+class _RailLeading extends StatelessWidget {
+  const _RailLeading({required this.extended});
+
+  final bool extended;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+    child: Column(
+      children: [
+        const NexoLogo(size: 40, showBadge: false),
+        const SizedBox(height: AppSpacing.md),
+        if (extended)
+          SizedBox(
+            width: 168,
+            child: FilledButton.icon(
+              onPressed: () => context.push(AppRoutes.create),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Crear'),
+            ),
+          )
+        else
+          IconButton.filled(
+            tooltip: 'Crear',
+            onPressed: () => context.push(AppRoutes.create),
+            icon: const Icon(Icons.add_rounded),
+          ),
+      ],
+    ),
+  );
+}
+
+/// The right-hand column on wide viewports.
+class _SidePanel extends StatelessWidget {
+  const _SidePanel();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    // 320 con margen de 16: con 300 y margen de 24 la fila de creadores
+    // —avatar, nombre y botón de seguir— se queda sin ancho y desborda.
+    width: 320,
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+    decoration: const BoxDecoration(
+      color: AppColors.surface,
+      border: Border(left: BorderSide(color: AppColors.border)),
+    ),
+    // Reusa las mismas secciones que Explorar y el feed vacío, con su propio
+    // cubit. Tres copias del mismo bloque se separan, y el panel es donde
+    // menos se mira: sería el último en enterarse.
+    child: BlocProvider(
+      create: (_) => ExploreCubit(sl(), sl())..load(),
+      child: BlocBuilder<ExploreCubit, ExploreState>(
+        builder: (context, state) {
+          final cubit = context.read<ExploreCubit>();
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TrendingTopicsSection(
+                  topics: state.topics,
+                  onToggle: cubit.toggleTopic,
+                  title: 'Tendencias',
+                ),
+                SuggestedCreatorsSection(
+                  creators: state.creators,
+                  onToggle: cubit.toggleCreator,
+                  title: 'A quién seguir',
+                ),
+                const SectionHeader(
+                  title: 'Herramientas',
+                  icon: Icons.tune_rounded,
+                ),
+                TextButton.icon(
+                  onPressed: () => context.push(AppRoutes.premium),
+                  icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+                  label: const Text('Membresías'),
+                ),
+                TextButton.icon(
+                  onPressed: () => context.push(AppRoutes.settings),
+                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  label: const Text('Ajustes'),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
