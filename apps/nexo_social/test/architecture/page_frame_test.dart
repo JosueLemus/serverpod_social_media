@@ -18,12 +18,16 @@ void main() {
   const outsideShell = <String, String>{
     'lib/features/auth/presentation/pages/auth_pages.dart':
         'splash y alta de cuenta: fuera del shell, sin barra de navegación',
+    'lib/features/auth/presentation/pages/suspended_page.dart':
+        'sesión revocada: fuera del shell, no hay a dónde navegar',
     'lib/features/posts/presentation/pages/create_post_page.dart':
         'compositor a pantalla completa, empujado sobre el shell',
     'lib/features/subscriptions/presentation/pages/subscription_page.dart':
         'paywall empujado sobre el shell',
     'lib/features/profile/presentation/pages/profile_page.dart':
         'portada full-bleed con slivers propios y tab bar fijada',
+    'lib/features/profile/presentation/pages/account_profile_view.dart':
+        'parte de profile_page: el perfil propio de una cuenta sin contenido',
     'lib/features/live/presentation/pages/live_room_page.dart':
         'sala inmersiva: el video ocupa todo y el chrome flota encima, así que '
         'no lleva margen ni ancho de lectura',

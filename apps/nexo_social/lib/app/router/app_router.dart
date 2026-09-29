@@ -8,6 +8,9 @@ import '../../core/widgets/placeholder_page.dart';
 import '../../features/auth/domain/entities/app_user.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/auth/presentation/pages/auth_pages.dart';
+import '../../features/auth/presentation/pages/suspended_page.dart';
+import '../../features/admin/presentation/pages/account_detail_page.dart';
+import '../../features/admin/presentation/pages/admin_console_page.dart';
 import '../../features/feed/presentation/pages/feed_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/live/presentation/pages/creator_studio_page.dart';
@@ -30,7 +33,11 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: initialLocation ?? AppRoutes.splash,
   refreshListenable: _CubitRefresh(auth.stream),
-  redirect: (context, state) => _guard(auth.state, state.matchedLocation),
+  redirect: (context, state) => _guard(
+    auth.state,
+    state.matchedLocation,
+    from: state.uri.queryParameters[_fromParameter],
+  ),
   routes: [
     GoRoute(
       path: AppRoutes.splash,
@@ -43,6 +50,10 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
     GoRoute(
       path: AppRoutes.signUp,
       builder: (context, state) => const SignUpPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.suspended,
+      builder: (context, state) => const SuspendedPage(),
     ),
 
     // Full-screen routes that sit *over* the shell. They use the root
@@ -142,6 +153,22 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
             ),
           ],
         ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.admin,
+              builder: (context, state) => const AdminConsolePage(),
+              routes: [
+                GoRoute(
+                  path: AppRoutes.adminAccountSegment,
+                  builder: (context, state) => AccountDetailPage(
+                    accountId: state.pathParameters['accountId'] ?? '',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ],
     ),
   ],
@@ -152,14 +179,34 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
 /// Pure and top-level so `router_guard_test.dart` can drive it with a state
 /// and a location and assert the answer, without pumping a widget tree.
 @visibleForTesting
-String? guardRedirect(AuthState auth, String location) =>
-    _guard(auth, location);
+String? guardRedirect(AuthState auth, String location, {String? from}) =>
+    _guard(auth, location, from: from);
 
-String? _guard(AuthState auth, String location) {
+/// A dónde iba la persona antes de que el splash la retuviera.
+const _fromParameter = 'from';
+
+String? _guard(AuthState auth, String location, {String? from}) {
   // The session has not been read from storage yet. Anything but the splash
   // would flash a signed-out screen and then replace it a frame later.
+  //
+  // El splash recuerda a dónde se iba. Sin eso, escribir una URL —o
+  // recargar la pestaña— terminaba siempre en el feed: la sesión todavía no
+  // estaba leída, el splash retenía la navegación y al resolverse mandaba al
+  // inicio. Entrar a `/admin` a mano "no cambiaba nada" para nadie, ni
+  // siquiera para el operador.
   if (auth is AuthLoading) {
-    return location == AppRoutes.splash ? null : AppRoutes.splash;
+    if (location == AppRoutes.splash) return null;
+    return Uri(
+      path: AppRoutes.splash,
+      queryParameters: {_fromParameter: location},
+    ).toString();
+  }
+
+  // Una sesión revocada por sanción tiene un solo lugar a donde ir, y ese
+  // lugar no existe para nadie más. Antes que el splash: resolverlo primero
+  // mandaría al login, y del login de vuelta acá — dos saltos.
+  if (auth is AuthSuspended) {
+    return location == AppRoutes.suspended ? null : AppRoutes.suspended;
   }
 
   final isPublic = AppRoutes.publicOnly.contains(location);
@@ -171,7 +218,20 @@ String? _guard(AuthState auth, String location) {
   final resolvedSplash = auth is AuthAuthenticated
       ? AppRoutes.feed
       : AppRoutes.signIn;
-  if (location == AppRoutes.splash) return resolvedSplash;
+  if (location == AppRoutes.splash) {
+    // Con sesión, se retoma el destino pedido. Esa ruta pasa por el guard
+    // igual que cualquier otra, así que un usuario que pidió `/admin` sigue
+    // terminando en el feed: recordar el destino no salta ningún permiso.
+    final resumes =
+        auth is AuthAuthenticated &&
+        from != null &&
+        from.startsWith('/') &&
+        from != AppRoutes.splash &&
+        !AppRoutes.publicOnly.contains(from);
+    return resumes ? from : resolvedSplash;
+  }
+
+  if (location == AppRoutes.suspended) return resolvedSplash;
 
   if (auth is! AuthAuthenticated) {
     return isPublic ? null : AppRoutes.signIn;
@@ -186,7 +246,19 @@ String? _guard(AuthState auth, String location) {
   // and bounce them between /sign-in and / forever.
   if (isPublic) return isVisitor ? null : AppRoutes.feed;
 
-  if (isVisitor && _isGated(location)) return AppRoutes.signIn;
+  if (isVisitor && _isUnder(AppRoutes.authenticatedOnly, location)) {
+    return AppRoutes.signIn;
+  }
+
+  // Por rol. Al feed y no al login: la cuenta es real, sólo no tiene el
+  // permiso, y mandarla a iniciar sesión otra vez no le da ninguno.
+  final user = auth.user;
+  if (!user.canModerate && _isUnder(AppRoutes.moderatorOnly, location)) {
+    return AppRoutes.feed;
+  }
+  if (!user.isOperator && _isUnder(AppRoutes.operatorOnly, location)) {
+    return AppRoutes.feed;
+  }
 
   return null;
 }
@@ -194,9 +266,8 @@ String? _guard(AuthState auth, String location) {
 /// Segment-aware so `/premium` matches `/premium/plan` but `/` never matches
 /// everything — a bare `startsWith` against the feed route would gate the
 /// entire app, since every path starts with a slash.
-bool _isGated(String location) => AppRoutes.authenticatedOnly.any(
-  (gated) => location == gated || location.startsWith('$gated/'),
-);
+bool _isUnder(Set<String> routes, String location) =>
+    routes.any((gated) => location == gated || location.startsWith('$gated/'));
 
 /// Bridges a bloc stream to the [Listenable] `refreshListenable` wants, so the
 /// redirect re-runs the moment the session changes instead of on the next

@@ -4,7 +4,9 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/environment.dart';
+import '../../core/mock/mock_platform.dart';
 import '../../core/storage/mock_social_store.dart';
+import '../../core/storage/session_storage.dart';
 import '../../features/feed/data/datasources/feed_remote_data_source.dart';
 import '../../features/feed/data/repositories/feed_repository_impl.dart';
 import '../../features/feed/domain/repositories/feed_repository.dart';
@@ -25,6 +27,13 @@ import '../../features/moderation/domain/repositories/moderation_repository.dart
 import '../../features/moderation/presentation/bloc/moderation_cubit.dart';
 import '../../features/subscriptions/data/repositories/mock_subscription_repository.dart';
 import '../../features/subscriptions/domain/repositories/subscription_repository.dart';
+import '../../features/admin/data/repositories/mock_admin_repository.dart';
+import '../../features/admin/domain/repositories/admin_repository.dart';
+import '../../features/admin/presentation/bloc/account_detail_cubit.dart';
+import '../../features/admin/presentation/bloc/admin_console_cubit.dart';
+import '../../features/admin/presentation/bloc/audit_log_cubit.dart';
+import '../../features/profile/data/repositories/mock_profile_repository.dart';
+import '../../features/profile/domain/repositories/profile_repository.dart';
 
 final sl = GetIt.instance;
 
@@ -44,10 +53,20 @@ Future<void> configureDependencies({SharedPreferences? preferences}) async {
   final resolved = preferences ?? await SharedPreferences.getInstance();
   sl.registerSingleton<SharedPreferences>(resolved);
   sl.registerLazySingleton<MockSocialStore>(() => MockSocialStore(sl()));
+  // El servidor falso: una sola fuente de verdad para auth, vivos,
+  // moderación y consola. Con `DATA_SOURCE=api`, los módulos que todavía no
+  // tienen backend siguen cayendo acá.
+  sl.registerLazySingleton<MockPlatform>(
+    () => MockPlatform(sl()),
+    dispose: (platform) => platform.dispose(),
+  );
+  sl.registerLazySingleton<SessionStorage>(() => SessionStorage(sl()));
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSource(sl()),
   );
-  sl.registerLazySingleton<AuthRepository>(() => MockAuthRepository(sl()));
+  sl.registerLazySingleton<AuthRepository>(
+    () => MockAuthRepository(sl(), sl()),
+  );
   sl.registerLazySingleton<DioClient>(
     () => DioClient(
       readToken: () => sl<FlutterSecureStorage>().read(key: 'access_token'),
@@ -68,13 +87,24 @@ Future<void> configureDependencies({SharedPreferences? preferences}) async {
   // its own cubit, so signing out in one place would leave the others
   // authenticated.
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
-  sl.registerLazySingleton<LiveRepository>(MockLiveRepository.new);
+  sl.registerLazySingleton<LiveRepository>(() => MockLiveRepository(sl()));
   sl.registerFactory(() => LiveListCubit(sl()));
   sl.registerLazySingleton<DiscoveryRepository>(MockDiscoveryRepository.new);
-  sl.registerLazySingleton<ModerationRepository>(MockModerationRepository.new);
+  sl.registerLazySingleton<ModerationRepository>(
+    () => MockModerationRepository(sl()),
+  );
   sl.registerFactory(() => ModerationCubit(sl()));
   sl.registerLazySingleton<SubscriptionRepository>(
     MockSubscriptionRepository.new,
+  );
+  sl.registerLazySingleton<AdminRepository>(() => MockAdminRepository(sl()));
+  sl.registerFactory(() => AdminConsoleCubit(sl()));
+  sl.registerFactory(() => AuditLogCubit(sl()));
+  sl.registerFactoryParam<AccountDetailCubit, String, void>(
+    (accountId, _) => AccountDetailCubit(sl(), accountId),
+  );
+  sl.registerLazySingleton<ProfileRepository>(
+    () => MockProfileRepository(sl()),
   );
 }
 

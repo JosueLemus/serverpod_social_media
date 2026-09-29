@@ -569,6 +569,21 @@ flutter test
   Construirlos en `build` los recrea en cada tecla: el cursor salta al
   principio apenas el cubit emite, y cada controller descartado queda sin
   liberar.
+- **El mock es un servidor falso, no una colección de mocks.** Auth, vivos,
+  moderación y consola leen y escriben un solo `MockPlatform`
+  (`core/mock/`), que aplica las reglas que va a tener Serverpod —scopes, gate
+  de verificación, máquina de estados del vivo, auditoría todo-o-nada— y lanza
+  los mismos `Failure`. Con un estado por repositorio, la consola no afectaba
+  al resto de la app. Un repositorio mock nuevo va encima de él, no al lado.
+- **Creador no es un rol.** `UserRole` son los scopes (`visitor`, `user`,
+  `moderator`, `operator`); ser creador y estar verificado viven en el perfil
+  (`isCreator`, `verification`), igual que en el backend. `/moderation` exige
+  moderador u operador, y `/admin` exige operador.
+- **En web, la sesión mock va a `sessionStorage`** (`SessionStorage`), no a
+  `SharedPreferences`. Así dos pestañas pueden tener dos cuentas mientras
+  comparten el estado de `MockPlatform` por `localStorage`, que es la demo de
+  suspensión en el acto. `PlatformSync` escucha el evento `storage`. Las dos
+  cosas se borran cuando exista el backend.
 - **Los assets son WebP.** Hoy sólo hay `assets/branding/nexo_mark.svg`. Al
   sumar imágenes: medir antes de convertir, y acotar el decode de cualquier PNG
   grande — Flutter decodifica a resolución nativa y se queda con ese bitmap.

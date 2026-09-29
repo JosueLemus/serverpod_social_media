@@ -40,6 +40,8 @@ dependencies:
   flutter_svg: ^2.2.3
   animate_do: ^4.2.0
   shared_preferences: ^2.5.4
+  # Sólo para el mock en web: sincroniza el estado entre pestañas.
+  web: ^1.1.1
   cupertino_icons: ^1.0.8
   # Cliente generado por Serverpod: modelos y endpoints tipados del backend.
   nexo_client:

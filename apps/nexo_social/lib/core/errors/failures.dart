@@ -1,6 +1,12 @@
 import 'package:equatable/equatable.dart';
 
-sealed class Failure extends Equatable {
+/// Un fallo de dominio. [message] es para telemetría, nunca para pintar: la
+/// copy la elige la View según el tipo (`failureMessage`).
+///
+/// Implementa [Exception] para que un repositorio lo pueda lanzar tal cual:
+/// el mock lanza el mismo tipo que va a mapear el cliente de Serverpod desde
+/// `NexoErrorCode`, así que la View no cambia el día que se conecte.
+sealed class Failure extends Equatable implements Exception {
   const Failure(this.message);
   final String message;
   @override
@@ -17,4 +23,35 @@ class ServerFailure extends Failure {
 
 class UnexpectedFailure extends Failure {
   const UnexpectedFailure(super.message);
+}
+
+/// `NexoErrorCode.forbidden`: la cuenta no tiene permiso para la acción.
+class ForbiddenFailure extends Failure {
+  const ForbiddenFailure(super.message);
+}
+
+/// `NexoErrorCode.notFound`.
+class NotFoundFailure extends Failure {
+  const NotFoundFailure(super.message);
+}
+
+/// `NexoErrorCode.conflict`: la transición no es legal desde el estado actual.
+class ConflictFailure extends Failure {
+  const ConflictFailure(super.message);
+}
+
+/// `NexoErrorCode.accountSuspended`: la sesión ya no vale. El cliente la
+/// cierra y muestra la pantalla de cuenta suspendida.
+class AccountSuspendedFailure extends Failure {
+  const AccountSuspendedFailure(super.message);
+}
+
+/// `NexoErrorCode.creatorNotVerified`: el gate de vivos.
+class CreatorNotVerifiedFailure extends Failure {
+  const CreatorNotVerifiedFailure(super.message);
+}
+
+/// La cuenta tiene un silenciamiento vigente.
+class MutedFailure extends Failure {
+  const MutedFailure(super.message);
 }

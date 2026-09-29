@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/di/injection.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/app_tokens.dart';
+import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/explore/presentation/bloc/explore_cubit.dart';
 import '../../features/explore/presentation/widgets/discovery_sections.dart';
 import '../animations/app_motion.dart';
@@ -236,8 +237,11 @@ class _ShellRail extends StatelessWidget {
     final extended = form.isExpanded;
     // Creator surfaces need the width, so they only join the rail once the
     // layout is expanded. On a tablet the phone set is what fits.
+    final auth = context.watch<AuthCubit>().state;
     final destinations = extended
-        ? ShellDestinations.all
+        ? ShellDestinations.expandedFor(
+            auth is AuthAuthenticated ? auth.user : null,
+          )
         : ShellDestinations.compact;
     // The rail's selected index is a position in the list it was given, which
     // is not the branch index once desktop-only entries are filtered out.

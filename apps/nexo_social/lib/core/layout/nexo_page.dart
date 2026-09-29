@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../app/theme/app_tokens.dart';
+import '../../features/auth/domain/entities/app_user.dart';
+import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../responsive/breakpoints.dart';
 import '../widgets/nexo_logo.dart';
+import '../widgets/pills.dart';
 import '../widgets/user_avatar.dart';
 
 /// El marco sobre el que se construye toda pantalla del shell.
@@ -174,9 +178,7 @@ class _BrandBar extends StatelessWidget {
         ),
       ...?actions,
       const SizedBox(width: AppSpacing.xs),
-      // El avatar de la sesión. Mock por ahora: la identidad real llega con
-      // Serverpod y este es el único lugar que hay que cambiar.
-      const UserAvatar(name: 'Elena Vega', size: AppSizes.avatarHeader),
+      const _SessionIdentity(),
       SizedBox(width: gutter),
     ],
   );
@@ -220,4 +222,69 @@ class _PageTitle extends StatelessWidget {
       ],
     ],
   );
+}
+
+/// Quién tiene la sesión, y con qué permiso.
+///
+/// Era un avatar fijo de Elena, así que todas las cuentas se veían iguales:
+/// entrar como operador no cambiaba nada a la vista y no había forma de saber
+/// con qué cuenta se estaba. El rol se muestra sólo cuando da permisos: un
+/// usuario común no necesita una etiqueta que diga "usuario".
+/// El rol que da permisos, o null para quien no modera.
+String? _roleLabel(AppUser? user) => switch (user?.role) {
+  UserRole.operator => 'OPERADOR',
+  UserRole.moderator => 'MODERADOR',
+  _ => null,
+};
+
+class _SessionIdentity extends StatelessWidget {
+  const _SessionIdentity();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = _sessionUser(context);
+    final role = _roleLabel(user);
+    // En teléfono no hay lugar: la barra ya está al límite a 320 con la
+    // sección y sus acciones, y la píldora aprieta la marca hasta
+    // desbordarla. Ahí el rol va en el anillo del avatar, y con todas las
+    // letras en la tarjeta del feed y en el perfil.
+    final compact = AppBreakpoints.of(context).isCompact;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (role != null && !compact) ...[
+          StatusBadge(
+            key: const Key('session-role'),
+            label: role,
+            color: AppColors.primarySurface,
+            foreground: AppColors.textOnBrandSurface,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+        ],
+        Tooltip(
+          message: [
+            if (user == null) 'Invitado' else '@${user.username}',
+            ?role,
+          ].join(' · '),
+          child: UserAvatar(
+            key: const Key('session-avatar'),
+            name: user?.name ?? 'Invitado',
+            size: AppSizes.avatarHeader,
+            ring: role != null ? AppColors.primaryDeep : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Una pantalla montada sin sesión en el árbol (un test aislado) dibuja al
+  /// invitado en vez de romper.
+  static AppUser? _sessionUser(BuildContext context) {
+    try {
+      final state = context.watch<AuthCubit>().state;
+      return state is AuthAuthenticated ? state.user : null;
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
 }

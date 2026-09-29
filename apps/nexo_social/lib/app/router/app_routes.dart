@@ -33,6 +33,15 @@ abstract final class AppRoutes {
   static const studio = '/studio';
   static const moderation = '/moderation';
 
+  /// La consola del operador. Separada de [moderation] a propósito: el
+  /// moderador actúa sobre una comunidad, el operador sobre la plataforma, y
+  /// colapsarlos deja a la auditoría sin poder responder quién tenía derecho
+  /// a qué.
+  static const admin = '/admin';
+
+  /// Donde queda una sesión revocada por una sanción.
+  static const suspended = '/suspended';
+
   static const create = '/create';
   static const premium = '/premium';
   static const settings = '/settings';
@@ -48,6 +57,10 @@ abstract final class AppRoutes {
   /// justamente el empuje entre branches que la nota de arriba prohíbe.
   static String liveRoom(String id) => '$explore/live/$id';
 
+  /// La ficha de una cuenta, dentro del branch de la consola.
+  static const adminAccountSegment = 'account/:accountId';
+  static String adminAccount(String id) => '$admin/account/$id';
+
   static String profileOf(String username) => '$userProfile/$username';
 
   /// Rutas que un visitante (sesión de invitado) no puede abrir. Navegar es
@@ -56,8 +69,19 @@ abstract final class AppRoutes {
     create,
     studio,
     moderation,
+    admin,
     premium,
   };
+
+  /// Rutas que exigen el scope `moderator` o `admin`.
+  ///
+  /// Esconderlas no es seguridad —el repositorio rechaza igual— pero dejar
+  /// entrar a quien no puede operar muestra una consola que responde que no a
+  /// todo.
+  static const moderatorOnly = <String>{moderation};
+
+  /// Rutas que exigen el scope `admin`.
+  static const operatorOnly = <String>{admin};
 
   /// Rutas del flujo sin sesión. Caer en una de ellas con sesión viva
   /// significa que la sesión se acaba de restaurar, así que el redirect manda

@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../app/router/app_routes.dart';
+import '../../features/auth/domain/entities/app_user.dart';
+
+/// Quién ve un destino. Esconder no es seguridad —el guard y el repositorio
+/// rechazan igual—, pero un rail que ofrece la consola a quien no puede
+/// usarla es una puerta pintada en la pared.
+enum ShellAccess { everyone, moderator, operator }
 
 /// Una entrada de la navegación del shell, compartida por la barra inferior y
 /// el rail.
@@ -17,6 +23,7 @@ class ShellDestination {
     required this.icon,
     required this.selectedIcon,
     this.desktopOnly = false,
+    this.access = ShellAccess.everyone,
   });
 
   /// Índice del branch en [StatefulShellRoute]. Explícito y no posicional:
@@ -32,6 +39,14 @@ class ShellDestination {
   /// Superficies de creador. Necesitan ancho y teclado, así que en teléfono se
   /// llegan desde el perfil y no desde la barra.
   final bool desktopOnly;
+
+  final ShellAccess access;
+
+  bool isVisibleTo(AppUser? user) => switch (access) {
+    ShellAccess.everyone => true,
+    ShellAccess.moderator => user?.canModerate ?? false,
+    ShellAccess.operator => user?.isOperator ?? false,
+  };
 }
 
 abstract final class ShellDestinations {
@@ -79,8 +94,22 @@ abstract final class ShellDestinations {
       icon: Icons.shield_outlined,
       selectedIcon: Icons.shield_rounded,
       desktopOnly: true,
+      access: ShellAccess.moderator,
+    ),
+    ShellDestination(
+      branch: 6,
+      path: AppRoutes.admin,
+      label: 'Consola',
+      icon: Icons.admin_panel_settings_outlined,
+      selectedIcon: Icons.admin_panel_settings_rounded,
+      desktopOnly: true,
+      access: ShellAccess.operator,
     ),
   ];
+
+  /// Lo que muestra el rail extendido a esta cuenta.
+  static List<ShellDestination> expandedFor(AppUser? user) =>
+      all.where((destination) => destination.isVisibleTo(user)).toList();
 
   /// Lo que muestra la barra inferior del teléfono.
   static List<ShellDestination> get compact =>

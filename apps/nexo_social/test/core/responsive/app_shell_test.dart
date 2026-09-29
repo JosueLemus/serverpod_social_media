@@ -76,7 +76,29 @@ void main() {
       await pumpShell(tester, const Size(1400, 1000));
 
       expect(find.text('Studio'), findsWidgets);
+    });
+
+    /// Moderación y Consola se ofrecen por rol. Esconderlas no es seguridad
+    /// —el guard y el repositorio rechazan igual—, pero un rail que ofrece la
+    /// consola a quien no puede usarla es una puerta pintada en la pared.
+    testWidgets('a creator does not get moderation nor the console', (
+      tester,
+    ) async {
+      await pumpShell(tester, const Size(1400, 1000));
+
+      expect(find.text('Moderación'), findsNothing);
+      expect(find.text('Consola'), findsNothing);
+    });
+
+    testWidgets('an operator gets moderation and the console', (tester) async {
+      await AppHarness.bootstrap(
+        initialPreferences: {'mock_session': '{"id":"op-1"}'},
+      );
+      await sl<AuthCubit>().restore();
+      await pumpShell(tester, const Size(1400, 1000));
+
       expect(find.text('Moderación'), findsWidgets);
+      expect(find.text('Consola'), findsWidgets);
     });
 
     testWidgets('stay out of the phone tab bar', (tester) async {
