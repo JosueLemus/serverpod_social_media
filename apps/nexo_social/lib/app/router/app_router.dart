@@ -52,6 +52,10 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
       builder: (context, state) => const SignUpPage(),
     ),
     GoRoute(
+      path: AppRoutes.passwordReset,
+      builder: (context, state) => const PasswordResetPage(),
+    ),
+    GoRoute(
       path: AppRoutes.suspended,
       builder: (context, state) => const SuspendedPage(),
     ),

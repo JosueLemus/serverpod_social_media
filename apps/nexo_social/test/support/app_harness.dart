@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/constants/environment.dart';
 import 'package:nexo_social/app/theme/app_theme.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -29,6 +30,10 @@ abstract final class AppHarness {
     await resetDependencies();
     await configureDependencies(
       preferences: await SharedPreferences.getInstance(),
+      // Widget tests exercise the deliberately explicit demo implementation;
+      // they must never accidentally try localhost because production now
+      // defaults to Serverpod authentication.
+      authSourceMode: AuthSourceMode.mock,
     );
   }
 

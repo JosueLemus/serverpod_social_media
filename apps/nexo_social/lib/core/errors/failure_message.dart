@@ -7,6 +7,8 @@ String failureMessage(Failure failure) => switch (failure) {
   NotFoundFailure() => 'Lo que buscas ya no existe.',
   ConflictFailure() => 'Esta acción ya no es posible desde el estado actual.',
   AccountSuspendedFailure() => 'Tu cuenta está suspendida.',
+  AuthenticationFailure() =>
+    'No pudimos comprobar tu acceso. Inténtalo de nuevo.',
   CreatorNotVerifiedFailure() =>
     'Tu cuenta de creador no está verificada. Solo las cuentas verificadas '
         'pueden iniciar un vivo.',

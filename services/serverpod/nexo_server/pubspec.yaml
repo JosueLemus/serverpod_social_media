@@ -29,4 +29,6 @@ serverpod:
       dart-define:
         # Cambiar a `api` cuando los repositorios Serverpod estén listos.
         DATA_SOURCE: mock
+        # Auth real can coexist with the mock feed during the migration.
+        AUTH_SOURCE: serverpod
         API_BASE_URL: http://localhost:8080/

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:get_it/get_it.dart';
+import 'package:nexo_client/nexo_client.dart' as serverpod;
+import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/environment.dart';
@@ -13,7 +17,9 @@ import '../../features/feed/domain/repositories/feed_repository.dart';
 import '../../features/feed/domain/usecases/get_feed_status.dart';
 import '../../features/feed/presentation/bloc/feed_cubit.dart';
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
+import '../../features/auth/data/datasources/serverpod_auth_storage.dart';
 import '../../features/auth/data/repositories/mock_auth_repository.dart';
+import '../../features/auth/data/repositories/serverpod_auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/posts/presentation/bloc/post_composer_cubit.dart';
@@ -45,7 +51,10 @@ final sl = GetIt.instance;
 /// until the 10-minute suite timeout instead of failing. Two tests in this repo
 /// died that way. `AppHarness.bootstrap()` is the supported entry point for
 /// tests; production calls this with no arguments.
-Future<void> configureDependencies({SharedPreferences? preferences}) async {
+Future<void> configureDependencies({
+  SharedPreferences? preferences,
+  AuthSourceMode? authSourceMode,
+}) async {
   if (sl.isRegistered<Dio>()) return;
   sl.registerLazySingleton<FlutterSecureStorage>(
     () => const FlutterSecureStorage(),
@@ -64,8 +73,40 @@ Future<void> configureDependencies({SharedPreferences? preferences}) async {
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSource(sl()),
   );
+  final resolvedAuthSource = authSourceMode ?? Environment.authSourceMode;
+  if (resolvedAuthSource == AuthSourceMode.serverpod) {
+    sl.registerLazySingleton<StreamController<AuthSuccess?>>(
+      () => StreamController<AuthSuccess?>.broadcast(),
+      dispose: (controller) => controller.close(),
+    );
+    sl.registerLazySingleton<ServerpodSecureKeyValueStorage>(
+      () => ServerpodSecureKeyValueStorage(
+        sl(),
+        apiBaseUrl: Environment.apiBaseUrl,
+      ),
+    );
+    sl.registerLazySingleton<ClientAuthSessionManager>(
+      () => ClientAuthSessionManager(
+        storage: KeyValueClientAuthSuccessStorage(
+          keyValueStorage: sl<ServerpodSecureKeyValueStorage>(),
+        ),
+        onAuthInfoChanged: sl<StreamController<AuthSuccess?>>().add,
+      ),
+    );
+    sl.registerLazySingleton<serverpod.Client>(() {
+      final client = serverpod.Client(Environment.apiBaseUrl);
+      client.authSessionManager = sl<ClientAuthSessionManager>();
+      return client;
+    });
+  }
   sl.registerLazySingleton<AuthRepository>(
-    () => MockAuthRepository(sl(), sl()),
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockAuthRepository(sl(), sl())
+        : ServerpodAuthRepository(
+            sl<serverpod.Client>(),
+            sl<ClientAuthSessionManager>(),
+            sl<StreamController<AuthSuccess?>>().stream,
+          ),
   );
   sl.registerLazySingleton<DioClient>(
     () => DioClient(

@@ -61,14 +61,32 @@ class MockAuthRepository implements AuthRepository {
     }
   }
 
-  /// Los datos del formulario se ignoran en el mock: ver [signIn].
+  /// Mock-only registration keeps the former demo behaviour behind the
+  /// explicit AUTH_SOURCE=mock switch. Real authentication never reaches this
+  /// implementation, so an unknown real address cannot become Elena.
   @override
-  Future<AppUser> signUp({
-    required String name,
-    required String username,
+  Future<EmailVerificationRequest> startRegistration({
     required String email,
+  }) async => const EmailVerificationRequest('mock-registration');
+
+  @override
+  Future<AppUser> finishRegistration({
+    required EmailVerificationRequest request,
+    required String verificationCode,
     required String password,
   }) => signIn(email: DemoAccounts.elena.email, password: password);
+
+  @override
+  Future<EmailVerificationRequest> startPasswordReset({
+    required String email,
+  }) async => const EmailVerificationRequest('mock-reset');
+
+  @override
+  Future<void> finishPasswordReset({
+    required EmailVerificationRequest request,
+    required String verificationCode,
+    required String newPassword,
+  }) async {}
 
   @override
   Future<void> signOut() async {

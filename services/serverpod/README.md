@@ -73,3 +73,21 @@ dart analyze && dart test                # no necesita Docker
 ```
 
 Los secretos van en `config/passwords.yaml`, que está en `.gitignore`.
+
+## Autenticación de Nexo
+
+El servidor ya inicializa `JwtConfigFromPasswords` y
+`ServerpodCloudEmailIdpConfig` en `nexo_server/lib/server.dart`. La app Flutter
+consume los endpoints generados `emailIdp` y `jwtRefresh`; no se añade Firebase,
+Supabase ni un proveedor de identidad externo. En desarrollo Serverpod escribe
+los códigos de verificación y recuperación en la consola. En staging y
+producción el proveedor de correo y el alojamiento tienen sus propias
+condiciones, aunque el módulo de identidad no exige contratar otro servicio de
+autenticación.
+
+No se creó una migración: Serverpod ya proporciona la tabla de usuarios,
+scopes, bloqueo, perfiles base y solicitudes de correo. Si Nexo necesita
+nombre visible editable, `isCreator`, estado de sanción o una insignia de
+producto persistentes, deberá añadirse un único perfil complementario enlazado
+al UUID de `Session.authenticated.authUserId`, junto a endpoints protegidos que
+nunca acepten un UUID arbitrario desde Flutter.

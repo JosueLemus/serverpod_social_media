@@ -7,6 +7,7 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/constants/environment.dart';
+import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/demo_accounts.dart';
 import '../../../../core/widgets/nexo_logo.dart';
 import '../../../../core/widgets/user_avatar.dart';
@@ -60,6 +61,13 @@ class SignUpPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const AuthForm(signUp: true);
+}
+
+class PasswordResetPage extends StatelessWidget {
+  const PasswordResetPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const AuthForm(resetPassword: true);
 }
 
 class _WelcomePage extends StatelessWidget {
@@ -521,53 +529,74 @@ void _showSignInSheet(BuildContext context) {
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    builder: (sheetContext) => Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        0,
-        AppSpacing.lg,
-        MediaQuery.viewInsetsOf(sheetContext).bottom + AppSpacing.lg,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Iniciar sesión',
-            style: Theme.of(sheetContext).textTheme.titleLarge,
-          ),
-          if (Environment.dataSourceMode == DataSourceMode.mock) ...[
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Modo demo: un correo desconocido entra como Elena. Para otro '
-              'rol usa ${DemoAccounts.operator.email} o '
-              '${DemoAccounts.moderator.email}.',
-              key: const Key('sign-in-demo-hint'),
-              textAlign: TextAlign.center,
-              style: Theme.of(sheetContext).textTheme.bodySmall,
+    builder: (sheetContext) => BlocListener<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated && Navigator.canPop(sheetContext)) {
+          Navigator.pop(sheetContext);
+        }
+      },
+      child: BlocBuilder<AuthCubit, AuthState>(
+        builder: (context, state) {
+          final form = state is AuthUnauthenticated ? state : null;
+          final busy = form?.isBusy ?? false;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              MediaQuery.viewInsetsOf(sheetContext).bottom + AppSpacing.lg,
             ),
-          ],
-          const SizedBox(height: AppSpacing.md),
-          TextField(
-            key: const Key('sheet-email'),
-            controller: email,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email'),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextField(
-            controller: password,
-            obscureText: true,
-            decoration: const InputDecoration(labelText: 'Contraseña'),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              auth.signIn(email.text, password.text);
-            },
-            child: const Text('Continuar'),
-          ),
-        ],
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Iniciar sesión',
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
+                if (Environment.authSourceMode == AuthSourceMode.mock) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Modo demo: un correo desconocido entra como Elena. Para otro '
+                    'rol usa ${DemoAccounts.operator.email} o '
+                    '${DemoAccounts.moderator.email}.',
+                    key: const Key('sign-in-demo-hint'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(sheetContext).textTheme.bodySmall,
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  key: const Key('sheet-email'),
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                TextField(
+                  controller: password,
+                  obscureText: true,
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (form?.failure != null) ...[
+                  _AuthError(reason: form!.failure!),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+                FilledButton(
+                  onPressed: busy
+                      ? null
+                      : () => auth.signIn(email.text, password.text),
+                  child: busy
+                      ? const SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Continuar'),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     ),
   ).whenComplete(() {
@@ -577,9 +606,10 @@ void _showSignInSheet(BuildContext context) {
 }
 
 class AuthForm extends StatefulWidget {
-  const AuthForm({super.key, required this.signUp});
+  const AuthForm({super.key, this.signUp = false, this.resetPassword = false});
 
   final bool signUp;
+  final bool resetPassword;
 
   @override
   State<AuthForm> createState() => _AuthFormState();
@@ -588,89 +618,208 @@ class AuthForm extends StatefulWidget {
 class _AuthFormState extends State<AuthForm> {
   final email = TextEditingController();
   final password = TextEditingController();
+  final verificationCode = TextEditingController();
+  bool _resetComplete = false;
 
   @override
   void dispose() {
     email.dispose();
     password.dispose();
+    verificationCode.dispose();
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit(AuthOperation operation) async {
     final auth = context.read<AuthCubit>();
-    if (widget.signUp) {
-      // El nombre y el usuario todavía no se piden en el formulario; el
-      // repositorio mock los ignora y devuelve la cuenta de demo.
-      auth.signUp(
-        name: '',
-        username: '',
-        email: email.text,
-        password: password.text,
-      );
+    if (widget.resetPassword) {
+      if (operation == AuthOperation.awaitingResetCode) {
+        await auth.finishPasswordReset(
+          verificationCode: verificationCode.text,
+          newPassword: password.text,
+        );
+        if (mounted &&
+            auth.state is AuthUnauthenticated &&
+            (auth.state as AuthUnauthenticated).failure == null) {
+          setState(() => _resetComplete = true);
+        }
+      } else {
+        await auth.startPasswordReset(email.text);
+      }
+    } else if (widget.signUp) {
+      if (operation == AuthOperation.awaitingRegistrationCode) {
+        await auth.finishRegistration(
+          verificationCode: verificationCode.text,
+          password: password.text,
+        );
+      } else {
+        await auth.startRegistration(email.text);
+      }
     } else {
-      auth.signIn(email.text, password.text);
+      await auth.signIn(email.text, password.text);
     }
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: ListView(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: [
-              const Icon(
-                Icons.hub_outlined,
-                color: AppColors.primary,
-                size: 52,
+  Widget build(BuildContext context) => BlocBuilder<AuthCubit, AuthState>(
+    builder: (context, state) {
+      final authState = state is AuthUnauthenticated ? state : null;
+      final operation = authState?.operation ?? AuthOperation.idle;
+      final awaitingCode =
+          operation == AuthOperation.awaitingRegistrationCode ||
+          operation == AuthOperation.awaitingResetCode;
+      final busy = authState?.isBusy ?? false;
+      final isReset = widget.resetPassword;
+      final title = isReset
+          ? awaitingCode
+                ? 'Confirma el código.'
+                : 'Recupera tu acceso.'
+          : widget.signUp
+          ? awaitingCode
+                ? 'Confirma tu correo.'
+                : 'Crea tu comunidad.'
+          : 'Encuentra tu comunidad.';
+      return Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: [
+                  const Icon(
+                    Icons.hub_outlined,
+                    color: AppColors.primary,
+                    size: 52,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.displaySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  TextField(
+                    key: const Key('auth-email'),
+                    controller: email,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  if (awaitingCode) ...[
+                    TextField(
+                      key: const Key('auth-verification-code'),
+                      controller: verificationCode,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'Código de verificación',
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  TextField(
+                    key: const Key('auth-password'),
+                    controller: password,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Contraseña'),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (authState?.failure != null) ...[
+                    _AuthError(reason: authState!.failure!),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  if (_resetComplete) ...[
+                    const Text(
+                      'Contraseña actualizada. Ya puedes iniciar sesión.',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  FilledButton(
+                    key: const Key('auth-submit'),
+                    onPressed: busy ? null : () => _submit(operation),
+                    child: busy
+                        ? const SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(
+                            awaitingCode
+                                ? (isReset
+                                      ? 'Actualizar contraseña'
+                                      : 'Verificar y crear cuenta')
+                                : (isReset
+                                      ? 'Enviar código'
+                                      : widget.signUp
+                                      ? 'Crear cuenta'
+                                      : 'Iniciar sesión'),
+                          ),
+                  ),
+                  if ((widget.signUp && awaitingCode) ||
+                      (isReset && awaitingCode))
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () => isReset
+                                ? context.read<AuthCubit>().startPasswordReset(
+                                    email.text,
+                                  )
+                                : context.read<AuthCubit>().startRegistration(
+                                    email.text,
+                                  ),
+                      child: const Text('Solicitar un código nuevo'),
+                    ),
+                  if (!widget.signUp && !isReset)
+                    TextButton(
+                      onPressed: () => context.go(AppRoutes.passwordReset),
+                      child: const Text('Olvidé mi contraseña'),
+                    ),
+                  TextButton(
+                    onPressed: () => _exploreAsGuest(context),
+                    child: const Text('Explora como invitado'),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go(
+                      isReset || widget.signUp
+                          ? AppRoutes.signIn
+                          : AppRoutes.signUp,
+                    ),
+                    child: Text(
+                      isReset || widget.signUp
+                          ? 'Ya tengo cuenta'
+                          : 'Crear una cuenta',
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                widget.signUp
-                    ? 'Crea tu comunidad.'
-                    : 'Encuentra tu comunidad.',
-                style: Theme.of(context).textTheme.displaySmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              TextField(
-                key: const Key('auth-email'),
-                controller: email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                key: const Key('auth-password'),
-                controller: password,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Contraseña'),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              FilledButton(
-                key: const Key('auth-submit'),
-                onPressed: _submit,
-                child: Text(widget.signUp ? 'Crear cuenta' : 'Iniciar sesión'),
-              ),
-              TextButton(
-                onPressed: () => _exploreAsGuest(context),
-                child: const Text('Explora como invitado'),
-              ),
-              TextButton(
-                onPressed: () => context.go(
-                  widget.signUp ? AppRoutes.signIn : AppRoutes.signUp,
-                ),
-                child: Text(
-                  widget.signUp ? 'Ya tengo cuenta' : 'Crear una cuenta',
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    },
   );
+}
+
+class _AuthError extends StatelessWidget {
+  const _AuthError({required this.reason});
+
+  final AuthFailureReason reason;
+
+  @override
+  Widget build(BuildContext context) => Text(switch (reason) {
+    AuthFailureReason.invalidCredentials =>
+      'El correo o la contraseña no son correctos.',
+    AuthFailureReason.invalidCode =>
+      'El código no es válido. Revísalo e inténtalo de nuevo.',
+    AuthFailureReason.expiredCode => 'El código venció. Solicita uno nuevo.',
+    AuthFailureReason.tooManyAttempts =>
+      'Has hecho muchos intentos. Espera un momento e inténtalo otra vez.',
+    AuthFailureReason.passwordPolicy =>
+      'La contraseña no cumple la política del servidor.',
+    AuthFailureReason.storage =>
+      'No pudimos guardar la sesión de forma segura.',
+    AuthFailureReason.network =>
+      'No pudimos conectar. Revisa tu conexión y reintenta.',
+    AuthFailureReason.unavailable =>
+      'No pudimos completar la operación. Inténtalo nuevamente.',
+  }, style: const TextStyle(color: AppColors.error));
 }

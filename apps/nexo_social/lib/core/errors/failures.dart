@@ -46,6 +46,28 @@ class AccountSuspendedFailure extends Failure {
   const AccountSuspendedFailure(super.message);
 }
 
+/// Public, typed reasons for an authentication form failure. The server's
+/// exception text is deliberately not carried into the UI or logs.
+enum AuthFailureReason {
+  invalidCredentials,
+  invalidCode,
+  expiredCode,
+  tooManyAttempts,
+  passwordPolicy,
+  storage,
+  network,
+  unavailable,
+}
+
+class AuthenticationFailure extends Failure {
+  const AuthenticationFailure(this.reason, [super.message = 'authentication']);
+
+  final AuthFailureReason reason;
+
+  @override
+  List<Object?> get props => [reason, message];
+}
+
 /// `NexoErrorCode.creatorNotVerified`: el gate de vivos.
 class CreatorNotVerifiedFailure extends Failure {
   const CreatorNotVerifiedFailure(super.message);

@@ -91,4 +91,25 @@ void main() {
     final state = cubit.state as AuthAuthenticated;
     expect(state.user.verification, VerificationStatus.revoked);
   });
+
+  test(
+    'registration remains unauthenticated until its code is verified',
+    () async {
+      await cubit.startRegistration('nueva@example.com');
+
+      expect(
+        cubit.state,
+        const AuthUnauthenticated(
+          operation: AuthOperation.awaitingRegistrationCode,
+        ),
+      );
+
+      await cubit.finishRegistration(
+        verificationCode: '123456',
+        password: 'sin-normalizar ',
+      );
+
+      expect(cubit.state, isA<AuthAuthenticated>());
+    },
+  );
 }

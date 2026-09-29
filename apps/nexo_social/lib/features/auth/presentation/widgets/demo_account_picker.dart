@@ -8,14 +8,14 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../bloc/auth_cubit.dart';
 
 /// Entrar con una cuenta sembrada de un toque. **Sólo en modo mock**: con
-/// `DATA_SOURCE=api` no se dibuja, porque en producción no hay cuentas de
+/// `AUTH_SOURCE=serverpod` no se dibuja, porque en producción no hay cuentas de
 /// demo y un atajo de login es exactamente lo que no tiene que existir.
 class DemoAccountButton extends StatelessWidget {
   const DemoAccountButton({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (Environment.dataSourceMode != DataSourceMode.mock) {
+    if (Environment.authSourceMode != AuthSourceMode.mock) {
       return const SizedBox.shrink();
     }
     return Padding(

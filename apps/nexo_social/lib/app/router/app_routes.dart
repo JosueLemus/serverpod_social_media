@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   static const splash = '/splash';
   static const signIn = '/sign-in';
   static const signUp = '/sign-up';
+  static const passwordReset = '/password-reset';
 
   static const feed = '/';
 
@@ -86,5 +87,5 @@ abstract final class AppRoutes {
   /// Rutas del flujo sin sesión. Caer en una de ellas con sesión viva
   /// significa que la sesión se acaba de restaurar, así que el redirect manda
   /// al usuario adentro.
-  static const publicOnly = <String>{splash, signIn, signUp};
+  static const publicOnly = <String>{splash, signIn, signUp, passwordReset};
 }

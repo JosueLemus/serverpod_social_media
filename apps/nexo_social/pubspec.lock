@@ -663,7 +663,7 @@ packages:
     source: hosted
     version: "0.6.0"
   serverpod_auth_core_client:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: serverpod_auth_core_client
       sha256: cb21124db2bdcecbdb6405ee0f8f8c802787bae1ae08faced7b3ba9b3aa74a9d
