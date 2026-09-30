@@ -168,6 +168,9 @@ class MockPlatform {
   // TODO: max set with dependency of backend when are available
   static const maxCohosts = 3;
 
+  // TODO(backend): portar estas reglas al endpoint `live.scheduleShow` de
+  // Serverpod (creador verificado, fecha futura, tope de co-hosts) y borrar
+  // este método junto con MockShowScheduleRepository.
   LiveSession scheduleShow({
     required String title,
     required String description,
@@ -216,6 +219,7 @@ class MockPlatform {
     return session;
   }
 
+  // TODO(backend): búsqueda de cuenta por username en Serverpod.
   AppUser invitableAccount(String username) {
     final actor = _requireActor();
     final needle = _withoutHandlePrefix(username);

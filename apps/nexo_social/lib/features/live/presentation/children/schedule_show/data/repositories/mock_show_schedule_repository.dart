@@ -5,12 +5,17 @@ import '../../domain/entities/show_draft.dart';
 import '../../domain/repositories/show_schedule_repository.dart';
 import '../datasources/show_draft_local_data_source.dart';
 
+// TODO(backend): reemplazar por ServerpodShowScheduleRepository.
+// schedule() → endpoint `live.scheduleShow`; findGuest() → endpoint de perfil
+// por username. Mapear NexoErrorCode a los mismos Failure que lanza el mock.
 class MockShowScheduleRepository implements ShowScheduleRepository {
   MockShowScheduleRepository(this._platform, this._local);
 
   final MockPlatform _platform;
   final ShowDraftLocalDataSource _local;
 
+  // TODO(backend): la cuenta sale de la sesión de AuthRepository, no de
+  // MockPlatform.
   String get _accountId {
     final id = _platform.sessionAccountId;
     if (id == null) throw const ForbiddenFailure('unauthenticated');

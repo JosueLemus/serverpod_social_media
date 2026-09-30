@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../../app/theme/app_tokens.dart';
 
+// TODO(backend): la alerta push 15 min antes todavía no se envía; la
+// programa Serverpod al agendar.
 class AudienceNoticeCard extends StatelessWidget {
   const AudienceNoticeCard({super.key});
 

@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../domain/entities/show_draft.dart';
 
+// TODO(backend): definir si el borrador queda local o pasa a ser una
+// LiveSession en `draft` en Serverpod (sincroniza entre dispositivos).
 class ShowDraftLocalDataSource {
   const ShowDraftLocalDataSource(this._preferences);
 

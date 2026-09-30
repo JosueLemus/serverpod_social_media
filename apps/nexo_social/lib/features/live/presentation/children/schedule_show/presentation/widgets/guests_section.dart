@@ -92,6 +92,8 @@ class _GuestTile extends StatelessWidget {
                       guest.name,
                       style: text.titleMedium?.copyWith(fontSize: 14),
                     ),
+                    // TODO(backend): mostrar "Confirmado" cuando exista el
+                    // flujo para que el invitado acepte.
                     const StatusBadge(
                       label: 'Invitado',
                       color: AppColors.successSurface,

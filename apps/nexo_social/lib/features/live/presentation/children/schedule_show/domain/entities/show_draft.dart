@@ -62,6 +62,8 @@ class ShowDraft extends Equatable {
   );
 
   static const maxTitleLength = 100;
+  // TODO(backend): leer el tope de co-hosts de la config del servidor; hoy
+  // duplica MockPlatform.maxCohosts.
   static const maxGuests = 3;
   static const recommendedMinutes = 60;
 

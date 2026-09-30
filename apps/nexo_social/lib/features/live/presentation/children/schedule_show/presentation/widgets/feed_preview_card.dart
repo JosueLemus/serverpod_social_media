@@ -50,6 +50,7 @@ class FeedPreviewCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // TODO(backend): portada real cuando haya subida de media.
                   const DecoratedBox(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(

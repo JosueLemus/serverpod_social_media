@@ -135,6 +135,9 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
   sl.registerLazySingleton<LiveRepository>(() => MockLiveRepository(sl()));
   sl.registerFactory(() => LiveListCubit(sl()));
+  // TODO(backend): registrar ServerpodShowScheduleRepository (sobre
+  // serverpod.Client) cuando exista el endpoint de agenda, igual que
+  // AuthRepository elige implementación por Environment.
   sl.registerLazySingleton<ShowScheduleRepository>(
     () => MockShowScheduleRepository(sl(), ShowDraftLocalDataSource(sl())),
   );
