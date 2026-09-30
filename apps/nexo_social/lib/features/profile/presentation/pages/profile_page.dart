@@ -252,38 +252,45 @@ class _CoverToolbar extends StatelessWidget {
   final String username;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      // La flecha aparece sólo si hay algo que popear, que es exactamente el
-      // caso empujado. Como raíz de la pestaña Perfil no hay a dónde volver.
-      if (Navigator.of(context).canPop())
-        const BackButton(color: Colors.white)
-      else
-        const SizedBox(width: AppSpacing.md),
-      Expanded(
-        child: Text(
-          '@$username',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(color: Colors.white),
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(top: AppSpacing.xs),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // La flecha aparece sólo si hay algo que popear, que es exactamente el
+        // caso empujado. Como raíz de la pestaña Perfil no hay a dónde volver.
+        if (Navigator.of(context).canPop())
+          const BackButton(color: Colors.white)
+        else
+          const SizedBox(width: AppSpacing.md,),
+        Padding(
+          padding: EdgeInsets.only(top: AppSpacing.sm),
+          child: Text(
+            '@$username',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: Colors.white),
+          ),
         ),
-      ),
-      IconButton(
-        tooltip: 'Compartir perfil',
-        color: Colors.white,
-        onPressed: () {},
-        icon: const Icon(Icons.ios_share_rounded, size: 20),
-      ),
-      IconButton(
-        tooltip: 'Opciones del perfil',
-        color: Colors.white,
-        onPressed: () => unawaited(_showProfileActions(context)),
-        icon: const Icon(Icons.more_vert_rounded),
-      ),
-      const SizedBox(width: AppSpacing.xxs),
-    ],
+        const Spacer(),
+        IconButton(
+          tooltip: 'Compartir perfil',
+          color: Colors.white,
+          onPressed: () {},
+          icon: const Icon(Icons.ios_share_rounded, size: 20),
+        ),
+        IconButton(
+          tooltip: 'Opciones del perfil',
+          color: Colors.white,
+          onPressed: () => unawaited(_showProfileActions(context)),
+          icon: const Icon(Icons.more_vert_rounded),
+        ),
+        const SizedBox(width: AppSpacing.xxs),
+      ],
+    ),
   );
 }
 
