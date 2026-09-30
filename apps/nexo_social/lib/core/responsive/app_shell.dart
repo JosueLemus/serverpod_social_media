@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import '../../app/theme/app_tokens.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/explore/presentation/bloc/explore_cubit.dart';
 import '../../features/explore/presentation/widgets/discovery_sections.dart';
+import 'package:nexo_social/core/widgets/create_sheet_widget.dart';
 import '../animations/app_motion.dart';
 import '../widgets/nexo_logo.dart';
 import '../widgets/section_header.dart';
@@ -29,10 +32,36 @@ class AppShell extends StatelessWidget {
   /// Switches branch, and taps on the branch you are already in pop that
   /// branch back to its root — the standard tab-bar gesture, and the only way
   /// out of a deep stack without hunting for the back button.
-  void _select(int branch) => navigationShell.goBranch(
-    branch,
-    initialLocation: branch == navigationShell.currentIndex,
-  );
+  ///
+  /// Cierra antes cualquier hoja abierta en el branch actual: la barra queda
+  /// tocable debajo del menú de crear, y sin esto la hoja se quedaría
+  /// escondida en el branch de origen y reaparecería al volver.
+  void _select(int branch) {
+    _currentBranchNavigator.currentState?.popUntil(
+      (route) => route is! PopupRoute,
+    );
+    navigationShell.goBranch(
+      branch,
+      initialLocation: branch == navigationShell.currentIndex,
+    );
+  }
+
+  GlobalKey<NavigatorState> get _currentBranchNavigator =>
+      navigationShell.route.branches[navigationShell.currentIndex].navigatorKey;
+
+  /// Abre el menú de crear en el Navigator del branch activo, no en el raíz.
+  ///
+  /// El botón vive en el `bottomNavigationBar`, así que su Navigator más
+  /// cercano es el raíz y una hoja abierta desde ahí tapa el shell entero.
+  /// El del branch está dentro del `body`: la hoja y su velo terminan justo
+  /// encima de la barra.
+  void _openCreate() {
+    final branchContext = _currentBranchNavigator.currentContext;
+    if (branchContext == null) return;
+    // Fase 1: sólo la hoja. A dónde lleva cada opción se cablea en la fase 2;
+    // por ahora la elección se descarta.
+    unawaited(showCreateSheet(branchContext));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +83,7 @@ class AppShell extends StatelessWidget {
           ? _ShellBottomBar(
               currentBranch: navigationShell.currentIndex,
               onSelected: _select,
+              onCompose: _openCreate,
             )
           : null,
     );
@@ -64,10 +94,12 @@ class _ShellBottomBar extends StatelessWidget {
   const _ShellBottomBar({
     required this.currentBranch,
     required this.onSelected,
+    required this.onCompose,
   });
 
   final int currentBranch;
   final ValueChanged<int> onSelected;
+  final VoidCallback onCompose;
 
   /// Dónde cae el botón de componer entre los destinos. Componer es una
   /// acción, no una pestaña: empuja una ruta a pantalla completa sobre el
@@ -101,7 +133,7 @@ class _ShellBottomBar extends StatelessWidget {
                 for (var slot = 0; slot < destinations.length + 1; slot++)
                   Expanded(
                     child: slot == _composeSlot
-                        ? const _ComposeButton()
+                        ? _ComposeButton(onPressed: onCompose)
                         : _BottomBarItem(
                             destination:
                                 destinations[slot < _composeSlot
@@ -186,7 +218,9 @@ class _BottomBarItem extends StatelessWidget {
 
 /// Primary action, with feedback clipped to its own rounded surface.
 class _ComposeButton extends StatelessWidget {
-  const _ComposeButton();
+  const _ComposeButton({required this.onPressed});
+
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -198,13 +232,13 @@ class _ComposeButton extends StatelessWidget {
           color: AppColors.primaryDeep,
           elevation: 3,
           shadowColor: AppColors.brandShadow,
-          borderRadius: AppRadii.medium,
+          borderRadius: AppRadii.pill,
           clipBehavior: Clip.antiAlias,
           child: Semantics(
             button: true,
             label: 'Crear publicación',
             child: InkWell(
-              onTap: () => context.push(AppRoutes.create),
+              onTap: onPressed,
               excludeFromSemantics: true,
               splashFactory: NoSplash.splashFactory,
               highlightColor: Colors.white.withValues(alpha: 0.16),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/widgets/create_sheet_widget.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/auth/presentation/pages/auth_pages.dart';
 import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
@@ -12,13 +13,6 @@ import 'package:nexo_social/features/subscriptions/presentation/pages/subscripti
 
 import '../support/app_harness.dart';
 
-/// Ninguna pantalla desborda en el teléfono más angosto que soportamos.
-///
-/// Un overflow de RenderFlex **no rompe la app**: pinta la banda amarilla en
-/// debug y en release simplemente recorta, en silencio. Lo que se recorta es
-/// siempre lo último de la fila, que en este diseño suele ser la insignia de
-/// "en vivo" o el botón de acción — o sea, justo el dato por el que existe la
-/// fila. Ya pasó una vez, en la tarjeta destacada del feed.
 void main() {
   /// 320×640: iPhone SE de primera generación, el piso razonable.
   const smallPhone = Size(320, 640);
@@ -75,6 +69,11 @@ void main() {
 
   testWidgets('el compositor no desborda', (tester) async {
     await expectNoOverflow(tester, const CreatePostPage());
+  });
+
+  // "Transmitir en Vivo" y su insignia no entran en una fila a 320.
+  testWidgets('el menú de crear no desborda', (tester) async {
+    await expectNoOverflow(tester, const CreateSheetWidget());
   });
 
   testWidgets('el onboarding no desborda', (tester) async {
