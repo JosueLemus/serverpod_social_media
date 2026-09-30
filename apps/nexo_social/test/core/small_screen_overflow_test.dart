@@ -6,6 +6,7 @@ import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/auth/presentation/pages/auth_pages.dart';
 import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
 import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
+import 'package:nexo_social/features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import 'package:nexo_social/features/notifications/presentation/pages/activity_page.dart';
 import 'package:nexo_social/features/posts/presentation/pages/create_post_page.dart';
 import 'package:nexo_social/features/profile/presentation/pages/profile_page.dart';
@@ -69,6 +70,10 @@ void main() {
 
   testWidgets('el compositor no desborda', (tester) async {
     await expectNoOverflow(tester, const CreatePostPage());
+  });
+
+  testWidgets('programar show no desborda', (tester) async {
+    await expectNoOverflow(tester, const ScheduleShowPage());
   });
 
   // "Transmitir en Vivo" y su insignia no entran en una fila a 320.

@@ -13,6 +13,7 @@ import '../../features/admin/presentation/pages/account_detail_page.dart';
 import '../../features/admin/presentation/pages/admin_console_page.dart';
 import '../../features/feed/presentation/pages/feed_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
+import '../../features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import '../../features/live/presentation/pages/creator_studio_page.dart';
 import '../../features/live/presentation/pages/live_room_page.dart';
 import '../../features/moderation/presentation/pages/moderation_page.dart';
@@ -68,6 +69,11 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
       path: AppRoutes.create,
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const CreatePostPage(),
+    ),
+    GoRoute(
+      path: AppRoutes.scheduleShow,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const ScheduleShowPage(),
     ),
     GoRoute(
       path: AppRoutes.premium,

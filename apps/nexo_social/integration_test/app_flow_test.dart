@@ -77,6 +77,8 @@ void main() {
     // así que se busca por su semántica.
     await tester.tap(find.bySemanticsLabel('Crear publicación'));
     await settle(tester);
+    await tester.tap(find.byKey(const Key('create-option-post')));
+    await settle(tester);
 
     await tester.enterText(
       find.byKey(const Key('create-post-field')),
@@ -132,9 +134,12 @@ void main() {
     // Browsing is public.
     expect(find.text('Para ti'), findsWidgets);
 
-    // Composing is not: the guard bounces a visitor back to the wall that
-    // lets them upgrade.
+    // Composing is not. The visitor still sees what they could create; the
+    // guard bounces them to the wall that lets them upgrade once they pick.
     await tester.tap(find.bySemanticsLabel('Crear publicación'));
+    await settle(tester);
+    expect(find.text('¿Qué deseas crear?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('create-option-post')));
     await settle(tester);
     expect(find.byKey(const Key('create-post-field')), findsNothing);
     expect(find.text('Encuentra tu comunidad.'), findsOneWidget);

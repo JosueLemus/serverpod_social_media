@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/di/injection.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/app_tokens.dart';
+import '../../features/auth/domain/entities/app_user.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/explore/presentation/bloc/explore_cubit.dart';
 import '../../features/explore/presentation/widgets/discovery_sections.dart';
@@ -32,10 +33,6 @@ class AppShell extends StatelessWidget {
   /// Switches branch, and taps on the branch you are already in pop that
   /// branch back to its root — the standard tab-bar gesture, and the only way
   /// out of a deep stack without hunting for the back button.
-  ///
-  /// Cierra antes cualquier hoja abierta en el branch actual: la barra queda
-  /// tocable debajo del menú de crear, y sin esto la hoja se quedaría
-  /// escondida en el branch de origen y reaparecería al volver.
   void _select(int branch) {
     _currentBranchNavigator.currentState?.popUntil(
       (route) => route is! PopupRoute,
@@ -49,18 +46,26 @@ class AppShell extends StatelessWidget {
   GlobalKey<NavigatorState> get _currentBranchNavigator =>
       navigationShell.route.branches[navigationShell.currentIndex].navigatorKey;
 
-  /// Abre el menú de crear en el Navigator del branch activo, no en el raíz.
-  ///
-  /// El botón vive en el `bottomNavigationBar`, así que su Navigator más
-  /// cercano es el raíz y una hoja abierta desde ahí tapa el shell entero.
-  /// El del branch está dentro del `body`: la hoja y su velo terminan justo
-  /// encima de la barra.
-  void _openCreate() {
+  Future<void> _openCreate(BuildContext context) async {
     final branchContext = _currentBranchNavigator.currentContext;
     if (branchContext == null) return;
-    // Fase 1: sólo la hoja. A dónde lleva cada opción se cablea en la fase 2;
-    // por ahora la elección se descarta.
-    unawaited(showCreateSheet(branchContext));
+    final option = await showCreateSheet(branchContext);
+    if (option == null || !context.mounted) return;
+    switch (option) {
+      case CreateOption.post:
+        unawaited(context.push(AppRoutes.create));
+      case CreateOption.goLive:
+        final auth = context.read<AuthCubit>().state;
+        final isVisitor =
+            auth is AuthAuthenticated && auth.user.role == UserRole.visitor;
+        if (isVisitor) {
+          unawaited(context.push(AppRoutes.studio));
+        } else {
+          context.go(AppRoutes.studio);
+        }
+      case CreateOption.scheduleShow:
+        unawaited(context.push(AppRoutes.scheduleShow));
+    }
   }
 
   @override
@@ -83,7 +88,7 @@ class AppShell extends StatelessWidget {
           ? _ShellBottomBar(
               currentBranch: navigationShell.currentIndex,
               onSelected: _select,
-              onCompose: _openCreate,
+              onCompose: () => unawaited(_openCreate(context)),
             )
           : null,
     );

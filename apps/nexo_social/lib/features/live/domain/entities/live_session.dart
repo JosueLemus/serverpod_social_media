@@ -24,6 +24,12 @@ class LiveSession extends Equatable {
     this.viewers = 0,
     this.isPremium = false,
     this.endedByModeration = false,
+    this.description = '',
+    this.scheduledAt,
+    this.durationMinutes,
+    this.cohostIds = const [],
+    this.allowQuestions = true,
+    this.recordReplay = true,
   });
   final String id;
   final String title;
@@ -36,6 +42,17 @@ class LiveSession extends Equatable {
   /// Lo terminó el equipo de Nexo y no el host. La sala lo dice: un vivo que
   /// se corta sin explicación se lee como una falla técnica.
   final bool endedByModeration;
+
+  final String description;
+
+  final DateTime? scheduledAt;
+
+  final int? durationMinutes;
+
+  final List<String> cohostIds;
+
+  final bool allowQuestions;
+  final bool recordReplay;
 
   LiveSession copyWith({
     LiveStatus? status,
@@ -50,6 +67,12 @@ class LiveSession extends Equatable {
     viewers: viewers ?? this.viewers,
     isPremium: isPremium,
     endedByModeration: endedByModeration ?? this.endedByModeration,
+    description: description,
+    scheduledAt: scheduledAt,
+    durationMinutes: durationMinutes,
+    cohostIds: cohostIds,
+    allowQuestions: allowQuestions,
+    recordReplay: recordReplay,
   );
   @override
   List<Object?> get props => [
@@ -61,5 +84,11 @@ class LiveSession extends Equatable {
     viewers,
     isPremium,
     endedByModeration,
+    description,
+    scheduledAt,
+    durationMinutes,
+    cohostIds,
+    allowQuestions,
+    recordReplay,
   ];
 }

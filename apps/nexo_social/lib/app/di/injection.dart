@@ -28,6 +28,11 @@ import '../../features/explore/domain/repositories/discovery_repository.dart';
 import '../../features/live/data/repositories/mock_live_repository.dart';
 import '../../features/live/domain/repositories/live_repository.dart';
 import '../../features/live/presentation/bloc/live_list_cubit.dart';
+import '../../features/live/presentation/children/schedule_show/data/datasources/show_draft_local_data_source.dart';
+import '../../features/live/presentation/children/schedule_show/data/repositories/mock_show_schedule_repository.dart';
+import '../../features/live/presentation/children/schedule_show/domain/repositories/show_schedule_repository.dart';
+import '../../features/live/presentation/children/schedule_show/domain/usecases/schedule_show.dart';
+import '../../features/live/presentation/children/schedule_show/presentation/bloc/schedule_show_cubit.dart';
 import '../../features/moderation/data/repositories/mock_moderation_repository.dart';
 import '../../features/moderation/domain/repositories/moderation_repository.dart';
 import '../../features/moderation/presentation/bloc/moderation_cubit.dart';
@@ -130,6 +135,11 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
   sl.registerLazySingleton<LiveRepository>(() => MockLiveRepository(sl()));
   sl.registerFactory(() => LiveListCubit(sl()));
+  sl.registerLazySingleton<ShowScheduleRepository>(
+    () => MockShowScheduleRepository(sl(), ShowDraftLocalDataSource(sl())),
+  );
+  sl.registerLazySingleton(() => ScheduleShow(sl()));
+  sl.registerFactory(() => ScheduleShowCubit(sl(), sl()));
   sl.registerLazySingleton<DiscoveryRepository>(MockDiscoveryRepository.new);
   sl.registerLazySingleton<ModerationRepository>(
     () => MockModerationRepository(sl()),

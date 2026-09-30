@@ -44,6 +44,10 @@ abstract final class AppRoutes {
   static const suspended = '/suspended';
 
   static const create = '/create';
+
+  /// Agendar un show. Ruta raíz empujada sobre el shell, como el compositor:
+  /// se llega desde el menú de crear, que es una acción y no una pestaña.
+  static const scheduleShow = '/schedule-show';
   static const premium = '/premium';
   static const settings = '/settings';
 
@@ -68,6 +72,7 @@ abstract final class AppRoutes {
   /// público; todo lo que escribe, cobra o modera necesita una cuenta real.
   static const authenticatedOnly = <String>{
     create,
+    scheduleShow,
     studio,
     moderation,
     admin,

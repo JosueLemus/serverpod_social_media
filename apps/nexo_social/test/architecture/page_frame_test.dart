@@ -22,6 +22,9 @@ void main() {
         'sesión revocada: fuera del shell, no hay a dónde navegar',
     'lib/features/posts/presentation/pages/create_post_page.dart':
         'compositor a pantalla completa, empujado sobre el shell',
+    'lib/features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart':
+        'agendar un show es una tarea a pantalla completa, empujada sobre el '
+        'shell como el compositor',
     'lib/features/subscriptions/presentation/pages/subscription_page.dart':
         'paywall empujado sobre el shell',
     'lib/features/profile/presentation/pages/profile_page.dart':

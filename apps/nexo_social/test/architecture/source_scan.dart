@@ -9,9 +9,19 @@ class SourceFile {
   final String path;
   final String contents;
 
-  bool get isDomain => path.contains('/domain/');
-  bool get isData => path.contains('/data/');
-  bool get isPresentation => path.contains('/presentation/');
+  bool get isDomain => _layer == 'domain';
+  bool get isData => _layer == 'data';
+  bool get isPresentation => _layer == 'presentation';
+
+  late final String? _layer = () {
+    String? layer;
+    for (final segment in path.split('/')) {
+      if (segment == 'domain' || segment == 'data' || segment == 'presentation') {
+        layer = segment;
+      }
+    }
+    return layer;
+  }();
 
   /// Contents with `//` comments and doc comments stripped.
   ///

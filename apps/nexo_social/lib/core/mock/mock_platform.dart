@@ -165,6 +165,72 @@ class MockPlatform {
     return updated;
   }
 
+  // TODO: max set with dependency of backend when are available
+  static const maxCohosts = 3;
+
+  LiveSession scheduleShow({
+    required String title,
+    required String description,
+    required DateTime startsAt,
+    required int durationMinutes,
+    required bool isPremium,
+    required List<String> cohostIds,
+    required bool allowQuestions,
+    required bool recordReplay,
+  }) {
+    final actor = _requireActor();
+    if (!actor.isCreator || !actor.isVerified) {
+      throw const CreatorNotVerifiedFailure('live.schedule');
+    }
+    if (title.trim().isEmpty) {
+      throw const ConflictFailure('live.schedule: empty title');
+    }
+    if (!startsAt.isAfter(_now())) {
+      throw const ConflictFailure('live.schedule: starts in the past');
+    }
+    if (cohostIds.length > maxCohosts) {
+      throw const ConflictFailure('live.schedule: too many cohosts');
+    }
+    for (final id in cohostIds) {
+      if (id == actor.id) {
+        throw const ConflictFailure('live.schedule: host as cohost');
+      }
+      if (!_accounts.containsKey(id)) throw const NotFoundFailure('cohost');
+    }
+
+    final session = LiveSession(
+      id: _id('live'),
+      title: title.trim(),
+      hostId: actor.id,
+      hostName: actor.name,
+      status: LiveStatus.scheduled,
+      isPremium: isPremium,
+      description: description.trim(),
+      scheduledAt: startsAt,
+      durationMinutes: durationMinutes,
+      cohostIds: List.unmodifiable(cohostIds),
+      allowQuestions: allowQuestions,
+      recordReplay: recordReplay,
+    );
+    _commit(() => _lives[session.id] = session);
+    return session;
+  }
+
+  AppUser invitableAccount(String username) {
+    final actor = _requireActor();
+    final needle = _withoutHandlePrefix(username);
+    for (final account in _accounts.values) {
+      final user = account.user;
+      if (user.username.toLowerCase() != needle) continue;
+      if (user.id == actor.id) {
+        throw const ConflictFailure('cohost: host as cohost');
+      }
+      if (!user.isActive) throw const ForbiddenFailure('cohost: inactive');
+      return user;
+    }
+    throw const NotFoundFailure('account');
+  }
+
   List<LiveComment> comments(String liveId) => [
     for (final record in _comments)
       if (record.liveId == liveId && record.hiddenAt == null)
@@ -1022,6 +1088,12 @@ class MockPlatform {
     'viewers': session.viewers,
     'isPremium': session.isPremium,
     'endedByModeration': session.endedByModeration,
+    'description': session.description,
+    'scheduledAt': session.scheduledAt?.toIso8601String(),
+    'durationMinutes': session.durationMinutes,
+    'cohostIds': session.cohostIds,
+    'allowQuestions': session.allowQuestions,
+    'recordReplay': session.recordReplay,
   };
 
   static LiveSession _liveFromJson(Map<String, dynamic> json) => LiveSession(
@@ -1033,6 +1105,12 @@ class MockPlatform {
     viewers: json['viewers'] as int,
     isPremium: json['isPremium'] as bool,
     endedByModeration: json['endedByModeration'] as bool,
+    description: json['description'] as String? ?? '',
+    scheduledAt: _date(json['scheduledAt']),
+    durationMinutes: json['durationMinutes'] as int?,
+    cohostIds: (json['cohostIds'] as List<dynamic>? ?? const []).cast<String>(),
+    allowQuestions: json['allowQuestions'] as bool? ?? true,
+    recordReplay: json['recordReplay'] as bool? ?? true,
   );
 }
 

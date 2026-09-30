@@ -190,6 +190,7 @@ void main() {
       for (final location in [
         AppRoutes.feed,
         AppRoutes.create,
+        AppRoutes.scheduleShow,
         AppRoutes.studio,
         AppRoutes.premium,
         AppRoutes.settings,
@@ -269,6 +270,7 @@ void main() {
         AppRoutes.activity,
         AppRoutes.profile,
         AppRoutes.create,
+        AppRoutes.scheduleShow,
         AppRoutes.studio,
         AppRoutes.moderation,
         AppRoutes.admin,

@@ -21,7 +21,9 @@ abstract final class Environment {
   /// demo opt into mock explicitly, never as a network-failure fallback.
   static const authSource = String.fromEnvironment(
     'AUTH_SOURCE',
-    defaultValue: 'serverpod',
+    // TEMPORAL: 'mock' para validar Programar Show sin servidor. El default
+    // real es 'serverpod' — revertir antes de commitear.
+    defaultValue: 'mock',
   );
   static AuthSourceMode get authSourceMode =>
       authSource == 'mock' ? AuthSourceMode.mock : AuthSourceMode.serverpod;

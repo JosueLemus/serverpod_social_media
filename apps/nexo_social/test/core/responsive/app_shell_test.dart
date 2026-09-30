@@ -179,16 +179,115 @@ void main() {
       expect(restored, scrolledTo);
     });
 
-    testWidgets('compose is pushed over the shell, not a tab', (tester) async {
+    testWidgets('compose opens the create menu above the tab bar', (
+      tester,
+    ) async {
       await pumpShell(tester, const Size(390, 900));
 
       await tester.tap(find.bySemanticsLabel('Crear publicación'));
+      await AppHarness.settle(tester);
+
+      expect(find.text('¿Qué deseas crear?'), findsOneWidget);
+      // La hoja vive en el Navigator del branch, así que la barra sigue a la
+      // vista debajo.
+      expect(find.text('Actividad'), findsOneWidget);
+    });
+
+    testWidgets('a post is pushed over the shell, not a tab', (tester) async {
+      await pumpShell(tester, const Size(390, 900));
+
+      await tester.tap(find.bySemanticsLabel('Crear publicación'));
+      await AppHarness.settle(tester);
+      await tester.tap(find.byKey(const Key('create-option-post')));
       await AppHarness.settle(tester);
 
       expect(find.byKey(const Key('create-post-field')), findsOneWidget);
       // Pushed full screen: the tab bar is covered, so the user cannot wander
       // off mid-draft.
       expect(find.text('Actividad'), findsNothing);
+    });
+
+    testWidgets('scheduling a show opens its page over the shell', (
+      tester,
+    ) async {
+      await pumpShell(tester, const Size(390, 900));
+
+      await tester.tap(find.bySemanticsLabel('Crear publicación'));
+      await AppHarness.settle(tester);
+      await tester.tap(find.byKey(const Key('create-option-scheduleShow')));
+      await AppHarness.settle(tester);
+
+      expect(find.byKey(const Key('schedule-title-field')), findsOneWidget);
+      expect(find.text('Actividad'), findsNothing);
+
+      // Volver deja al usuario en la pestaña de la que salió.
+      await tester.tap(find.byKey(const Key('schedule-back')));
+      await AppHarness.settle(tester);
+      expect(find.text('Para ti'), findsWidgets);
+    });
+
+    testWidgets('closing the menu navigates nowhere', (tester) async {
+      await pumpShell(tester, const Size(390, 900));
+
+      await tester.tap(find.bySemanticsLabel('Crear publicación'));
+      await AppHarness.settle(tester);
+      await tester.tap(find.byKey(const Key('create-sheet-close')));
+      await AppHarness.settle(tester);
+
+      expect(find.text('¿Qué deseas crear?'), findsNothing);
+      expect(find.byKey(const Key('create-post-field')), findsNothing);
+      expect(find.text('Para ti'), findsWidgets);
+    });
+
+    group('as a visitor', () {
+      setUp(() => sl<AuthCubit>().guest());
+
+      testWidgets('sees the menu, and picking bounces to the wall', (
+        tester,
+      ) async {
+        await pumpShell(tester, const Size(390, 900));
+
+        await tester.tap(find.bySemanticsLabel('Crear publicación'));
+        await AppHarness.settle(tester);
+        expect(find.text('¿Qué deseas crear?'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('create-option-scheduleShow')));
+        await AppHarness.settle(tester);
+        expect(find.byKey(const Key('schedule-title-field')), findsNothing);
+        expect(find.text('Encuentra tu comunidad.'), findsOneWidget);
+      });
+
+      // Regression: `go` a Studio rebotado por la guarda reemplazaba el shell
+      // entero, y el login quedaba sin nada debajo a lo que volver.
+      testWidgets('going live bounces over the shell, not instead of it', (
+        tester,
+      ) async {
+        await pumpShell(tester, const Size(390, 900));
+
+        await tester.tap(find.bySemanticsLabel('Crear publicación'));
+        await AppHarness.settle(tester);
+        await tester.tap(find.byKey(const Key('create-option-goLive')));
+        await AppHarness.settle(tester);
+        expect(find.text('Encuentra tu comunidad.'), findsOneWidget);
+
+        final navigator = tester.state<NavigatorState>(
+          find.byType(Navigator).first,
+        );
+        expect(navigator.canPop(), isTrue);
+      });
+    });
+
+    testWidgets('switching tabs closes the menu', (tester) async {
+      await pumpShell(tester, const Size(390, 900));
+
+      await tester.tap(find.bySemanticsLabel('Crear publicación'));
+      await AppHarness.settle(tester);
+      await tester.tap(find.text('Actividad'));
+      await AppHarness.settle(tester);
+      await tester.tap(find.text('Inicio'));
+      await AppHarness.settle(tester);
+
+      expect(find.text('¿Qué deseas crear?'), findsNothing);
     });
   });
 }
