@@ -1,0 +1,6 @@
+class: PostLiker
+fields:
+  userId: UuidValue
+  username: String?
+  name: String?
+  likedAt: DateTime

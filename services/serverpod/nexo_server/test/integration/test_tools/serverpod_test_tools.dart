@@ -13,6 +13,36 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
+import 'package:nexo_server/src/generated/modules/content/models/media_upload_ticket.dart'
+    as _ipladaxb;
+import 'package:nexo_server/src/generated/modules/content/models/post_draft.dart'
+    as _icfvomj1;
+import 'package:nexo_server/src/generated/modules/content/models/post_edit.dart'
+    as _i79bwqkw;
+import 'package:nexo_server/src/generated/modules/content/models/post_media_kind.dart'
+    as _iwuw8bb0;
+import 'package:nexo_server/src/generated/modules/content/models/post_page.dart'
+    as _iv0no0cn;
+import 'package:nexo_server/src/generated/modules/content/models/post_view.dart'
+    as _ixuk06b6;
+import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
+    as _ixmgs13r;
+import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
+    as _i9lv11ja;
+import 'package:nexo_server/src/generated/modules/moderation/models/report_queue_item.dart'
+    as _im11zuld;
+import 'package:nexo_server/src/generated/modules/moderation/models/report_target_type.dart'
+    as _ixsrdbzg;
+import 'package:nexo_server/src/generated/modules/social/models/like_state.dart'
+    as _ir5izcmv;
+import 'package:nexo_server/src/generated/modules/social/models/post_comment_page.dart'
+    as _ib5qbq14;
+import 'package:nexo_server/src/generated/modules/social/models/post_comment_view.dart'
+    as _i32zlpnj;
+import 'package:nexo_server/src/generated/modules/social/models/post_liker_page.dart'
+    as _i3fbswu2;
+import 'package:nexo_server/src/generated/shared/pagination/page_cursor.dart'
+    as _iwd7ajf0;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
@@ -154,6 +184,14 @@ class TestEndpoints {
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
+  late final _PostsEndpoint posts;
+
+  late final _ModerationEndpoint moderation;
+
+  late final _CommentsEndpoint comments;
+
+  late final _LikesEndpoint likes;
+
   late final _HealthEndpoint health;
 }
 
@@ -169,6 +207,22 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    posts = _PostsEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    moderation = _ModerationEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    comments = _CommentsEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    likes = _LikesEndpoint(
       endpoints,
       serializationManager,
     );
@@ -489,6 +543,594 @@ class _JwtRefreshEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _PostsEndpoint {
+  _PostsEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_iv0no0cn.PostPage> feed(
+    _ist.TestSessionBuilder sessionBuilder, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'feed',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'feed',
+          parameters: _ist.testObjectToJson({
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iv0no0cn.PostPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iv0no0cn.PostPage> byAuthor(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue authorId, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'byAuthor',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'byAuthor',
+          parameters: _ist.testObjectToJson({
+            'authorId': authorId,
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iv0no0cn.PostPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ixuk06b6.PostView> get(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'get',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'get',
+          parameters: _ist.testObjectToJson({'postId': postId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ixuk06b6.PostView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ipladaxb.MediaUploadTicket> requestMediaUpload(
+    _ist.TestSessionBuilder sessionBuilder, {
+    required _iwuw8bb0.PostMediaKind kind,
+    required String contentType,
+    required int sizeBytes,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'requestMediaUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'requestMediaUpload',
+          parameters: _ist.testObjectToJson({
+            'kind': kind,
+            'contentType': contentType,
+            'sizeBytes': sizeBytes,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ipladaxb.MediaUploadTicket>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ixuk06b6.PostView> create(
+    _ist.TestSessionBuilder sessionBuilder,
+    _icfvomj1.PostDraft draft,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'create',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'create',
+          parameters: _ist.testObjectToJson({'draft': draft}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ixuk06b6.PostView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ixuk06b6.PostView> update(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+    _i79bwqkw.PostEdit edit,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'update',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'update',
+          parameters: _ist.testObjectToJson({
+            'postId': postId,
+            'edit': edit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ixuk06b6.PostView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> delete(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'posts',
+            method: 'delete',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'posts',
+          methodName: 'delete',
+          parameters: _ist.testObjectToJson({'postId': postId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _ModerationEndpoint {
+  _ModerationEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<void> report(
+    _ist.TestSessionBuilder sessionBuilder, {
+    required _ixsrdbzg.ReportTargetType targetType,
+    required int targetId,
+    required _ixmgs13r.ModerationReason reason,
+    String? details,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'moderation',
+            method: 'report',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'moderation',
+          methodName: 'report',
+          parameters: _ist.testObjectToJson({
+            'targetType': targetType,
+            'targetId': targetId,
+            'reason': reason,
+            'details': details,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_im11zuld.ReportQueueItem>> queue(
+    _ist.TestSessionBuilder sessionBuilder, {
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'moderation',
+            method: 'queue',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'moderation',
+          methodName: 'queue',
+          parameters: _ist.testObjectToJson({'limit': limit}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_im11zuld.ReportQueueItem>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> resolve(
+    _ist.TestSessionBuilder sessionBuilder,
+    int reportId,
+    _i9lv11ja.ReportDecision decision,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'moderation',
+            method: 'resolve',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'moderation',
+          methodName: 'resolve',
+          parameters: _ist.testObjectToJson({
+            'reportId': reportId,
+            'decision': decision,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _CommentsEndpoint {
+  _CommentsEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ib5qbq14.PostCommentPage> list(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'comments',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'comments',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({
+            'postId': postId,
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ib5qbq14.PostCommentPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i32zlpnj.PostCommentView> create(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+    String body,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'comments',
+            method: 'create',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'comments',
+          methodName: 'create',
+          parameters: _ist.testObjectToJson({
+            'postId': postId,
+            'body': body,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i32zlpnj.PostCommentView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> delete(
+    _ist.TestSessionBuilder sessionBuilder,
+    int commentId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'comments',
+            method: 'delete',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'comments',
+          methodName: 'delete',
+          parameters: _ist.testObjectToJson({'commentId': commentId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _LikesEndpoint {
+  _LikesEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ir5izcmv.LikeState> like(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'likes',
+            method: 'like',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'likes',
+          methodName: 'like',
+          parameters: _ist.testObjectToJson({'postId': postId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ir5izcmv.LikeState>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ir5izcmv.LikeState> unlike(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'likes',
+            method: 'unlike',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'likes',
+          methodName: 'unlike',
+          parameters: _ist.testObjectToJson({'postId': postId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ir5izcmv.LikeState>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i3fbswu2.PostLikerPage> likers(
+    _ist.TestSessionBuilder sessionBuilder,
+    int postId, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'likes',
+            method: 'likers',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'likes',
+          methodName: 'likers',
+          parameters: _ist.testObjectToJson({
+            'postId': postId,
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i3fbswu2.PostLikerPage>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

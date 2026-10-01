@@ -1,0 +1,21 @@
+### Un post tal como lo ve quien lo pide. [canEdit] y [canDelete] los decide
+### el servidor: el cliente no ofrece una acción que se va a rechazar.
+class: PostView
+fields:
+  id: int
+  authorId: UuidValue
+  authorUsername: String?
+  authorName: String?
+  body: String
+  tags: List<String>
+  visibility: PostVisibility
+  allowComments: bool
+  likeCount: int
+  ### Si quien pide ya dio like. Siempre `false` para un invitado.
+  isLiked: bool, default=false
+  commentCount: int
+  media: List<PostMediaView>
+  createdAt: DateTime
+  editedAt: DateTime?
+  canEdit: bool
+  canDelete: bool

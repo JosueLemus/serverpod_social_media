@@ -1,0 +1,5 @@
+### Una página del feed. [nextCursor] es `null` cuando no hay más.
+class: PostPage
+fields:
+  items: List<PostView>
+  nextCursor: PageCursor?

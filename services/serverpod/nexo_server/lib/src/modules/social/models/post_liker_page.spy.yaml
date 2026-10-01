@@ -1,0 +1,5 @@
+### Quién dio like, del más reciente al más viejo.
+class: PostLikerPage
+fields:
+  items: List<PostLiker>
+  nextCursor: PageCursor?

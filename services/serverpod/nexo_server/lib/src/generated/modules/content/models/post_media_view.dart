@@ -1,0 +1,106 @@
+/* AUTOMATICALLY GENERATED CODE DO NOT MODIFY */
+/*   To generate run: "serverpod generate"    */
+
+// ignore_for_file: implementation_imports
+// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: public_member_api_docs
+// ignore_for_file: type_literal_in_constant_pattern
+// ignore_for_file: use_super_parameters
+// ignore_for_file: invalid_use_of_internal_member
+
+// ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:serverpod/serverpod.dart' as _is;
+import '../../../modules/content/models/post_media_kind.dart' as _ib68txho;
+
+abstract class PostMediaView
+    implements _is.SerializableModel, _is.ProtocolSerialization {
+  PostMediaView._({
+    required this.kind,
+    required this.url,
+    required this.contentType,
+  });
+
+  factory PostMediaView({
+    required _ib68txho.PostMediaKind kind,
+    required Uri url,
+    required String contentType,
+  }) = _PostMediaViewImpl;
+
+  factory PostMediaView.fromJson(Map<String, dynamic> jsonSerialization) {
+    return PostMediaView(
+      kind: _ib68txho.PostMediaKind.fromJson(
+        (jsonSerialization['kind'] as String),
+      ),
+      url: _is.UriJsonExtension.fromJson(jsonSerialization['url']),
+      contentType: jsonSerialization['contentType'] as String,
+    );
+  }
+
+  _ib68txho.PostMediaKind kind;
+
+  Uri url;
+
+  String contentType;
+
+  /// Returns a shallow copy of this [PostMediaView]
+  /// with some or all fields replaced by the given arguments.
+  @_is.useResult
+  PostMediaView copyWith({
+    _ib68txho.PostMediaKind? kind,
+    Uri? url,
+    String? contentType,
+  });
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'PostMediaView',
+      'kind': kind.toJson(),
+      'url': url.toJson(),
+      'contentType': contentType,
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'PostMediaView',
+      'kind': kind.toJson(),
+      'url': url.toJson(),
+      'contentType': contentType,
+    };
+  }
+
+  @override
+  String toString() {
+    return _is.SerializationManager.encode(this);
+  }
+}
+
+class _PostMediaViewImpl extends PostMediaView {
+  _PostMediaViewImpl({
+    required _ib68txho.PostMediaKind kind,
+    required Uri url,
+    required String contentType,
+  }) : super._(
+         kind: kind,
+         url: url,
+         contentType: contentType,
+       );
+
+  /// Returns a shallow copy of this [PostMediaView]
+  /// with some or all fields replaced by the given arguments.
+  @_is.useResult
+  @override
+  PostMediaView copyWith({
+    _ib68txho.PostMediaKind? kind,
+    Uri? url,
+    String? contentType,
+  }) {
+    return PostMediaView(
+      kind: kind ?? this.kind,
+      url: url ?? this.url,
+      contentType: contentType ?? this.contentType,
+    );
+  }
+}

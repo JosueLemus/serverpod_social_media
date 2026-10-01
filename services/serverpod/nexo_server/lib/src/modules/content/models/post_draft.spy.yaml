@@ -1,0 +1,10 @@
+### Lo que el cliente envía para publicar. [mediaKeys] son las claves que
+### devolvió `posts.requestMediaUpload`, ya subidas, en el orden de la galería
+### (lista vacía si el post es solo texto).
+class: PostDraft
+fields:
+  body: String
+  tags: List<String>
+  visibility: PostVisibility, default=public
+  allowComments: bool, default=true
+  mediaKeys: List<String>

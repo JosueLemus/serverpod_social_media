@@ -10,6 +10,20 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:nexo_server/src/generated/modules/content/models/post_draft.dart'
+    as _icfvomj1;
+import 'package:nexo_server/src/generated/modules/content/models/post_edit.dart'
+    as _i79bwqkw;
+import 'package:nexo_server/src/generated/modules/content/models/post_media_kind.dart'
+    as _iwuw8bb0;
+import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
+    as _ixmgs13r;
+import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
+    as _i9lv11ja;
+import 'package:nexo_server/src/generated/modules/moderation/models/report_target_type.dart'
+    as _ixsrdbzg;
+import 'package:nexo_server/src/generated/shared/pagination/page_cursor.dart'
+    as _iwd7ajf0;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
@@ -17,6 +31,10 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../modules/content/endpoints/posts_endpoint.dart' as _i14rwr4t;
+import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
+import '../modules/social/endpoints/comments_endpoint.dart' as _iiig3ywm;
+import '../modules/social/endpoints/likes_endpoint.dart' as _ippoapkl;
 import '../shared/health/health_endpoint.dart' as _ill7uqua;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -33,6 +51,30 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'posts': _i14rwr4t.PostsEndpoint()
+        ..initialize(
+          server,
+          'posts',
+          null,
+        ),
+      'moderation': _ityzuh2k.ModerationEndpoint()
+        ..initialize(
+          server,
+          'moderation',
+          null,
+        ),
+      'comments': _iiig3ywm.CommentsEndpoint()
+        ..initialize(
+          server,
+          'comments',
+          null,
+        ),
+      'likes': _ippoapkl.LikesEndpoint()
+        ..initialize(
+          server,
+          'likes',
           null,
         ),
       'health': _ill7uqua.HealthEndpoint()
@@ -245,6 +287,419 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['posts'] = _is.EndpointConnector(
+      name: 'posts',
+      endpoint: endpoints['posts']!,
+      methodConnectors: {
+        'feed': _is.MethodConnector(
+          name: 'feed',
+          params: {
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint).feed(
+                session,
+                after: params['after'],
+                limit: params['limit'],
+              ),
+        ),
+        'byAuthor': _is.MethodConnector(
+          name: 'byAuthor',
+          params: {
+            'authorId': _is.ParameterDescription(
+              name: 'authorId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['posts'] as _i14rwr4t.PostsEndpoint).byAuthor(
+                    session,
+                    params['authorId'],
+                    after: params['after'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint).get(
+                session,
+                params['postId'],
+              ),
+        ),
+        'requestMediaUpload': _is.MethodConnector(
+          name: 'requestMediaUpload',
+          params: {
+            'kind': _is.ParameterDescription(
+              name: 'kind',
+              type: _is.getType<_iwuw8bb0.PostMediaKind>(),
+              nullable: false,
+            ),
+            'contentType': _is.ParameterDescription(
+              name: 'contentType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'sizeBytes': _is.ParameterDescription(
+              name: 'sizeBytes',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint)
+                  .requestMediaUpload(
+                    session,
+                    kind: params['kind'],
+                    contentType: params['contentType'],
+                    sizeBytes: params['sizeBytes'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'draft': _is.ParameterDescription(
+              name: 'draft',
+              type: _is.getType<_icfvomj1.PostDraft>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint).create(
+                session,
+                params['draft'],
+              ),
+        ),
+        'update': _is.MethodConnector(
+          name: 'update',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'edit': _is.ParameterDescription(
+              name: 'edit',
+              type: _is.getType<_i79bwqkw.PostEdit>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint).update(
+                session,
+                params['postId'],
+                params['edit'],
+              ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['posts'] as _i14rwr4t.PostsEndpoint).delete(
+                session,
+                params['postId'],
+              ),
+        ),
+      },
+    );
+    connectors['moderation'] = _is.EndpointConnector(
+      name: 'moderation',
+      endpoint: endpoints['moderation']!,
+      methodConnectors: {
+        'report': _is.MethodConnector(
+          name: 'report',
+          params: {
+            'targetType': _is.ParameterDescription(
+              name: 'targetType',
+              type: _is.getType<_ixsrdbzg.ReportTargetType>(),
+              nullable: false,
+            ),
+            'targetId': _is.ParameterDescription(
+              name: 'targetId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'reason': _is.ParameterDescription(
+              name: 'reason',
+              type: _is.getType<_ixmgs13r.ModerationReason>(),
+              nullable: false,
+            ),
+            'details': _is.ParameterDescription(
+              name: 'details',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['moderation'] as _ityzuh2k.ModerationEndpoint)
+                      .report(
+                        session,
+                        targetType: params['targetType'],
+                        targetId: params['targetId'],
+                        reason: params['reason'],
+                        details: params['details'],
+                      ),
+        ),
+        'queue': _is.MethodConnector(
+          name: 'queue',
+          params: {
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['moderation'] as _ityzuh2k.ModerationEndpoint)
+                      .queue(
+                        session,
+                        limit: params['limit'],
+                      ),
+        ),
+        'resolve': _is.MethodConnector(
+          name: 'resolve',
+          params: {
+            'reportId': _is.ParameterDescription(
+              name: 'reportId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'decision': _is.ParameterDescription(
+              name: 'decision',
+              type: _is.getType<_i9lv11ja.ReportDecision>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['moderation'] as _ityzuh2k.ModerationEndpoint)
+                      .resolve(
+                        session,
+                        params['reportId'],
+                        params['decision'],
+                      ),
+        ),
+      },
+    );
+    connectors['comments'] = _is.EndpointConnector(
+      name: 'comments',
+      endpoint: endpoints['comments']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['comments'] as _iiig3ywm.CommentsEndpoint).list(
+                    session,
+                    params['postId'],
+                    after: params['after'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['comments'] as _iiig3ywm.CommentsEndpoint).create(
+                    session,
+                    params['postId'],
+                    params['body'],
+                  ),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'commentId': _is.ParameterDescription(
+              name: 'commentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['comments'] as _iiig3ywm.CommentsEndpoint).delete(
+                    session,
+                    params['commentId'],
+                  ),
+        ),
+      },
+    );
+    connectors['likes'] = _is.EndpointConnector(
+      name: 'likes',
+      endpoint: endpoints['likes']!,
+      methodConnectors: {
+        'like': _is.MethodConnector(
+          name: 'like',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['likes'] as _ippoapkl.LikesEndpoint).like(
+                session,
+                params['postId'],
+              ),
+        ),
+        'unlike': _is.MethodConnector(
+          name: 'unlike',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['likes'] as _ippoapkl.LikesEndpoint).unlike(
+                session,
+                params['postId'],
+              ),
+        ),
+        'likers': _is.MethodConnector(
+          name: 'likers',
+          params: {
+            'postId': _is.ParameterDescription(
+              name: 'postId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['likes'] as _ippoapkl.LikesEndpoint).likers(
+                session,
+                params['postId'],
+                after: params['after'],
+                limit: params['limit'],
+              ),
         ),
       },
     );

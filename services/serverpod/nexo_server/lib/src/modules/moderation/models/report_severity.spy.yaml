@@ -1,0 +1,8 @@
+### La decide el servidor según el motivo, nunca quien reporta. Se guarda
+### por índice para que ordenar la cola sea ordenar un número.
+enum: ReportSeverity
+serialized: byIndex
+values:
+  - low
+  - medium
+  - high

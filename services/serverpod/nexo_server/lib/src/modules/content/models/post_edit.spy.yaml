@@ -1,0 +1,8 @@
+### Cambios a un post publicado. `null` deja el campo como está. Los adjuntos
+### no se editan.
+class: PostEdit
+fields:
+  body: String?
+  tags: List<String>?
+  visibility: PostVisibility?
+  allowComments: bool?

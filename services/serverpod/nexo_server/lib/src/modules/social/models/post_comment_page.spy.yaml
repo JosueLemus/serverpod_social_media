@@ -1,0 +1,6 @@
+### Comentarios de un post, del más viejo al más nuevo: se leen como una
+### conversación.
+class: PostCommentPage
+fields:
+  items: List<PostCommentView>
+  nextCursor: PageCursor?

@@ -1,0 +1,16 @@
+### Un like de un usuario a un post. Uno por usuario y post: dar like dos
+### veces no suma dos. Quitar el like borra la fila; no es contenido que haya
+### que conservar.
+class: PostLike
+table: post_like
+serverOnly: true
+fields:
+  postId: int, relation(parent=post, onDelete=Cascade)
+  userId: UuidValue
+  createdAt: DateTime, default=now
+indexes:
+  post_like_user_idx:
+    fields: postId, userId
+    unique: true
+  post_like_recent_idx:
+    fields: postId, createdAt

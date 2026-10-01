@@ -1,0 +1,6 @@
+### Cómo quedó el like tras dar o quitar: el contador ya incluye el cambio.
+class: LikeState
+fields:
+  postId: int
+  isLiked: bool
+  likeCount: int

@@ -10,6 +10,15 @@ Una carpeta por módulo: `identity`, `content`, `social`, `live`, `moderation`,
   endpoints/  # entrada fina: login, validación, delega en el service
 ```
 
+## Estado
+
+| Módulo | Estado | Diseño |
+|---|---|---|
+| `content` | Posts con fotos y videos: `client.posts` | [SDD 0002](../../../../../../docs/sdd/0002-modulo-content.md) |
+| `social` | Likes y comentarios: `client.likes`, `client.comments` | [SDD 0003](../../../../../../docs/sdd/0003-social-y-moderation.md) |
+| `moderation` | Reportes y cola: `client.moderation` | [SDD 0003](../../../../../../docs/sdd/0003-social-y-moderation.md) |
+| `identity`, `live`, `billing`, `notifications`, `ai` | Sin empezar | — |
+
 Para cada funcionalidad nueva:
 
 1. Crear o editar el modelo en `models/*.spy.yaml`.

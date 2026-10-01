@@ -1,0 +1,4 @@
+enum: PostMediaKind
+values:
+  - image
+  - video

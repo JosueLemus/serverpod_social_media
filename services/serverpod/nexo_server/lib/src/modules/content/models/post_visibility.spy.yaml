@@ -1,0 +1,8 @@
+### Quién puede ver un post. Mientras no existan los módulos `social` y
+### `billing`, `followers` y `members` solo los ve su autor: sin un grafo de
+### seguidores ni suscripciones, negar es lo único seguro.
+enum: PostVisibility
+values:
+  - public
+  - followers
+  - members

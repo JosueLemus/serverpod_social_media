@@ -1,0 +1,12 @@
+### [canDelete] es `true` para el autor del comentario, el autor del post y
+### el staff de moderación.
+class: PostCommentView
+fields:
+  id: int
+  postId: int
+  authorId: UuidValue
+  authorUsername: String?
+  authorName: String?
+  body: String
+  createdAt: DateTime
+  canDelete: bool

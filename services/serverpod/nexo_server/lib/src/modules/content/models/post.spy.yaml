@@ -1,0 +1,26 @@
+### Publicación del feed. Nunca se borra: eliminar pone `deletedAt` y
+### `deletedBy`, y la acción queda en la auditoría. El cliente recibe
+### [PostView], nunca esta fila.
+class: Post
+table: post
+serverOnly: true
+fields:
+  authorId: UuidValue
+  body: String
+  tags: List<String>
+  visibility: PostVisibility
+  allowComments: bool, default=true
+  ### Contadores desnormalizados. Los mantiene el módulo `social` en la misma
+  ### transacción que crea o borra el like o el comentario.
+  likeCount: int, default=0
+  commentCount: int, default=0
+  media: List<PostMedia>?, relation(name=post_media)
+  createdAt: DateTime, default=now
+  editedAt: DateTime?
+  deletedAt: DateTime?
+  deletedBy: UuidValue?
+indexes:
+  post_feed_idx:
+    fields: createdAt, id
+  post_author_idx:
+    fields: authorId, createdAt

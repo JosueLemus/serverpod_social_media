@@ -27,4 +27,20 @@ extension AuthContext on Session {
   }
 
   bool hasScope(Scope scope) => authenticated?.scopes.contains(scope) ?? false;
+
+  /// Moderador u operador: pueden actuar sobre contenido ajeno.
+  bool get isStaff =>
+      hasScope(NexoScopes.moderator) || hasScope(NexoScopes.admin);
+
+  /// Id del usuario si es [isStaff]; si no, lanza [NexoException].
+  UuidValue get requireStaff {
+    final id = requireUserId;
+    if (!isStaff) {
+      throw NexoException(
+        code: NexoErrorCode.forbidden,
+        message: 'Necesitas permisos de moderación.',
+      );
+    }
+    return id;
+  }
 }

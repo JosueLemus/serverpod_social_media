@@ -1,0 +1,5 @@
+### Qué decide el moderador. Silenciar y expulsar llegan con `identity`.
+enum: ReportDecision
+values:
+  - hideContent
+  - dismiss

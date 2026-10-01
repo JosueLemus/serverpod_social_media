@@ -1,0 +1,15 @@
+### Comentario de un post, sin respuestas anidadas. Nunca se borra: eliminar
+### pone `deletedAt` y `deletedBy`, igual que un post.
+class: PostComment
+table: post_comment
+serverOnly: true
+fields:
+  postId: int, relation(parent=post, onDelete=Cascade)
+  authorId: UuidValue
+  body: String
+  createdAt: DateTime, default=now
+  deletedAt: DateTime?
+  deletedBy: UuidValue?
+indexes:
+  post_comment_thread_idx:
+    fields: postId, createdAt, id

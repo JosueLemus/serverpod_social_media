@@ -9,5 +9,25 @@ emailIdp:
   - hasAccount:
 jwtRefresh:
   - refreshAccessToken:
+posts:
+  - feed:
+  - byAuthor:
+  - get:
+  - requestMediaUpload:
+  - create:
+  - update:
+  - delete:
+moderation:
+  - report:
+  - queue:
+  - resolve:
+comments:
+  - list:
+  - create:
+  - delete:
+likes:
+  - like:
+  - unlike:
+  - likers:
 health:
   - ping:

@@ -1,0 +1,5 @@
+class: PostMediaView
+fields:
+  kind: PostMediaKind
+  url: Uri
+  contentType: String

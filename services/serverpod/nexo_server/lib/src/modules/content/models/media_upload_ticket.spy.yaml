@@ -1,0 +1,7 @@
+### Permiso para subir un archivo. El cliente lo sube con
+### `FileUploader(uploadDescription)` y después publica con [key].
+class: MediaUploadTicket
+fields:
+  key: String
+  uploadDescription: String
+  maxBytes: int

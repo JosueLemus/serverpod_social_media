@@ -1,0 +1,6 @@
+### Qué se reporta. Los comentarios de vivos y las cuentas se suman con sus
+### módulos.
+enum: ReportTargetType
+values:
+  - post
+  - postComment

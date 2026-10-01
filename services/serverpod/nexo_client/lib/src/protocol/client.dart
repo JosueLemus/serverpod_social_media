@@ -12,6 +12,36 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:nexo_client/src/protocol/modules/content/models/media_upload_ticket.dart'
+    as _ifucagw2;
+import 'package:nexo_client/src/protocol/modules/content/models/post_draft.dart'
+    as _it7ut2rl;
+import 'package:nexo_client/src/protocol/modules/content/models/post_edit.dart'
+    as _iyn04n5o;
+import 'package:nexo_client/src/protocol/modules/content/models/post_media_kind.dart'
+    as _i7u7o075;
+import 'package:nexo_client/src/protocol/modules/content/models/post_page.dart'
+    as _i9cr6dtc;
+import 'package:nexo_client/src/protocol/modules/content/models/post_view.dart'
+    as _ibqqifwv;
+import 'package:nexo_client/src/protocol/modules/moderation/models/moderation_reason.dart'
+    as _ie0oo619;
+import 'package:nexo_client/src/protocol/modules/moderation/models/report_decision.dart'
+    as _i4p633df;
+import 'package:nexo_client/src/protocol/modules/moderation/models/report_queue_item.dart'
+    as _ij26twz2;
+import 'package:nexo_client/src/protocol/modules/moderation/models/report_target_type.dart'
+    as _iajbeibr;
+import 'package:nexo_client/src/protocol/modules/social/models/like_state.dart'
+    as _ijckcjl1;
+import 'package:nexo_client/src/protocol/modules/social/models/post_comment_page.dart'
+    as _ierqnby7;
+import 'package:nexo_client/src/protocol/modules/social/models/post_comment_view.dart'
+    as _iejiodsx;
+import 'package:nexo_client/src/protocol/modules/social/models/post_liker_page.dart'
+    as _i0mxqz4u;
+import 'package:nexo_client/src/protocol/shared/pagination/page_cursor.dart'
+    as _ir35iwx2;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
@@ -244,6 +274,248 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
+/// Publicaciones: leer el feed, publicar con fotos o videos, editar y
+/// eliminar. Desde Flutter: `client.posts`.
+///
+/// Leer es público: un invitado ve los posts públicos. Todo lo que escribe
+/// exige sesión y responde [NexoException] con el código del motivo.
+/// {@category Endpoint}
+class EndpointPosts extends _isc.EndpointRef {
+  EndpointPosts(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'posts';
+
+  /// Feed principal, del más nuevo al más viejo. Pasar el `nextCursor` de la
+  /// página anterior como [after] para seguir. [limit] va de 1 a 50 (20 por
+  /// defecto).
+  _ida.Future<_i9cr6dtc.PostPage> feed({
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_i9cr6dtc.PostPage>(
+    'posts',
+    'feed',
+    {
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// Posts de un autor, para su perfil. Misma paginación que [feed].
+  _ida.Future<_i9cr6dtc.PostPage> byAuthor(
+    _isc.UuidValue authorId, {
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_i9cr6dtc.PostPage>(
+    'posts',
+    'byAuthor',
+    {
+      'authorId': authorId,
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// Un post. `notFound` si no existe, se eliminó o no se puede ver.
+  _ida.Future<_ibqqifwv.PostView> get(int postId) =>
+      caller.callServerEndpoint<_ibqqifwv.PostView>(
+        'posts',
+        'get',
+        {'postId': postId},
+      );
+
+  /// Paso 1 de publicar con un archivo: pide permiso para subirlo. Se sube
+  /// con `FileUploader(ticket.uploadDescription)` y la `ticket.key` va en
+  /// [PostDraft.mediaKeys]. Imágenes JPEG, PNG, WebP o GIF de hasta 10 MB;
+  /// videos MP4, MOV o WebM de hasta 50 MB.
+  _ida.Future<_ifucagw2.MediaUploadTicket> requestMediaUpload({
+    required _i7u7o075.PostMediaKind kind,
+    required String contentType,
+    required int sizeBytes,
+  }) => caller.callServerEndpoint<_ifucagw2.MediaUploadTicket>(
+    'posts',
+    'requestMediaUpload',
+    {
+      'kind': kind,
+      'contentType': contentType,
+      'sizeBytes': sizeBytes,
+    },
+  );
+
+  /// Paso 2: publica. Necesita texto, archivos o ambos (hasta 4 archivos).
+  _ida.Future<_ibqqifwv.PostView> create(_it7ut2rl.PostDraft draft) =>
+      caller.callServerEndpoint<_ibqqifwv.PostView>(
+        'posts',
+        'create',
+        {'draft': draft},
+      );
+
+  /// Edita texto, etiquetas, visibilidad o comentarios. Solo el autor.
+  _ida.Future<_ibqqifwv.PostView> update(
+    int postId,
+    _iyn04n5o.PostEdit edit,
+  ) => caller.callServerEndpoint<_ibqqifwv.PostView>(
+    'posts',
+    'update',
+    {
+      'postId': postId,
+      'edit': edit,
+    },
+  );
+
+  /// Elimina un post. El autor, un moderador o un operador. Queda auditado.
+  _ida.Future<void> delete(int postId) => caller.callServerEndpoint<void>(
+    'posts',
+    'delete',
+    {'postId': postId},
+  );
+}
+
+/// Reportes y cola de moderación. Desde Flutter: `client.moderation`.
+///
+/// Reportar lo puede hacer cualquiera con sesión. La cola y resolver exigen
+/// el scope `moderator` o `admin`; si no, `forbidden`.
+/// {@category Endpoint}
+class EndpointModeration extends _isc.EndpointRef {
+  EndpointModeration(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'moderation';
+
+  /// Reporta un post o un comentario. La severidad la decide el servidor
+  /// según [reason]. Repetir el mismo reporte no crea otro. No se puede
+  /// reportar contenido propio.
+  _ida.Future<void> report({
+    required _iajbeibr.ReportTargetType targetType,
+    required int targetId,
+    required _ie0oo619.ModerationReason reason,
+    String? details,
+  }) => caller.callServerEndpoint<void>(
+    'moderation',
+    'report',
+    {
+      'targetType': targetType,
+      'targetId': targetId,
+      'reason': reason,
+      'details': details,
+    },
+  );
+
+  /// Contenidos con reportes abiertos, uno por contenido, primero los más
+  /// graves. Staff de moderación.
+  _ida.Future<List<_ij26twz2.ReportQueueItem>> queue({int? limit}) =>
+      caller.callServerEndpoint<List<_ij26twz2.ReportQueueItem>>(
+        'moderation',
+        'queue',
+        {'limit': limit},
+      );
+
+  /// Oculta el contenido o descarta, y cierra todos sus reportes abiertos en
+  /// un paso. Queda auditado. Staff de moderación.
+  _ida.Future<void> resolve(
+    int reportId,
+    _i4p633df.ReportDecision decision,
+  ) => caller.callServerEndpoint<void>(
+    'moderation',
+    'resolve',
+    {
+      'reportId': reportId,
+      'decision': decision,
+    },
+  );
+}
+
+/// Comentarios de posts. Desde Flutter: `client.comments`.
+/// {@category Endpoint}
+class EndpointComments extends _isc.EndpointRef {
+  EndpointComments(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'comments';
+
+  /// Comentarios de un post, del más viejo al más nuevo. Público si el post
+  /// lo es. Misma paginación que `posts.feed`.
+  _ida.Future<_ierqnby7.PostCommentPage> list(
+    int postId, {
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_ierqnby7.PostCommentPage>(
+    'comments',
+    'list',
+    {
+      'postId': postId,
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// Comenta, hasta 1000 caracteres. Requiere sesión. `forbidden` si el
+  /// autor del post desactivó los comentarios.
+  _ida.Future<_iejiodsx.PostCommentView> create(
+    int postId,
+    String body,
+  ) => caller.callServerEndpoint<_iejiodsx.PostCommentView>(
+    'comments',
+    'create',
+    {
+      'postId': postId,
+      'body': body,
+    },
+  );
+
+  /// Elimina un comentario: su autor, el autor del post o un moderador.
+  /// Queda auditado.
+  _ida.Future<void> delete(int commentId) => caller.callServerEndpoint<void>(
+    'comments',
+    'delete',
+    {'commentId': commentId},
+  );
+}
+
+/// Likes de posts. Desde Flutter: `client.likes`.
+///
+/// Dar y quitar devuelven el estado final con el contador ya actualizado, y
+/// se pueden repetir sin efecto: dos `like` seguidos dejan un solo like.
+/// {@category Endpoint}
+class EndpointLikes extends _isc.EndpointRef {
+  EndpointLikes(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'likes';
+
+  /// Da like. Requiere sesión.
+  _ida.Future<_ijckcjl1.LikeState> like(int postId) =>
+      caller.callServerEndpoint<_ijckcjl1.LikeState>(
+        'likes',
+        'like',
+        {'postId': postId},
+      );
+
+  /// Quita el like. Requiere sesión.
+  _ida.Future<_ijckcjl1.LikeState> unlike(int postId) =>
+      caller.callServerEndpoint<_ijckcjl1.LikeState>(
+        'likes',
+        'unlike',
+        {'postId': postId},
+      );
+
+  /// Quién dio like, del más reciente al más viejo. Público si el post lo es.
+  /// Misma paginación que `posts.feed`.
+  _ida.Future<_i0mxqz4u.PostLikerPage> likers(
+    int postId, {
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_i0mxqz4u.PostLikerPage>(
+    'likes',
+    'likers',
+    {
+      'postId': postId,
+      'after': after,
+      'limit': limit,
+    },
+  );
+}
+
 /// Endpoint público para comprobar que el servidor responde.
 /// Desde Flutter: `client.health.ping()`.
 /// {@category Endpoint}
@@ -300,6 +572,10 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    posts = EndpointPosts(this);
+    moderation = EndpointModeration(this);
+    comments = EndpointComments(this);
+    likes = EndpointLikes(this);
     health = EndpointHealth(this);
     modules = Modules(this);
   }
@@ -307,6 +583,14 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointPosts posts;
+
+  late final EndpointModeration moderation;
+
+  late final EndpointComments comments;
+
+  late final EndpointLikes likes;
 
   late final EndpointHealth health;
 
@@ -316,6 +600,10 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'posts': posts,
+    'moderation': moderation,
+    'comments': comments,
+    'likes': likes,
     'health': health,
   };
 

@@ -1,0 +1,17 @@
+### Archivo adjunto a un post. La base guarda la clave del storage, nunca el
+### binario. Es inmutable: editar un post no cambia sus adjuntos.
+class: PostMedia
+table: post_media
+serverOnly: true
+fields:
+  postId: int, relation(name=post_media, parent=post, onDelete=Cascade)
+  kind: PostMediaKind
+  storageKey: String
+  contentType: String
+  position: int
+indexes:
+  post_media_storage_key_idx:
+    fields: storageKey
+    unique: true
+  post_media_post_idx:
+    fields: postId, position

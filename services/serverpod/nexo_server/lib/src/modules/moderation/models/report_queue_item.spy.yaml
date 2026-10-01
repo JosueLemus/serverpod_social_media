@@ -1,0 +1,21 @@
+### Un contenido reportado en la cola. Agrupa todos sus reportes abiertos:
+### [severity] es la más alta y [reportCount] cuántos hay. Para resolver se
+### usa [reportId].
+class: ReportQueueItem
+fields:
+  reportId: int
+  targetType: ReportTargetType
+  targetId: int
+  ### El post del contenido: el mismo [targetId] si es un post, el post del
+  ### comentario si es un comentario.
+  postId: int
+  targetAuthorId: UuidValue
+  targetAuthorUsername: String?
+  ### El texto tal como está ahora, para revisarlo sin abrir otra pantalla.
+  excerpt: String
+  ### `true` si su autor ya lo eliminó: solo queda descartar.
+  targetRemoved: bool
+  reason: ModerationReason
+  severity: ReportSeverity
+  reportCount: int
+  firstReportedAt: DateTime

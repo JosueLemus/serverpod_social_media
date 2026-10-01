@@ -1,0 +1,11 @@
+### Motivos tipificados, los mismos que la app. Texto libre no se puede
+### agrupar en la auditoría.
+enum: ModerationReason
+values:
+  - spam
+  - harassment
+  - hateSpeech
+  - sexualContent
+  - violence
+  - impersonation
+  - other

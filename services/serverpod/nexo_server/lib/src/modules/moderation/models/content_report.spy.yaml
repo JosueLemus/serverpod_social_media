@@ -1,0 +1,24 @@
+### Un reporte de un usuario sobre un contenido. Resolver cierra todos los
+### reportes abiertos del mismo contenido a la vez: que diez personas
+### reporten el mismo post no son diez revisiones.
+class: ContentReport
+table: content_report
+serverOnly: true
+fields:
+  targetType: ReportTargetType
+  targetId: int
+  ### Autor del contenido al reportarlo, para la cola y para sanciones futuras.
+  targetAuthorId: UuidValue
+  reporterId: UuidValue
+  reason: ModerationReason
+  severity: ReportSeverity
+  details: String?
+  createdAt: DateTime, default=now
+  resolvedAt: DateTime?
+  resolvedBy: UuidValue?
+  decision: ReportDecision?
+indexes:
+  content_report_target_idx:
+    fields: targetType, targetId
+  content_report_open_idx:
+    fields: resolvedAt, severity

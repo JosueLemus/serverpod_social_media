@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Nexo API (Serverpod)",
-    "description": "Pruebas manuales del backend de Nexo Social.\n\nServerpod es RPC: todas las llamadas son POST {{baseUrl}}/<endpoint>/<metodo> con los argumentos en un JSON.\n\nOrden recomendado: 1 Health → 2 Registro (pasos 2.1 a 2.3) → 3 Sesión → 4 Recuperar contraseña.\n\nLos códigos de verificación se imprimen en la consola de `serverpod start`: cópialos en la variable `verificationCode` de la colección.",
+    "description": "Pruebas manuales del backend de Nexo Social.\n\nServerpod es RPC: todas las llamadas son POST {{baseUrl}}/<endpoint>/<metodo> con los argumentos en un JSON.\n\nOrden recomendado: 1 Health → 2 Registro (pasos 2.1 a 2.3) → 3 Sesión → 4 Recuperar contraseña → 5 Posts → 6 Likes → 7 Comentarios → 8 Moderación (con la sesión del paso 3).\n\nLos códigos de verificación se imprimen en la consola de `serverpod start`: cópialos en la variable `verificationCode` de la colección.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -19,7 +19,14 @@
     { "key": "passwordResetRequestId", "value": "" },
     { "key": "finishPasswordResetToken", "value": "" },
     { "key": "token", "value": "" },
-    { "key": "refreshToken", "value": "" }
+    { "key": "refreshToken", "value": "" },
+    { "key": "mediaSizeBytes", "value": "0" },
+    { "key": "mediaKey", "value": "" },
+    { "key": "uploadUrl", "value": "" },
+    { "key": "postId", "value": "" },
+    { "key": "authorId", "value": "" },
+    { "key": "commentId", "value": "" },
+    { "key": "reportId", "value": "" }
   ],
   "event": [
     {
@@ -318,6 +325,498 @@
                   "pm.test('responde 200', () => pm.response.to.have.status(200));",
                   "// A partir de aquí la contraseña es newPassword.",
                   "pm.collectionVariables.set('password', pm.collectionVariables.get('newPassword'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5 Posts",
+      "item": [
+        {
+          "name": "5.1 feed (invitado)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/feed",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 20\n}"
+            },
+            "description": "Público: un invitado ve los posts públicos. Para la página siguiente, manda el `nextCursor` de la respuesta como `after`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const page = pm.response.json();",
+                  "pm.test('trae items', () => pm.expect(page.items).to.be.an('array'));",
+                  "// Para la página siguiente: mandar {\"after\": page.nextCursor}."
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2 requestMediaUpload",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/requestMediaUpload",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"image\",\n  \"contentType\": \"image/jpeg\",\n  \"sizeBytes\": {{mediaSizeBytes}}\n}"
+            },
+            "description": "Requiere sesión (paso 3). Imágenes JPEG, PNG, WebP o GIF hasta 10 MB; videos MP4, MOV o WebM hasta 50 MB. `sizeBytes` tiene que ser el tamaño exacto del archivo que vas a subir: guárdalo en `mediaSizeBytes`. Para subirlo desde Postman, POST a `{{uploadUrl}}` con el archivo como body binario."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const ticket = pm.response.json();",
+                  "pm.collectionVariables.set('mediaKey', ticket.key);",
+                  "pm.collectionVariables.set('uploadUrl', JSON.parse(ticket.uploadDescription).url);",
+                  "console.log('Sube el archivo con un POST binario a uploadUrl y después usa mediaKey en 5.4');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.2b subir archivo",
+          "request": {
+            "method": "POST",
+            "url": "{{uploadUrl}}",
+            "body": {
+              "mode": "file",
+              "file": {}
+            },
+            "description": "Este endpoint no es nuestro: lo trae Serverpod (`serverpod_cloud_storage`). La URL la genera 5.2 y es de un solo uso, válida por 10 minutos.\n\nAntes de enviar: **Body → binary → Select File** y elige el archivo cuyo tamaño exacto pusiste en `mediaSizeBytes`. Postman no guarda en la colección qué archivo de tu disco enviar, así que hay que elegirlo cada vez."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('el archivo quedó guardado', () => pm.expect(pm.response.text()).to.eql('true'));",
+                  "console.log('Ahora corre 5.4 create (con archivo)');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.3 create (solo texto)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"draft\": {\n    \"body\": \"Mi primer post desde Postman\",\n    \"tags\": [\"nexo\"],\n    \"visibility\": \"public\",\n    \"allowComments\": true,\n    \"mediaKeys\": []\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const post = pm.response.json();",
+                  "pm.collectionVariables.set('postId', post.id);",
+                  "pm.collectionVariables.set('authorId', post.authorId);",
+                  "pm.test('el autor puede editarlo', () => pm.expect(post.canEdit).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.4 create (con archivo)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"draft\": {\n    \"body\": \"Con foto\",\n    \"tags\": [],\n    \"visibility\": \"public\",\n    \"allowComments\": true,\n    \"mediaKeys\": [\"{{mediaKey}}\"]\n  }\n}"
+            },
+            "description": "Necesita 5.2 y el archivo ya subido a `uploadUrl`; si no, responde `invalidInput`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const post = pm.response.json();",
+                  "pm.collectionVariables.set('postId', post.id);",
+                  "pm.test('trae el archivo con URL', () => pm.expect(post.media[0].url).to.be.a('string'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.5 get",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/get",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.6 byAuthor",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/byAuthor",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"authorId\": \"{{authorId}}\",\n  \"limit\": 20\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.7 update",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/update",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}},\n  \"edit\": {\n    \"body\": \"Texto editado\",\n    \"allowComments\": false\n  }\n}"
+            },
+            "description": "Solo el autor. Los campos que no se mandan quedan igual. Los archivos no se editan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('queda marcado como editado', () => pm.expect(pm.response.json().editedAt).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5.8 delete",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/posts/delete",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}}\n}"
+            },
+            "description": "El autor, un moderador o un operador. El post sale del feed y queda en la auditoría."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6 Likes",
+      "item": [
+        {
+          "name": "6.1 like",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/likes/like",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}}\n}"
+            },
+            "description": "Usa el `postId` de 5.3 o 5.4. Repetirlo no suma otro like."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const s = pm.response.json();",
+                  "pm.test('queda con like', () => pm.expect(s.isLiked).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.2 likers",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/likes/likers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}},\n  \"limit\": 20\n}"
+            },
+            "description": "Quién dio like, del más reciente al más viejo. Público si el post lo es."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae la lista', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6.3 unlike",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/likes/unlike",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('queda sin like', () => pm.expect(pm.response.json().isLiked).to.be.false);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7 Comentarios",
+      "item": [
+        {
+          "name": "7.1 create",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/comments/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}},\n  \"body\": \"¡Qué buen post!\"\n}"
+            },
+            "description": "`forbidden` si el autor del post desactivó los comentarios (5.7 con `allowComments: false`)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const c = pm.response.json();",
+                  "pm.collectionVariables.set('commentId', c.id);",
+                  "pm.test('puede eliminarlo', () => pm.expect(c.canDelete).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.2 list",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "url": "{{baseUrl}}/comments/list",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"postId\": {{postId}},\n  \"limit\": 20\n}"
+            },
+            "description": "Del más viejo al más nuevo. Público si el post lo es."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae la lista', () => pm.expect(pm.response.json().items).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7.3 delete",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/comments/delete",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commentId\": {{commentId}}\n}"
+            },
+            "description": "El autor del comentario, el autor del post o un moderador."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8 Moderación",
+      "item": [
+        {
+          "name": "8.1 report (post)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/moderation/report",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"post\",\n  \"targetId\": {{postId}},\n  \"reason\": \"spam\",\n  \"details\": \"Publica lo mismo en todos lados\"\n}"
+            },
+            "description": "Con cualquier cuenta que **no** sea la autora del post (no se puede reportar lo propio). Motivos: `spam`, `harassment`, `hateSpeech`, `sexualContent`, `violence`, `impersonation`, `other`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.2 report (comentario)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/moderation/report",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"postComment\",\n  \"targetId\": {{commentId}},\n  \"reason\": \"harassment\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.3 queue",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/moderation/queue",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"limit\": 50\n}"
+            },
+            "description": "Necesita una cuenta con el scope `moderator` o `admin`; si no, `forbidden`. Guarda el primer `reportId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const q = pm.response.json();",
+                  "if (q.length) pm.collectionVariables.set('reportId', q[0].reportId);",
+                  "pm.test('es una lista', () => pm.expect(q).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8.4 resolve",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/moderation/resolve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportId\": {{reportId}},\n  \"decision\": \"hideContent\"\n}"
+            },
+            "description": "`hideContent` oculta el contenido; `dismiss` lo deja. Cierra todos los reportes abiertos de ese contenido y queda auditado."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));"
                 ]
               }
             }
