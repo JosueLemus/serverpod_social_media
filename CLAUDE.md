@@ -427,11 +427,19 @@ SERVERPOD_PASSWORD_database=cualquier-valor dart test
 ```
 
 No necesitan Docker: `config/test.yaml` define `database.dataPath` y Serverpod
-levanta un PostgreSQL embebido. **Falla si el repo está en una carpeta con
-espacios** (por ejemplo `social media`): todos los tests de integración caen
-con *"Another process is using the local database"*, aunque no haya nada
-corriendo. No es un bug del código. Clonar en una ruta sin espacios, o correr
-los tests desde un `git worktree` en una.
+levanta un PostgreSQL embebido. **Falla si la carpeta de datos queda en una
+ruta con espacios** (por ejemplo, un repo en `social media`): todos los tests
+de integración caen con *"Another process is using the local database"*,
+aunque no haya nada corriendo. No es un bug del código: es la ruta del
+`dataPath`. Se arregla apuntándolo a una ruta sin espacios, sin tocar la
+configuración:
+
+```bash
+SERVERPOD_DATABASE_DATA_PATH="$HOME/.nexo/test-pgdata" \
+SERVERPOD_PASSWORD_database=cualquier-valor dart test
+```
+
+`tool/demo.sh` hace lo mismo con la base de desarrollo cuando hace falta.
 
 Si una corrida se corta, puede quedar un PostgreSQL huérfano en
 `.serverpod/test/pgdata`. Cerrarlo antes de volver a correr.
