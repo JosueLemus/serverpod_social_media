@@ -24,6 +24,12 @@ import 'package:nexo_client/src/protocol/modules/content/models/post_page.dart'
     as _i9cr6dtc;
 import 'package:nexo_client/src/protocol/modules/content/models/post_view.dart'
     as _ibqqifwv;
+import 'package:nexo_client/src/protocol/modules/identity/models/account_view.dart'
+    as _i0b9qmvw;
+import 'package:nexo_client/src/protocol/modules/identity/models/profile_edit.dart'
+    as _ih9nymjn;
+import 'package:nexo_client/src/protocol/modules/identity/models/profile_view.dart'
+    as _iaqpe3js;
 import 'package:nexo_client/src/protocol/modules/moderation/models/moderation_reason.dart'
     as _ie0oo619;
 import 'package:nexo_client/src/protocol/modules/moderation/models/report_decision.dart'
@@ -371,6 +377,51 @@ class EndpointPosts extends _isc.EndpointRef {
   );
 }
 
+/// Perfiles de Nexo. Desde Flutter: `client.profiles`.
+///
+/// La primera llamada a [me] de una cuenta nueva le crea su perfil con un
+/// nombre de usuario libre, así que la app siempre tiene algo que mostrar.
+/// {@category Endpoint}
+class EndpointProfiles extends _isc.EndpointRef {
+  EndpointProfiles(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'profiles';
+
+  /// La cuenta de la sesión, con sus roles. Exige sesión.
+  _ida.Future<_i0b9qmvw.AccountView> me() =>
+      caller.callServerEndpoint<_i0b9qmvw.AccountView>(
+        'profiles',
+        'me',
+        {},
+      );
+
+  /// Cambia nombre de usuario, nombre visible o bio. Exige sesión.
+  /// `conflict` si el nombre de usuario ya está en uso.
+  _ida.Future<_i0b9qmvw.AccountView> update(_ih9nymjn.ProfileEdit edit) =>
+      caller.callServerEndpoint<_i0b9qmvw.AccountView>(
+        'profiles',
+        'update',
+        {'edit': edit},
+      );
+
+  /// Declara la cuenta como creadora. La verificación la da un operador.
+  _ida.Future<_i0b9qmvw.AccountView> becomeCreator() =>
+      caller.callServerEndpoint<_i0b9qmvw.AccountView>(
+        'profiles',
+        'becomeCreator',
+        {},
+      );
+
+  /// El perfil público de [username]. Público: lo ve un invitado.
+  _ida.Future<_iaqpe3js.ProfileView> byUsername(String username) =>
+      caller.callServerEndpoint<_iaqpe3js.ProfileView>(
+        'profiles',
+        'byUsername',
+        {'username': username},
+      );
+}
+
 /// Reportes y cola de moderación. Desde Flutter: `client.moderation`.
 ///
 /// Reportar lo puede hacer cualquiera con sesión. La cola y resolver exigen
@@ -573,6 +624,7 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     posts = EndpointPosts(this);
+    profiles = EndpointProfiles(this);
     moderation = EndpointModeration(this);
     comments = EndpointComments(this);
     likes = EndpointLikes(this);
@@ -585,6 +637,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointJwtRefresh jwtRefresh;
 
   late final EndpointPosts posts;
+
+  late final EndpointProfiles profiles;
 
   late final EndpointModeration moderation;
 
@@ -601,6 +655,7 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'posts': posts,
+    'profiles': profiles,
     'moderation': moderation,
     'comments': comments,
     'likes': likes,

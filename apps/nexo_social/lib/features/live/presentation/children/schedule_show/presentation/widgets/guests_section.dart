@@ -207,7 +207,11 @@ class _DashedPillPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
     for (final PathMetric metric in path.computeMetrics()) {
-      for (var distance = 0.0; distance < metric.length; distance += _dash + _gap) {
+      for (
+        var distance = 0.0;
+        distance < metric.length;
+        distance += _dash + _gap
+      ) {
         canvas.drawPath(metric.extractPath(distance, distance + _dash), paint);
       }
     }

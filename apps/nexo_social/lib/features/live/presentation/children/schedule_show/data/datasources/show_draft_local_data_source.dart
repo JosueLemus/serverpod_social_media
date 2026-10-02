@@ -26,6 +26,5 @@ class ShowDraftLocalDataSource {
   Future<void> write(String accountId, ShowDraft draft) =>
       _preferences.setString(_key(accountId), jsonEncode(draft.toJson()));
 
-  Future<void> clear(String accountId) =>
-      _preferences.remove(_key(accountId));
+  Future<void> clear(String accountId) => _preferences.remove(_key(accountId));
 }

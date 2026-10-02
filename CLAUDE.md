@@ -419,6 +419,23 @@ cd apps/nexo_social && flutter test
 y una tubería devuelve el del último comando: un suite en rojo se ve verde.
 Para acortar la salida, `flutter test --reporter=failures-only`.
 
+### Tests del backend
+
+```bash
+cd services/serverpod/nexo_server
+SERVERPOD_PASSWORD_database=cualquier-valor dart test
+```
+
+No necesitan Docker: `config/test.yaml` define `database.dataPath` y Serverpod
+levanta un PostgreSQL embebido. **Falla si el repo está en una carpeta con
+espacios** (por ejemplo `social media`): todos los tests de integración caen
+con *"Another process is using the local database"*, aunque no haya nada
+corriendo. No es un bug del código. Clonar en una ruta sin espacios, o correr
+los tests desde un `git worktree` en una.
+
+Si una corrida se corta, puede quedar un PostgreSQL huérfano en
+`.serverpod/test/pgdata`. Cerrarlo antes de volver a correr.
+
 ### Tests de guarda (`test/architecture/`)
 
 Escanean el fuente y fallan ante una violación. Existen porque estos bugs son

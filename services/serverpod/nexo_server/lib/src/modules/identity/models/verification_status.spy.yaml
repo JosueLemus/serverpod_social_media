@@ -1,0 +1,8 @@
+### La verificación de un creador es una capacidad, no una insignia: sin ella
+### el servidor no le deja iniciar un vivo.
+enum: VerificationStatus
+serialized: byName
+values:
+  - none
+  - verified
+  - revoked

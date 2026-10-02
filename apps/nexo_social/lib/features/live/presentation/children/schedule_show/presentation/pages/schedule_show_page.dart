@@ -399,9 +399,9 @@ class _SubmitBar extends StatelessWidget {
                             'confirmes.',
                     key: const Key('schedule-submit-hint'),
                     textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontSize: 11.5,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(fontSize: 11.5),
                   ),
                 ],
               ),

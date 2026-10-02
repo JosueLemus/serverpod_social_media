@@ -5,6 +5,9 @@ abstract final class ModerationRules {
   static const maxDetailsLength = 500;
   static const defaultQueueSize = 50;
   static const maxQueueSize = 100;
+
+  /// Cuántos reportes abiertos se leen por viaje al armar la cola.
+  static const queueScanBatch = 200;
   static const excerptLength = 280;
 
   /// La severidad la decide quien recibe el reporte, no quien lo manda: un

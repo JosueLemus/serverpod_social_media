@@ -1,0 +1,42 @@
+/* AUTOMATICALLY GENERATED CODE DO NOT MODIFY */
+/*   To generate run: "serverpod generate"    */
+
+// ignore_for_file: implementation_imports
+// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: public_member_api_docs
+// ignore_for_file: type_literal_in_constant_pattern
+// ignore_for_file: use_super_parameters
+// ignore_for_file: invalid_use_of_internal_member
+
+// ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:serverpod/serverpod.dart' as _is;
+
+/// Si la cuenta puede operar. Suspender es reversible; banear, no desde la
+/// consola. Lo cambia el operador y queda auditado.
+enum AccountStatus implements _is.SerializableModel {
+  active,
+  suspended,
+  banned;
+
+  static AccountStatus fromJson(String name) {
+    switch (name) {
+      case 'active':
+        return AccountStatus.active;
+      case 'suspended':
+        return AccountStatus.suspended;
+      case 'banned':
+        return AccountStatus.banned;
+      default:
+        throw ArgumentError(
+          'Value "$name" cannot be converted to "AccountStatus"',
+        );
+    }
+  }
+
+  @override
+  String toJson() => name;
+
+  @override
+  String toString() => name;
+}

@@ -49,27 +49,51 @@ class ModerationService {
       );
     }
 
-    final alreadyOpen = await ContentReport.db.count(
-      session,
-      where: (t) =>
-          _sameTarget(t, targetType, targetId) &
-          t.reporterId.equals(reporterId) &
-          t.resolvedAt.equals(null),
-    );
-    if (alreadyOpen > 0) return;
+    // Chequear y crear en la misma transacción, con un lock por quien
+    // reporta y qué reporta: sin él, dos toques seguidos pasaban los dos el
+    // chequeo y quedaban dos reportes iguales abiertos.
+    await session.db.transaction((tx) async {
+      await session.db.unsafeExecute(
+        'SELECT pg_advisory_xact_lock(hashtext(@key))',
+        parameters: QueryParameters.named({
+          'key': 'report:$reporterId:${targetType.name}:$targetId',
+        }),
+        transaction: tx,
+      );
 
-    await ContentReport.db.insertRow(
-      session,
-      ContentReport(
-        targetType: targetType,
-        targetId: targetId,
-        targetAuthorId: authorId,
-        reporterId: reporterId,
-        reason: reason,
-        severity: ModerationRules.severityOf(reason),
-        details: note == null || note.isEmpty ? null : note,
-      ),
-    );
+      final alreadyOpen = await ContentReport.db.count(
+        session,
+        where: (t) =>
+            _sameTarget(t, targetType, targetId) &
+            t.reporterId.equals(reporterId) &
+            t.resolvedAt.equals(null),
+        transaction: tx,
+      );
+      if (alreadyOpen > 0) return;
+
+      final report = await ContentReport.db.insertRow(
+        session,
+        ContentReport(
+          targetType: targetType,
+          targetId: targetId,
+          targetAuthorId: authorId,
+          reporterId: reporterId,
+          reason: reason,
+          severity: ModerationRules.severityOf(reason),
+          details: note == null || note.isEmpty ? null : note,
+        ),
+        transaction: tx,
+      );
+      await _audit.record(
+        session,
+        actorId: reporterId,
+        action: 'moderation.report',
+        entityType: targetType.name,
+        entityId: '$targetId',
+        metadata: {'reportId': report.id, 'reason': reason.name},
+        transaction: tx,
+      );
+    });
   }
 
   /// Contenidos con reportes abiertos, uno por contenido: primero el de
@@ -81,17 +105,32 @@ class ModerationService {
       ModerationRules.maxQueueSize,
     );
 
-    final open = await ContentReport.db.find(
-      session,
-      where: (t) => t.resolvedAt.equals(null),
-      orderByList: (t) => [t.severity.desc(), t.createdAt.asc()],
-    );
-
+    // Por lotes y no todo de una: con miles de reportes abiertos, cargar la
+    // tabla entera en memoria para mostrar los primeros grupos desperdicia
+    // memoria. Se recorre todo —el conteo de cada grupo tiene que ser
+    // exacto— pero sólo se guardan los [size] grupos que se van a mostrar.
+    //
     // Agrupa por contenido conservando el orden: el primer reporte de cada
     // grupo es el de más severidad y más antigüedad.
     final groups = <(ReportTargetType, int), List<ContentReport>>{};
-    for (final r in open) {
-      groups.putIfAbsent((r.targetType, r.targetId), () => []).add(r);
+    var offset = 0;
+    while (true) {
+      final batch = await ContentReport.db.find(
+        session,
+        where: (t) => t.resolvedAt.equals(null),
+        orderByList: (t) => [t.severity.desc(), t.createdAt.asc(), t.id.asc()],
+        limit: ModerationRules.queueScanBatch,
+        offset: offset,
+      );
+      for (final r in batch) {
+        final key = (r.targetType, r.targetId);
+        // Un grupo nuevo más allá de [size] no entra en esta página; los
+        // reportes de grupos ya abiertos sí, para que el conteo sea exacto.
+        if (!groups.containsKey(key) && groups.length >= size) continue;
+        groups.putIfAbsent(key, () => []).add(r);
+      }
+      if (batch.length < ModerationRules.queueScanBatch) break;
+      offset += batch.length;
     }
     final top = groups.values.take(size).toList();
 

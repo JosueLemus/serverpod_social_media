@@ -1,0 +1,28 @@
+### Lo que Nexo sabe de una cuenta y Serverpod no: el nombre de usuario
+### único, si crea contenido, su verificación y si puede operar.
+###
+### El `UserProfile` de Serverpod se queda con el nombre visible, el correo y
+### la imagen. `username` vive acá porque necesita un índice único que la
+### tabla de Serverpod no tiene, y se copia a `UserProfile.userName` para que
+### los módulos que ya muestran autores lo sigan leyendo de ahí.
+class: AccountProfile
+table: account_profile
+serverOnly: true
+fields:
+  authUserId: UuidValue
+  ### Siempre en minúsculas. Ver `UsernameRules`.
+  username: String
+  bio: String?
+  ### "Creador" no es un scope: es un dato del perfil.
+  isCreator: bool, default=false
+  verification: VerificationStatus, default=none
+  status: AccountStatus, default=active
+  createdAt: DateTime, default=now
+  updatedAt: DateTime?
+indexes:
+  account_profile_user_idx:
+    fields: authUserId
+    unique: true
+  account_profile_username_idx:
+    fields: username
+    unique: true

@@ -1,0 +1,6 @@
+### Cambios al perfil propio. `null` deja el campo como está.
+class: ProfileEdit
+fields:
+  username: String?
+  displayName: String?
+  bio: String?

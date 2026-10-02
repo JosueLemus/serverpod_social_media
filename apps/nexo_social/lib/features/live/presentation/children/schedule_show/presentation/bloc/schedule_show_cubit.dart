@@ -134,7 +134,8 @@ class ScheduleShowCubit extends Cubit<ScheduleShowState> {
     );
   }
 
-  void setTitle(String title) => _update((draft) => draft.copyWith(title: title));
+  void setTitle(String title) =>
+      _update((draft) => draft.copyWith(title: title));
 
   void setDescription(String description) =>
       _update((draft) => draft.copyWith(description: description));

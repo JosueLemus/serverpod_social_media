@@ -16,6 +16,8 @@ import 'package:nexo_server/src/generated/modules/content/models/post_edit.dart'
     as _i79bwqkw;
 import 'package:nexo_server/src/generated/modules/content/models/post_media_kind.dart'
     as _iwuw8bb0;
+import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.dart'
+    as _iu4itgek;
 import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
     as _ixmgs13r;
 import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
@@ -32,6 +34,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../modules/content/endpoints/posts_endpoint.dart' as _i14rwr4t;
+import '../modules/identity/endpoints/profiles_endpoint.dart' as _ijchdihn;
 import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
 import '../modules/social/endpoints/comments_endpoint.dart' as _iiig3ywm;
 import '../modules/social/endpoints/likes_endpoint.dart' as _ippoapkl;
@@ -57,6 +60,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'posts',
+          null,
+        ),
+      'profiles': _ijchdihn.ProfilesEndpoint()
+        ..initialize(
+          server,
+          'profiles',
           null,
         ),
       'moderation': _ityzuh2k.ModerationEndpoint()
@@ -457,6 +466,70 @@ class Endpoints extends _is.EndpointDispatch {
                 session,
                 params['postId'],
               ),
+        ),
+      },
+    );
+    connectors['profiles'] = _is.EndpointConnector(
+      name: 'profiles',
+      endpoint: endpoints['profiles']!,
+      methodConnectors: {
+        'me': _is.MethodConnector(
+          name: 'me',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .me(session),
+        ),
+        'update': _is.MethodConnector(
+          name: 'update',
+          params: {
+            'edit': _is.ParameterDescription(
+              name: 'edit',
+              type: _is.getType<_iu4itgek.ProfileEdit>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint).update(
+                    session,
+                    params['edit'],
+                  ),
+        ),
+        'becomeCreator': _is.MethodConnector(
+          name: 'becomeCreator',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .becomeCreator(session),
+        ),
+        'byUsername': _is.MethodConnector(
+          name: 'byUsername',
+          params: {
+            'username': _is.ParameterDescription(
+              name: 'username',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .byUsername(
+                    session,
+                    params['username'],
+                  ),
         ),
       },
     );

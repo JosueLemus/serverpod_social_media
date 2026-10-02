@@ -4,7 +4,8 @@ extension ScheduleShowIssueCopy on ScheduleShowIssue {
   String get message => switch (this) {
     ScheduleShowIssue.notVerified =>
       'Solo las cuentas de creador verificadas pueden agendar un show.',
-    ScheduleShowIssue.forbidden => 'Tu cuenta no tiene permiso para hacer esto.',
+    ScheduleShowIssue.forbidden =>
+      'Tu cuenta no tiene permiso para hacer esto.',
     ScheduleShowIssue.suspended => 'Tu cuenta está suspendida.',
     ScheduleShowIssue.invalid =>
       'Revisa el título y la fecha: el show tiene que ser en el futuro.',

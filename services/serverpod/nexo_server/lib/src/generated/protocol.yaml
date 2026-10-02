@@ -17,6 +17,11 @@ posts:
   - create:
   - update:
   - delete:
+profiles:
+  - me:
+  - update:
+  - becomeCreator:
+  - byUsername:
 moderation:
   - report:
   - queue:

@@ -1,0 +1,8 @@
+### Si la cuenta puede operar. Suspender es reversible; banear, no desde la
+### consola. Lo cambia el operador y queda auditado.
+enum: AccountStatus
+serialized: byName
+values:
+  - active
+  - suspended
+  - banned

@@ -29,6 +29,12 @@ import 'modules/content/models/post_media_view.dart' as _ibyq15o7;
 import 'modules/content/models/post_page.dart' as _idjwmytq;
 import 'modules/content/models/post_view.dart' as _ixt78pt4;
 import 'modules/content/models/post_visibility.dart' as _iu5xfvn4;
+import 'modules/identity/models/account_profile.dart' as _i85zfh3f;
+import 'modules/identity/models/account_status.dart' as _i96mabue;
+import 'modules/identity/models/account_view.dart' as _ig9ziu3q;
+import 'modules/identity/models/profile_edit.dart' as _i3rezn75;
+import 'modules/identity/models/profile_view.dart' as _i8sfv82t;
+import 'modules/identity/models/verification_status.dart' as _i1f8s3dp;
 import 'modules/moderation/models/content_report.dart' as _iwkeo1oc;
 import 'modules/moderation/models/moderation_reason.dart' as _ipkc12ge;
 import 'modules/moderation/models/report_decision.dart' as _ib61hwyt;
@@ -56,6 +62,12 @@ export 'modules/content/models/post_media_view.dart';
 export 'modules/content/models/post_page.dart';
 export 'modules/content/models/post_view.dart';
 export 'modules/content/models/post_visibility.dart';
+export 'modules/identity/models/account_profile.dart';
+export 'modules/identity/models/account_status.dart';
+export 'modules/identity/models/account_view.dart';
+export 'modules/identity/models/profile_edit.dart';
+export 'modules/identity/models/profile_view.dart';
+export 'modules/identity/models/verification_status.dart';
 export 'modules/moderation/models/content_report.dart';
 export 'modules/moderation/models/moderation_reason.dart';
 export 'modules/moderation/models/report_decision.dart';
@@ -82,6 +94,103 @@ class Protocol extends _is.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._().._registerHostProtocols();
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
+    _isp.TableDefinition(
+      name: 'account_profile',
+      dartName: 'AccountProfile',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'authUserId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'username',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'bio',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'isCreator',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'verification',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:VerificationStatus',
+          columnDefault: '\'none\'',
+        ),
+        _isp.ColumnDefinition(
+          name: 'status',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:AccountStatus',
+          columnDefault: '\'active\'',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+        _isp.ColumnDefinition(
+          name: 'updatedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'account_profile_user_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'authUserId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'account_profile_username_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'username',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     _isp.TableDefinition(
       name: 'audit_log',
       dartName: 'AuditLog',
@@ -734,6 +843,24 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _iu5xfvn4.PostVisibility) {
       return _iu5xfvn4.PostVisibility.fromJson(data) as T;
     }
+    if (t == _i85zfh3f.AccountProfile) {
+      return _i85zfh3f.AccountProfile.fromJson(data) as T;
+    }
+    if (t == _i96mabue.AccountStatus) {
+      return _i96mabue.AccountStatus.fromJson(data) as T;
+    }
+    if (t == _ig9ziu3q.AccountView) {
+      return _ig9ziu3q.AccountView.fromJson(data) as T;
+    }
+    if (t == _i3rezn75.ProfileEdit) {
+      return _i3rezn75.ProfileEdit.fromJson(data) as T;
+    }
+    if (t == _i8sfv82t.ProfileView) {
+      return _i8sfv82t.ProfileView.fromJson(data) as T;
+    }
+    if (t == _i1f8s3dp.VerificationStatus) {
+      return _i1f8s3dp.VerificationStatus.fromJson(data) as T;
+    }
     if (t == _iwkeo1oc.ContentReport) {
       return _iwkeo1oc.ContentReport.fromJson(data) as T;
     }
@@ -817,6 +944,27 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_iu5xfvn4.PostVisibility?>()) {
       return (data != null ? _iu5xfvn4.PostVisibility.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i85zfh3f.AccountProfile?>()) {
+      return (data != null ? _i85zfh3f.AccountProfile.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i96mabue.AccountStatus?>()) {
+      return (data != null ? _i96mabue.AccountStatus.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ig9ziu3q.AccountView?>()) {
+      return (data != null ? _ig9ziu3q.AccountView.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i3rezn75.ProfileEdit?>()) {
+      return (data != null ? _i3rezn75.ProfileEdit.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i8sfv82t.ProfileView?>()) {
+      return (data != null ? _i8sfv82t.ProfileView.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i1f8s3dp.VerificationStatus?>()) {
+      return (data != null ? _i1f8s3dp.VerificationStatus.fromJson(data) : null)
           as T;
     }
     if (t == _is.getType<_iwkeo1oc.ContentReport?>()) {
@@ -958,6 +1106,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       _idjwmytq.PostPage => 'PostPage',
       _ixt78pt4.PostView => 'PostView',
       _iu5xfvn4.PostVisibility => 'PostVisibility',
+      _i85zfh3f.AccountProfile => 'AccountProfile',
+      _i96mabue.AccountStatus => 'AccountStatus',
+      _ig9ziu3q.AccountView => 'AccountView',
+      _i3rezn75.ProfileEdit => 'ProfileEdit',
+      _i8sfv82t.ProfileView => 'ProfileView',
+      _i1f8s3dp.VerificationStatus => 'VerificationStatus',
       _iwkeo1oc.ContentReport => 'ContentReport',
       _ipkc12ge.ModerationReason => 'ModerationReason',
       _ib61hwyt.ReportDecision => 'ReportDecision',
@@ -1009,6 +1163,18 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'PostView';
       case _iu5xfvn4.PostVisibility():
         return 'PostVisibility';
+      case _i85zfh3f.AccountProfile():
+        return 'AccountProfile';
+      case _i96mabue.AccountStatus():
+        return 'AccountStatus';
+      case _ig9ziu3q.AccountView():
+        return 'AccountView';
+      case _i3rezn75.ProfileEdit():
+        return 'ProfileEdit';
+      case _i8sfv82t.ProfileView():
+        return 'ProfileView';
+      case _i1f8s3dp.VerificationStatus():
+        return 'VerificationStatus';
       case _iwkeo1oc.ContentReport():
         return 'ContentReport';
       case _ipkc12ge.ModerationReason():
@@ -1098,6 +1264,24 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'PostVisibility') {
       return deserialize<_iu5xfvn4.PostVisibility>(data['data']);
+    }
+    if (dataClassName == 'AccountProfile') {
+      return deserialize<_i85zfh3f.AccountProfile>(data['data']);
+    }
+    if (dataClassName == 'AccountStatus') {
+      return deserialize<_i96mabue.AccountStatus>(data['data']);
+    }
+    if (dataClassName == 'AccountView') {
+      return deserialize<_ig9ziu3q.AccountView>(data['data']);
+    }
+    if (dataClassName == 'ProfileEdit') {
+      return deserialize<_i3rezn75.ProfileEdit>(data['data']);
+    }
+    if (dataClassName == 'ProfileView') {
+      return deserialize<_i8sfv82t.ProfileView>(data['data']);
+    }
+    if (dataClassName == 'VerificationStatus') {
+      return deserialize<_i1f8s3dp.VerificationStatus>(data['data']);
     }
     if (dataClassName == 'ContentReport') {
       return deserialize<_iwkeo1oc.ContentReport>(data['data']);
@@ -1195,6 +1379,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _i99cc7k2.Post.t;
       case _iyaae07t.PostMedia:
         return _iyaae07t.PostMedia.t;
+      case _i85zfh3f.AccountProfile:
+        return _i85zfh3f.AccountProfile.t;
       case _iwkeo1oc.ContentReport:
         return _iwkeo1oc.ContentReport.t;
       case _ir2psgaa.PostComment:

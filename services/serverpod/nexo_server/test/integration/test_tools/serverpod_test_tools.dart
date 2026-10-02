@@ -25,6 +25,12 @@ import 'package:nexo_server/src/generated/modules/content/models/post_page.dart'
     as _iv0no0cn;
 import 'package:nexo_server/src/generated/modules/content/models/post_view.dart'
     as _ixuk06b6;
+import 'package:nexo_server/src/generated/modules/identity/models/account_view.dart'
+    as _ig7gnzdo;
+import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.dart'
+    as _iu4itgek;
+import 'package:nexo_server/src/generated/modules/identity/models/profile_view.dart'
+    as _i43ck6sm;
 import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
     as _ixmgs13r;
 import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
@@ -186,6 +192,8 @@ class TestEndpoints {
 
   late final _PostsEndpoint posts;
 
+  late final _ProfilesEndpoint profiles;
+
   late final _ModerationEndpoint moderation;
 
   late final _CommentsEndpoint comments;
@@ -211,6 +219,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     posts = _PostsEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    profiles = _ProfilesEndpoint(
       endpoints,
       serializationManager,
     );
@@ -791,6 +803,139 @@ class _PostsEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _ProfilesEndpoint {
+  _ProfilesEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ig7gnzdo.AccountView> me(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'me',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'me',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig7gnzdo.AccountView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ig7gnzdo.AccountView> update(
+    _ist.TestSessionBuilder sessionBuilder,
+    _iu4itgek.ProfileEdit edit,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'update',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'update',
+          parameters: _ist.testObjectToJson({'edit': edit}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig7gnzdo.AccountView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ig7gnzdo.AccountView> becomeCreator(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'becomeCreator',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'becomeCreator',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig7gnzdo.AccountView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i43ck6sm.ProfileView> byUsername(
+    _ist.TestSessionBuilder sessionBuilder,
+    String username,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'byUsername',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'byUsername',
+          parameters: _ist.testObjectToJson({'username': username}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i43ck6sm.ProfileView>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

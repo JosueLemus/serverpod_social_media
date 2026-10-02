@@ -80,7 +80,10 @@ void main() {
         'Mañana',
       );
       expect(
-        ShowDateFormat.countdown(DateTime(2024, 11, 26, 23, 30), now: lateTonight),
+        ShowDateFormat.countdown(
+          DateTime(2024, 11, 26, 23, 30),
+          now: lateTonight,
+        ),
         'Hoy',
       );
       expect(
