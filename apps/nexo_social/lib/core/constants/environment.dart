@@ -17,6 +17,12 @@ abstract final class Environment {
   /// (sin certificado ni token). En la etapa B el token lo emite el servidor
   /// y este valor viene en su respuesta en lugar de compilarse.
   static const agoraAppId = String.fromEnvironment('AGORA_APP_ID');
+
+  /// Contraseña de las cuentas sembradas por la demo local (`tool/demo.sh`).
+  /// Con valor, el selector de cuentas demo entra contra el servidor real;
+  /// vacío y en modo mock, entra contra el mock. En un build de producción
+  /// no se define y el selector no existe.
+  static const demoPassword = String.fromEnvironment('DEMO_PASSWORD');
   static const dataSource = String.fromEnvironment(
     'DATA_SOURCE',
     defaultValue: 'mock',

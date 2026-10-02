@@ -7,17 +7,26 @@ import '../../../../core/mock/demo_accounts.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../bloc/auth_cubit.dart';
 
-/// Entrar con una cuenta sembrada de un toque. **Sólo en modo mock**: con
-/// `AUTH_SOURCE=serverpod` no se dibuja, porque en producción no hay cuentas de
-/// demo y un atajo de login es exactamente lo que no tiene que existir.
+/// Entrar con una cuenta sembrada de un toque. **Sólo en demo**: en mock, o
+/// contra el servidor si `tool/demo.sh` pasó `DEMO_PASSWORD`. En producción
+/// no hay cuentas de demo, y un atajo de login es exactamente lo que no tiene
+/// que existir.
 class DemoAccountButton extends StatelessWidget {
   const DemoAccountButton({super.key});
 
+  /// En mock siempre; contra el servidor, sólo con la contraseña de las
+  /// cuentas sembradas por la demo local.
+  static bool get _available =>
+      Environment.authSourceMode == AuthSourceMode.mock ||
+      Environment.demoPassword.isNotEmpty;
+
+  /// El mock no valida contraseñas; el servidor sí.
+  static String get _password =>
+      Environment.demoPassword.isEmpty ? 'demo' : Environment.demoPassword;
+
   @override
   Widget build(BuildContext context) {
-    if (Environment.authSourceMode != AuthSourceMode.mock) {
-      return const SizedBox.shrink();
-    }
+    if (!_available) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AppSpacing.sm),
       child: FilledButton.tonalIcon(
@@ -75,7 +84,7 @@ class DemoAccountButton extends StatelessWidget {
                   ),
                   onTap: () {
                     Navigator.pop(sheetContext);
-                    auth.signIn(account.email, 'demo');
+                    auth.signIn(account.email, _password);
                   },
                 ),
             ],
