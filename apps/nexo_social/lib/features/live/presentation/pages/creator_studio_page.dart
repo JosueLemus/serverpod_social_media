@@ -12,9 +12,12 @@ import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/entities/live_session.dart';
+import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
+import '../widgets/live_media_sync.dart';
+import '../widgets/live_video_surface.dart';
 
 /// El panel del host. Pensado para escritorio, donde un creador corre la
 /// sesión con teclado y espacio, pero degrada a una columna en teléfono.
@@ -22,9 +25,12 @@ class CreatorStudioPage extends StatelessWidget {
   const CreatorStudioPage({super.key});
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => LiveRoomCubit(sl(), sl())..load('live-2'),
-    child: const _StudioView(),
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(create: (_) => LiveRoomCubit(sl(), sl())..load('live-2')),
+      BlocProvider(create: (_) => sl<LiveMediaCubit>()),
+    ],
+    child: const LiveMediaSync(role: LiveMediaRole.host, child: _StudioView()),
   );
 }
 
@@ -282,21 +288,9 @@ class _StagePreview extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.primaryDeep, AppColors.stageDark],
-              ),
-            ),
-          ),
-          const Center(
-            child: Icon(
-              Icons.videocam_rounded,
-              color: Colors.white38,
-              size: 40,
-            ),
+          LiveVideoSurface(
+            role: LiveMediaRole.host,
+            fallback: const _SimulatedStage(),
           ),
           Positioned(
             top: AppSpacing.xs,
@@ -314,17 +308,38 @@ class _StagePreview extends StatelessWidget {
               ],
             ),
           ),
-          const Positioned(
-            bottom: AppSpacing.xs,
-            left: AppSpacing.xs,
-            child: StatusBadge(
-              label: 'Transmisión simulada',
-              color: AppColors.stageScrim,
-              icon: Icons.info_outline_rounded,
+          // Sólo cuando lo es: con Agora, la cámara de arriba es real.
+          if (context.read<LiveMediaCubit>().engine.isSimulated)
+            const Positioned(
+              bottom: AppSpacing.xs,
+              left: AppSpacing.xs,
+              child: StatusBadge(
+                label: 'Transmisión simulada',
+                color: AppColors.stageScrim,
+                icon: Icons.info_outline_rounded,
+              ),
             ),
-          ),
         ],
       ),
+    ),
+  );
+}
+
+/// El escenario sin video: un degradé con la cámara apagada.
+class _SimulatedStage extends StatelessWidget {
+  const _SimulatedStage();
+
+  @override
+  Widget build(BuildContext context) => const DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [AppColors.primaryDeep, AppColors.stageDark],
+      ),
+    ),
+    child: Center(
+      child: Icon(Icons.videocam_rounded, color: Colors.white38, size: 40),
     ),
   );
 }

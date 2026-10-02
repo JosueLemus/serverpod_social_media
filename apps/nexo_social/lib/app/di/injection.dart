@@ -8,6 +8,8 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/dio_client.dart';
 import '../../core/constants/environment.dart';
+import '../../core/media/agora_live_media_engine.dart';
+import '../../core/media/simulated_live_media_engine.dart';
 import '../../core/mock/mock_platform.dart';
 import '../../core/storage/mock_social_store.dart';
 import '../../core/storage/session_storage.dart';
@@ -28,6 +30,7 @@ import '../../features/explore/domain/repositories/discovery_repository.dart';
 import '../../features/live/data/repositories/mock_live_repository.dart';
 import '../../features/live/domain/repositories/live_repository.dart';
 import '../../features/live/presentation/bloc/live_list_cubit.dart';
+import '../../features/live/presentation/bloc/live_media_cubit.dart';
 import '../../features/live/presentation/children/schedule_show/data/datasources/show_draft_local_data_source.dart';
 import '../../features/live/presentation/children/schedule_show/data/repositories/mock_show_schedule_repository.dart';
 import '../../features/live/presentation/children/schedule_show/domain/repositories/show_schedule_repository.dart';
@@ -135,6 +138,14 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
   sl.registerLazySingleton<LiveRepository>(() => MockLiveRepository(sl()));
   sl.registerFactory(() => LiveListCubit(sl()));
+  // Un motor por pantalla: el cubit lo libera al cerrarse. Sin App ID de
+  // Agora, el video es el simulado de siempre.
+  sl.registerFactory<LiveMediaEngine>(
+    () => Environment.agoraAppId.isEmpty
+        ? SimulatedLiveMediaEngine()
+        : AgoraLiveMediaEngine(Environment.agoraAppId),
+  );
+  sl.registerFactory(() => LiveMediaCubit(sl()));
   // TODO(backend): registrar ServerpodShowScheduleRepository (sobre
   // serverpod.Client) cuando exista el endpoint de agenda, igual que
   // AuthRepository elige implementación por Environment.
