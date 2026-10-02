@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -16,8 +18,11 @@ import '../../../live/presentation/widgets/featured_live_card.dart';
 import '../../../live/presentation/widgets/live_stories_row.dart';
 import '../../../moderation/presentation/widgets/staff_shortcut_card.dart';
 import '../../domain/entities/feed_filter.dart';
+import '../../domain/entities/post.dart';
 import '../bloc/feed_cubit.dart';
 import '../widgets/empty_feed_view.dart';
+import '../widgets/comments_sheet.dart';
+import '../widgets/post_actions.dart';
 import '../widgets/post_card.dart';
 
 class FeedPage extends StatelessWidget {
@@ -40,44 +45,54 @@ class _FeedView extends StatelessWidget {
   const _FeedView();
 
   @override
-  Widget build(BuildContext context) => BlocBuilder<FeedCubit, FeedState>(
-    builder: (context, state) {
-      final cubit = context.read<FeedCubit>();
-      final loaded = state is FeedLoaded ? state : null;
+  Widget build(BuildContext context) => BlocListener<FeedCubit, FeedState>(
+    listenWhen: (previous, current) =>
+        current is FeedLoaded &&
+        current.notice != null &&
+        (previous is! FeedLoaded ||
+            previous.noticeSerial != current.noticeSerial),
+    listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text((state as FeedLoaded).notice!.message)),
+    ),
+    child: BlocBuilder<FeedCubit, FeedState>(
+      builder: (context, state) {
+        final cubit = context.read<FeedCubit>();
+        final loaded = state is FeedLoaded ? state : null;
 
-      return NexoPage(
-        section: 'Feed',
-        actions: [
-          IconButton(
-            tooltip: 'Mensajes',
-            onPressed: () {},
-            icon: const Icon(Icons.mail_outline_rounded, size: 22),
-          ),
-        ],
-        // Los dos cubits se resuelven antes del await: después de él este
-        // context puede estar desmontado, y leer un provider desde un Element
-        // muerto revienta sin mensaje legible.
-        onRefresh: () {
-          final live = context.read<LiveListCubit>();
-          return Future.wait([cubit.refresh(), live.load()]);
-        },
-        children: [
-          const StaffShortcutCard(),
-          const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
-          const SizedBox(height: AppSpacing.sm),
-          // La fila de filtros queda montada en todos los estados: perder el
-          // control que acabás de tocar mientras refresca se lee como que el
-          // tap rompió algo.
-          _FilterRow(
-            selected: loaded?.filter ?? FeedFilter.forYou,
-            onSelected: cubit.selectFilter,
-            liveCount: loaded?.posts.where((post) => post.isLive).length,
-          ),
-          const _LiveRail(),
-          ..._body(context, state),
-        ],
-      );
-    },
+        return NexoPage(
+          section: 'Feed',
+          actions: [
+            IconButton(
+              tooltip: 'Mensajes',
+              onPressed: () {},
+              icon: const Icon(Icons.mail_outline_rounded, size: 22),
+            ),
+          ],
+          // Los dos cubits se resuelven antes del await: después de él este
+          // context puede estar desmontado, y leer un provider desde un Element
+          // muerto revienta sin mensaje legible.
+          onRefresh: () {
+            final live = context.read<LiveListCubit>();
+            return Future.wait([cubit.refresh(), live.load()]);
+          },
+          children: [
+            const StaffShortcutCard(),
+            const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
+            const SizedBox(height: AppSpacing.sm),
+            // La fila de filtros queda montada en todos los estados: perder el
+            // control que acabás de tocar mientras refresca se lee como que el
+            // tap rompió algo.
+            _FilterRow(
+              selected: loaded?.filter ?? FeedFilter.forYou,
+              onSelected: cubit.selectFilter,
+              liveCount: loaded?.posts.where((post) => post.isLive).length,
+            ),
+            const _LiveRail(),
+            ..._body(context, state),
+          ],
+        );
+      },
+    ),
   );
 
   List<Widget> _body(BuildContext context, FeedState state) {
@@ -116,10 +131,27 @@ class _FeedView extends StatelessWidget {
             index: index,
             child: PostCard(
               post: post,
-              onLike: () => cubit.toggleLike(post.id),
+              onLike: () => unawaited(cubit.toggleLike(post.id)),
               onSave: () => cubit.toggleSave(post.id),
+              onComment: () => unawaited(showCommentsSheet(context, post)),
+              onShowLikers: () =>
+                  unawaited(showLikersSheet(context, cubit.likersOf(post.id))),
+              onMore: () => unawaited(_runAction(context, cubit, post)),
             ),
           ),
+        ),
+      if (loaded.hasMore)
+        Center(
+          child: loaded.isLoadingMore
+              ? const Padding(
+                  padding: EdgeInsets.all(AppSpacing.md),
+                  child: CircularProgressIndicator(),
+                )
+              : TextButton(
+                  key: const Key('feed-load-more'),
+                  onPressed: () => unawaited(cubit.loadMore()),
+                  child: const Text('Ver más publicaciones'),
+                ),
         ),
     ];
   }
@@ -208,4 +240,37 @@ class _FilterRow extends StatelessWidget {
       },
     ),
   );
+}
+
+/// Aplica lo que se eligió en el menú "…". El menú sólo decide; el cubit
+/// aplica y avisa el resultado.
+Future<void> _runAction(
+  BuildContext context,
+  FeedCubit cubit,
+  Post post,
+) async {
+  final action = await showPostActions(context, post);
+  switch (action) {
+    case EditPost(:final body):
+      await cubit.edit(post, body);
+    case DeletePost():
+      await cubit.delete(post);
+    case ReportPost(:final reason):
+      await cubit.report(post, reason);
+    case null:
+      break;
+  }
+}
+
+extension on FeedNotice {
+  String get message => switch (this) {
+    FeedNotice.edited => 'Publicación actualizada.',
+    FeedNotice.deleted => 'Publicación eliminada.',
+    FeedNotice.reported => 'Gracias. El reporte llegó a moderación.',
+    FeedNotice.likeFailed =>
+      'No pudimos guardar tu me gusta. Inténtalo de nuevo.',
+    FeedNotice.actionFailed =>
+      'No pudimos completar la acción. Inténtalo de nuevo.',
+    FeedNotice.forbidden => 'Tu cuenta no puede hacer esto.',
+  };
 }

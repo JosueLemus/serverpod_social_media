@@ -13,10 +13,10 @@ import '../../core/media/simulated_live_media_engine.dart';
 import '../../core/mock/mock_platform.dart';
 import '../../core/storage/mock_social_store.dart';
 import '../../core/storage/session_storage.dart';
-import '../../features/feed/data/datasources/feed_remote_data_source.dart';
-import '../../features/feed/data/repositories/feed_repository_impl.dart';
-import '../../features/feed/domain/repositories/feed_repository.dart';
-import '../../features/feed/domain/usecases/get_feed_status.dart';
+import '../../features/feed/data/repositories/mock_post_repository.dart';
+import '../../features/feed/data/repositories/serverpod_post_repository.dart';
+import '../../features/feed/domain/repositories/post_repository.dart';
+import '../../features/feed/presentation/bloc/comments_cubit.dart';
 import '../../features/feed/presentation/bloc/feed_cubit.dart';
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
 import '../../features/auth/data/datasources/serverpod_auth_storage.dart';
@@ -122,14 +122,18 @@ Future<void> configureDependencies({
     ),
   );
   sl.registerLazySingleton<Dio>(() => sl<DioClient>().instance);
-  sl.registerLazySingleton<FeedRemoteDataSource>(
-    () => Environment.dataSourceMode == DataSourceMode.mock
-        ? const FeedMockDataSource()
-        : FeedApiDataSource(sl()),
+  // Con cuentas reales, publicaciones reales: el mismo interruptor que el
+  // login. Una sesión de Serverpod leyendo el feed del mock es justo la doble
+  // fuente de verdad que el SDD 0004 quiere sacar.
+  sl.registerLazySingleton<PostRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockPostRepository(sl())
+        : ServerpodPostRepository(sl<serverpod.Client>()),
   );
-  sl.registerLazySingleton<FeedRepository>(() => FeedRepositoryImpl(sl()));
-  sl.registerLazySingleton(() => GetFeedStatus(sl()));
-  sl.registerFactory(() => FeedCubit(sl(), sl()));
+  sl.registerFactory(() => FeedCubit(sl()));
+  sl.registerFactoryParam<CommentsCubit, String, void>(
+    (postId, _) => CommentsCubit(sl(), postId),
+  );
   sl.registerFactory(() => PostComposerCubit(sl()));
   // The session is app-wide state: the router redirect, the shell and the
   // profile all read the same instance. A factory here would hand each caller
