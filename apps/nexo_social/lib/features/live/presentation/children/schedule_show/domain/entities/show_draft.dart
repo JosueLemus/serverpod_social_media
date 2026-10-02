@@ -57,9 +57,8 @@ class ShowDraft extends Equatable {
     recordReplay: json['recordReplay'] as bool,
   );
 
-  factory ShowDraft.startingFrom(DateTime now) => ShowDraft(
-    startsAt: DateTime(now.year, now.month, now.day + 1, 19),
-  );
+  factory ShowDraft.startingFrom(DateTime now) =>
+      ShowDraft(startsAt: DateTime(now.year, now.month, now.day + 1, 19));
 
   static const maxTitleLength = 100;
   // TODO(backend): leer el tope de co-hosts de la config del servidor; hoy

@@ -227,10 +227,7 @@ void main() {
         ),
         throwsA(isA<ConflictFailure>()),
       );
-      expect(
-        platform.lives().where((live) => live.title == 'Tarde'),
-        isEmpty,
-      );
+      expect(platform.lives().where((live) => live.title == 'Tarde'), isEmpty);
     });
 
     test('a scheduled show survives a reload', () async {

@@ -16,7 +16,9 @@ class SourceFile {
   late final String? _layer = () {
     String? layer;
     for (final segment in path.split('/')) {
-      if (segment == 'domain' || segment == 'data' || segment == 'presentation') {
+      if (segment == 'domain' ||
+          segment == 'data' ||
+          segment == 'presentation') {
         layer = segment;
       }
     }

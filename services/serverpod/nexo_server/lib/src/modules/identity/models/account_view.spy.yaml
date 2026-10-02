@@ -1,0 +1,9 @@
+### La cuenta de quien tiene la sesión: su perfil más lo que sólo ve ella.
+### Los roles los decide el servidor a partir de los scopes; el cliente los
+### lee de acá y nunca los elige.
+class: AccountView
+fields:
+  profile: ProfileView
+  email: String?
+  isModerator: bool
+  isAdmin: bool

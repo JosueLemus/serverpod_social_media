@@ -38,8 +38,7 @@ class AccessSettingsCard extends StatelessWidget {
         _SettingRow(
           switchKey: const Key('schedule-questions'),
           title: 'Preguntas anticipadas',
-          detail:
-              'Permite que tu comunidad deje preguntas antes del vivo.',
+          detail: 'Permite que tu comunidad deje preguntas antes del vivo.',
           value: allowQuestions,
           onChanged: onAllowQuestions,
         ),

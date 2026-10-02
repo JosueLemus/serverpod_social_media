@@ -30,7 +30,7 @@ class ServerpodAuthRepository implements AuthRepository {
       if (!validated) {
         throw const AuthenticationFailure(AuthFailureReason.network);
       }
-      return toAppUser(auth);
+      return await _account();
     } on AuthenticationFailure {
       rethrow;
     } catch (error) {
@@ -50,7 +50,7 @@ class ServerpodAuthRepository implements AuthRepository {
         password: password,
       );
       await _session.updateSignedInUser(success);
-      return toAppUser(success, email: _normalizeEmail(email));
+      return await _account();
     } catch (error) {
       throw _failureFor(error);
     }
@@ -89,7 +89,7 @@ class ServerpodAuthRepository implements AuthRepository {
         password: password,
       );
       await _session.updateSignedInUser(success);
-      return toAppUser(success);
+      return await _account();
     } catch (error) {
       throw _failureFor(error);
     }
@@ -154,39 +154,50 @@ class ServerpodAuthRepository implements AuthRepository {
     if (!revoked) throw const AuthenticationFailure(AuthFailureReason.network);
   }
 
+  /// Cada cambio de sesión vuelve a pedir la cuenta al servidor. Mapear el
+  /// token solo no alcanza: el token no sabe el nombre de usuario, si la
+  /// cuenta es creadora ni su verificación, y emitir un usuario a medias
+  /// pisaría al completo que ya tiene el `AuthCubit`.
   @override
-  Stream<AppUser?> watchSession() =>
-      _authEvents.map((auth) => auth == null ? null : toAppUser(auth));
+  Stream<AppUser?> watchSession() => _authEvents.asyncExpand((auth) async* {
+    if (auth == null) {
+      yield null;
+      return;
+    }
+    try {
+      yield await _account();
+    } catch (_) {
+      // Sin red no hay nada nuevo que contar: la sesión sigue como estaba.
+    }
+  });
 
   @override
   Future<ModerationReason?> sanctionReason(String accountId) async => null;
 
   static String _normalizeEmail(String value) => value.trim().toLowerCase();
 
-  /// Serverpod scopes are server-signed. `admin` is intentionally translated
-  /// to Nexo's `operator`; creator remains a separate profile capability and
-  /// is false until a dedicated, authorised Nexo profile endpoint exists.
-  static AppUser toAppUser(AuthSuccess auth, {String email = ''}) {
-    final id = auth.authUserId.toString();
-    final role = auth.scopeNames.contains('admin')
-        ? UserRole.operator
-        : auth.scopeNames.contains('moderator')
-        ? UserRole.moderator
-        : UserRole.user;
-    // Full UUID-derived value avoids a client-only collision guarantee. A
-    // future editable username needs its own normalised, database-unique
-    // Nexo profile field rather than truncating this stable fallback.
-    final alias = id.replaceAll('-', '');
+  /// La cuenta de la sesión según el servidor. La primera llamada de una
+  /// cuenta nueva le crea su perfil con un nombre de usuario libre.
+  Future<AppUser> _account() async => fromAccount(await _client.profiles.me());
+
+  /// Traduce la cuenta del servidor. Los roles salen de los scopes firmados
+  /// por el servidor (`admin` es el `operator` de Nexo); ser creador y estar
+  /// verificado son datos del perfil, no scopes.
+  static AppUser fromAccount(api.AccountView account) {
+    final profile = account.profile;
     return AppUser(
-      id: id,
-      username: 'nexo_$alias',
-      name: 'Miembro Nexo',
-      email: email,
-      role: role,
-      isCreator: false,
-      // Email ownership is not the product's creator verification badge.
-      verification: VerificationStatus.none,
-      status: AccountStatus.active,
+      id: profile.userId.toString(),
+      username: profile.username,
+      name: profile.displayName,
+      email: account.email ?? '',
+      role: account.isAdmin
+          ? UserRole.operator
+          : account.isModerator
+          ? UserRole.moderator
+          : UserRole.user,
+      isCreator: profile.isCreator,
+      verification: VerificationStatus.values.byName(profile.verification.name),
+      status: AccountStatus.values.byName(profile.status.name),
     );
   }
 

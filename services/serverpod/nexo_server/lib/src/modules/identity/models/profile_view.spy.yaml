@@ -1,0 +1,14 @@
+### El perfil público de una cuenta, tal como lo ve cualquiera.
+class: ProfileView
+fields:
+  userId: UuidValue
+  username: String
+  displayName: String
+  bio: String?
+  avatarUrl: String?
+  isCreator: bool
+  verification: VerificationStatus
+  ### Público a propósito: una sanción que no se ve desde afuera no se puede
+  ### demostrar.
+  status: AccountStatus
+  createdAt: DateTime

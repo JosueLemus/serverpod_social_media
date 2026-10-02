@@ -263,7 +263,7 @@ class _CoverToolbar extends StatelessWidget {
         if (Navigator.of(context).canPop())
           const BackButton(color: Colors.white)
         else
-          const SizedBox(width: AppSpacing.md,),
+          const SizedBox(width: AppSpacing.md),
         Padding(
           padding: EdgeInsets.only(top: AppSpacing.sm),
           child: Text(

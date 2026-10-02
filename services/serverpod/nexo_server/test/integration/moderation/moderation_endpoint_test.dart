@@ -121,9 +121,11 @@ void main() {
         expect((await endpoints.posts.feed(fixtures.guest)).items, isEmpty);
         expect(await endpoints.moderation.queue(moderator), isEmpty);
 
+        // Reportar también queda auditado (`moderation.report`); lo que se
+        // comprueba acá es que la resolución quede registrada una sola vez.
         final audit = await AuditLog.db.find(
           fixtures.session,
-          where: (t) => t.action.like('moderation.%'),
+          where: (t) => t.action.equals('moderation.hideContent'),
         );
         expect(audit.single.action, 'moderation.hideContent');
         expect(audit.single.actorId, moderatorId);

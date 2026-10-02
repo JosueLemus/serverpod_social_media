@@ -17,12 +17,16 @@ abstract final class Environment {
   static DataSourceMode get dataSourceMode =>
       dataSource == 'api' ? DataSourceMode.api : DataSourceMode.mock;
 
-  /// Real authentication is the production default. Tests and the interactive
-  /// demo opt into mock explicitly, never as a network-failure fallback.
+  /// De dónde salen las cuentas. Nunca es un fallback ante un fallo de red:
+  /// se elige al compilar.
+  ///
+  /// El default sigue en `mock` a propósito, hasta que vivos, moderación y
+  /// la consola tengan backend: esas pantallas todavía leen la sesión de
+  /// `MockPlatform`, y con una cuenta real la rechazan. Para probar el login
+  /// real: `--dart-define=AUTH_SOURCE=serverpod`. Cuando esos módulos estén
+  /// conectados, el default pasa a `serverpod`.
   static const authSource = String.fromEnvironment(
     'AUTH_SOURCE',
-    // TEMPORAL: 'mock' para validar Programar Show sin servidor. El default
-    // real es 'serverpod' — revertir antes de commitear.
     defaultValue: 'mock',
   );
   static AuthSourceMode get authSourceMode =>
