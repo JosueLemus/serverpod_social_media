@@ -1,87 +1,105 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:nexo_social/core/usecases/usecase.dart';
+import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/features/feed/domain/entities/feed_filter.dart';
-import 'package:nexo_social/features/feed/domain/entities/feed_status.dart';
-import 'package:nexo_social/features/feed/domain/entities/post.dart';
-import 'package:nexo_social/features/feed/domain/usecases/get_feed_status.dart';
+import 'package:nexo_social/features/feed/domain/entities/post_extras.dart';
 import 'package:nexo_social/features/feed/presentation/bloc/feed_cubit.dart';
+import 'package:nexo_social/features/moderation/domain/entities/moderation_action.dart';
 
-class MockGetFeedStatus extends Mock implements GetFeedStatus {}
+import '../../../support/fake_post_repository.dart';
 
 void main() {
-  late MockGetFeedStatus getFeedStatus;
+  late FakePostRepository repository;
 
   setUp(() {
-    getFeedStatus = MockGetFeedStatus();
+    repository = FakePostRepository([
+      fakePost('1', likes: 482),
+      fakePost('2'),
+      fakePost('3'),
+    ]);
   });
-
-  void serviceIsReady({bool ready = true}) => when(
-    () => getFeedStatus(const NoParams()),
-  ).thenAnswer((_) async => FeedStatus(isReady: ready));
 
   group('load', () {
     blocTest<FeedCubit, FeedState>(
-      'emits loading then content when the service is available',
-      setUp: serviceIsReady,
-      build: () => FeedCubit(getFeedStatus),
+      'shows the posts the server returns',
+      build: () => FeedCubit(repository),
       act: (cubit) => cubit.load(),
-      expect: () => [isA<FeedLoading>(), isA<FeedLoaded>()],
+      expect: () => [
+        const FeedLoading(),
+        isA<FeedLoaded>().having((s) => s.posts, 'posts', hasLength(3)),
+      ],
     );
 
-    /// A failed read is its own state. Without it, a dead endpoint and a slow
-    /// one look identical: a spinner that never resolves.
+    /// Sin red y con el servidor caído son dos promesas distintas: una se
+    /// puede esperar, la otra es nuestra.
     blocTest<FeedCubit, FeedState>(
-      'emits a failure the user can retry from',
-      setUp: () => serviceIsReady(ready: false),
-      build: () => FeedCubit(getFeedStatus),
+      'a dead network is a failure that says so',
+      build: () => FeedCubit(repository),
+      setUp: () => repository.failNext = const NetworkFailure('offline'),
       act: (cubit) => cubit.load(),
-      expect: () => [isA<FeedLoading>(), isA<FeedFailure>()],
+      expect: () => [const FeedLoading(), const FeedFailure(offline: true)],
     );
 
     blocTest<FeedCubit, FeedState>(
-      'a thrown error is a failure, not an unhandled exception',
-      setUp: () => when(
-        () => getFeedStatus(const NoParams()),
-      ).thenThrow(Exception('boom')),
-      build: () => FeedCubit(getFeedStatus),
-      act: (cubit) => cubit.load(),
-      expect: () => [isA<FeedLoading>(), isA<FeedFailure>()],
+      'a failed refresh keeps what was on screen',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        repository.failNext = const ServerFailure('500');
+        await cubit.refresh();
+      },
+      verify: (cubit) => expect(cubit.state, isA<FeedLoaded>()),
+    );
+
+    blocTest<FeedCubit, FeedState>(
+      'pages until there is no cursor, without repeating posts',
+      build: () => FeedCubit(repository..pageSize = 2),
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.loadMore();
+        await cubit.loadMore();
+      },
+      verify: (cubit) {
+        final state = cubit.state as FeedLoaded;
+        expect(state.posts.map((p) => p.id), ['1', '2', '3']);
+        expect(state.hasMore, isFalse);
+      },
+    );
+
+    /// Publicar desde el compositor vuelve al mismo feed (el shell guarda un
+    /// Navigator por pestaña): el feed se entera por el repositorio.
+    blocTest<FeedCubit, FeedState>(
+      'a change in the repository refreshes the feed',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        repository.posts = [fakePost('nuevo'), ...repository.posts];
+        repository.emitChange();
+        await Future<void>.delayed(Duration.zero);
+      },
+      verify: (cubit) =>
+          expect((cubit.state as FeedLoaded).posts.first.id, 'nuevo'),
     );
   });
 
   group('filters', () {
-    Post post(String id, {bool live = false, bool followed = false}) => Post(
-      id: id,
-      author: 'a',
-      name: 'A',
-      body: 'b',
-      tags: const ['t'],
-      likes: 0,
-      comments: 0,
-      createdAt: DateTime(2026),
-      isLive: live,
-      isFollowed: followed,
-    );
-
     test('forYou shows everything', () {
-      final state = FeedLoaded([post('1'), post('2', live: true)]);
+      final state = FeedLoaded([fakePost('1'), fakePost('2', live: true)]);
       expect(state.visible, hasLength(2));
     });
 
     test('live shows only broadcasting posts', () {
       final state = FeedLoaded([
-        post('1'),
-        post('2', live: true),
+        fakePost('1'),
+        fakePost('2', live: true),
       ], filter: FeedFilter.live);
       expect(state.visible.single.id, '2');
     });
 
     test('following shows only followed authors', () {
       final state = FeedLoaded([
-        post('1'),
-        post('2', followed: true),
+        fakePost('1'),
+        fakePost('2', followed: true),
       ], filter: FeedFilter.following);
       expect(state.visible.single.id, '2');
     });
@@ -89,14 +107,14 @@ void main() {
     /// An empty filter is a legitimate result, not an error — the screen shows
     /// a way back rather than a retry.
     test('a filter that matches nothing yields an empty list', () {
-      final state = FeedLoaded([post('1')], filter: FeedFilter.live);
+      final state = FeedLoaded([fakePost('1')], filter: FeedFilter.live);
       expect(state.visible, isEmpty);
     });
 
     /// Filtering never drops posts from the state, so switching back needs no
     /// refetch.
     test('switching filters does not lose posts', () {
-      final state = FeedLoaded([post('1'), post('2', live: true)]);
+      final state = FeedLoaded([fakePost('1'), fakePost('2', live: true)]);
       final filtered = state.copyWith(filter: FeedFilter.live);
       expect(filtered.visible, hasLength(1));
       expect(
@@ -106,46 +124,100 @@ void main() {
     });
   });
 
-  group('reactions', () {
+  group('likes', () {
     blocTest<FeedCubit, FeedState>(
-      'liking flips only the targeted post',
-      setUp: serviceIsReady,
-      build: () => FeedCubit(getFeedStatus),
+      'liking flips only the targeted post and the server count wins',
+      build: () => FeedCubit(repository),
       act: (cubit) async {
         await cubit.load();
-        final loaded = cubit.state as FeedLoaded;
-        cubit.toggleLike(loaded.posts.first.id);
+        await cubit.toggleLike('1');
       },
       verify: (cubit) {
         final posts = (cubit.state as FeedLoaded).posts;
         expect(posts.first.isLiked, isTrue);
+        expect(posts.first.likes, 483);
         expect(posts.skip(1).every((post) => !post.isLiked), isTrue);
       },
     );
 
-    /// The stored count never changes; the user's own like is added on read,
-    /// so an optimistic tap cannot permanently inflate the number that comes
-    /// back from the server.
-    test('the like count is derived, not mutated', () {
-      final post = Post(
-        id: '1',
-        author: 'a',
-        name: 'A',
-        body: 'b',
-        tags: const [],
-        likes: 482,
-        comments: 0,
-        createdAt: DateTime(2026),
-      );
+    /// Optimista, pero no mentiroso: si el servidor no lo guardó, el corazón
+    /// vuelve como estaba y se avisa.
+    blocTest<FeedCubit, FeedState>(
+      'a like the server rejects is rolled back and reported',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        repository.failNext = const NetworkFailure('offline');
+        await cubit.toggleLike('1');
+      },
+      verify: (cubit) {
+        final state = cubit.state as FeedLoaded;
+        expect(state.posts.first.isLiked, isFalse);
+        expect(state.posts.first.likes, 482);
+        expect(state.notice, FeedNotice.likeFailed);
+      },
+    );
+  });
 
-      expect(post.displayLikes, 482);
-      expect(post.copyWith(isLiked: true).displayLikes, 483);
-      // The stored value is untouched, so un-liking returns to exactly 482.
-      expect(post.copyWith(isLiked: true).likes, 482);
-      expect(
-        post.copyWith(isLiked: true).copyWith(isLiked: false).displayLikes,
-        482,
-      );
-    });
+  group('post actions', () {
+    blocTest<FeedCubit, FeedState>(
+      'deleting removes the post and confirms it',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.delete(fakePost('2'));
+      },
+      verify: (cubit) {
+        final state = cubit.state as FeedLoaded;
+        expect(state.posts.map((p) => p.id), ['1', '3']);
+        expect(state.notice, FeedNotice.deleted);
+      },
+    );
+
+    blocTest<FeedCubit, FeedState>(
+      'a delete the server forbids keeps the post and says why',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        repository.failNext = const ForbiddenFailure('not yours');
+        await cubit.delete(fakePost('2'));
+      },
+      verify: (cubit) {
+        final state = cubit.state as FeedLoaded;
+        expect(state.posts, hasLength(3));
+        expect(state.notice, FeedNotice.forbidden);
+      },
+    );
+
+    blocTest<FeedCubit, FeedState>(
+      'editing replaces the post with what the server returns',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.edit(fakePost('1'), 'texto nuevo');
+      },
+      verify: (cubit) {
+        final state = cubit.state as FeedLoaded;
+        expect(state.posts.first.body, 'texto nuevo');
+        expect(state.notice, FeedNotice.edited);
+      },
+    );
+
+    blocTest<FeedCubit, FeedState>(
+      'reporting sends the typed reason',
+      build: () => FeedCubit(repository),
+      act: (cubit) async {
+        await cubit.load();
+        await cubit.report(fakePost('3'), ModerationReason.spam);
+      },
+      verify: (cubit) {
+        expect(repository.reports.single, (
+          ReportTarget.post,
+          '3',
+          ModerationReason.spam,
+        ));
+        expect((cubit.state as FeedLoaded).notice, FeedNotice.reported);
+      },
+    );
   });
 }

@@ -3,22 +3,45 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
-import '../../../feed/domain/entities/post.dart';
+import '../../../feed/domain/entities/post_extras.dart';
 import '../bloc/post_composer_cubit.dart';
 
-/// Vista previa de lo adjuntado, con su botón de quitar.
-///
-/// No hay subida real todavía, así que nombra un archivo de ejemplo: un
-/// recuadro vacío no deja claro que el adjunto quedó puesto.
+/// La copy de cada problema del compositor. Dice qué pasó con lo que la
+/// persona intentaba hacer; el texto del servidor nunca se pinta.
+extension ComposerIssueCopy on ComposerIssue {
+  String get message => switch (this) {
+    ComposerIssue.fileTooLarge =>
+      'El archivo es muy pesado: hasta 10 MB para fotos y 50 MB para videos.',
+    ComposerIssue.unsupportedFile =>
+      'Ese formato no se acepta. Usa JPG, PNG, WebP o GIF; MP4, MOV o WebM.',
+    ComposerIssue.publishFailed =>
+      'No pudimos publicar. Tu borrador sigue acá para reintentar.',
+    ComposerIssue.offline =>
+      'Sin conexión. Tu borrador sigue acá para reintentar.',
+    ComposerIssue.forbidden => 'Tu cuenta no puede publicar en este momento.',
+  };
+}
+
+/// Vista previa de lo adjuntado, con su botón de quitar. La foto se ve tal
+/// cual; un video muestra su nombre y su peso.
 class ComposerMediaPreview extends StatelessWidget {
   const ComposerMediaPreview({
     super.key,
-    required this.media,
+    required this.attachment,
     required this.onRemove,
   });
 
-  final PostMedia media;
+  final MediaAttachment attachment;
   final VoidCallback onRemove;
+
+  bool get _isVideo => attachment.kind == PostMedia.video;
+
+  String get _size {
+    final mb = attachment.sizeBytes / (1024 * 1024);
+    return mb >= 1
+        ? '${mb.toStringAsFixed(1)} MB'
+        : '${(attachment.sizeBytes / 1024).ceil()} KB';
+  }
 
   @override
   Widget build(BuildContext context) => ClipRRect(
@@ -28,27 +51,37 @@ class ComposerMediaPreview extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primarySurface,
-                  AppColors.primarySurfaceDeep,
-                ],
+          if (_isVideo)
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primarySurface,
+                    AppColors.primarySurfaceDeep,
+                  ],
+                ),
               ),
+              child: Center(
+                child: Icon(
+                  Icons.play_circle_fill_rounded,
+                  size: 40,
+                  color: AppColors.primary,
+                ),
+              ),
+            )
+          else
+            Image.memory(
+              attachment.bytes,
+              key: const Key('composer-image-preview'),
+              fit: BoxFit.cover,
+              // Se decodifica al tamaño en que se muestra, no a la
+              // resolución nativa de la foto.
+              cacheWidth: 1280,
+              errorBuilder: (context, error, stack) =>
+                  const ColoredBox(color: AppColors.primarySurface),
             ),
-          ),
-          Center(
-            child: Icon(
-              media == PostMedia.video
-                  ? Icons.play_circle_fill_rounded
-                  : Icons.image_outlined,
-              size: 40,
-              color: AppColors.primary.withValues(alpha: .6),
-            ),
-          ),
           Positioned(
             top: AppSpacing.xs,
             right: AppSpacing.xs,
@@ -74,12 +107,14 @@ class ComposerMediaPreview extends StatelessWidget {
           Positioned(
             bottom: AppSpacing.xs,
             left: AppSpacing.xs,
-            child: StatusBadge(
-              label: media == PostMedia.video
-                  ? 'clip_preview.mp4'
-                  : 'set_creativo_v3.jpg',
-              color: AppColors.neutral.withValues(alpha: .6),
-              icon: Icons.attach_file_rounded,
+            right: AppSpacing.xl,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: StatusBadge(
+                label: '${attachment.fileName} · $_size',
+                color: AppColors.neutral.withValues(alpha: .6),
+                icon: Icons.attach_file_rounded,
+              ),
             ),
           ),
         ],
