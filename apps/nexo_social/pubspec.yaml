@@ -49,6 +49,8 @@ dependencies:
   # Direct import used for Serverpod's official session manager and storage
   # contracts. It is intentionally pinned to the generated client's version.
   serverpod_auth_core_client: 4.0.3
+  agora_rtc_engine: ^6.6.4
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

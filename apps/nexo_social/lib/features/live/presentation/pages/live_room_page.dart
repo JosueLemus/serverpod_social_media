@@ -14,10 +14,13 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../moderation/presentation/widgets/moderation_sheet.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../domain/entities/live_session.dart';
+import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_card.dart';
+import '../widgets/live_media_sync.dart';
+import '../widgets/live_video_surface.dart';
 
 /// La vista de audiencia de una sesión.
 ///
@@ -31,9 +34,15 @@ class LiveRoomPage extends StatelessWidget {
   final String liveId;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => LiveRoomCubit(sl(), sl())..load(liveId),
-    child: const _RoomView(),
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(create: (_) => LiveRoomCubit(sl(), sl())..load(liveId)),
+      BlocProvider(create: (_) => sl<LiveMediaCubit>()),
+    ],
+    child: const LiveMediaSync(
+      role: LiveMediaRole.audience,
+      child: _RoomView(),
+    ),
   );
 }
 
@@ -119,7 +128,10 @@ class _RoomViewState extends State<_RoomView> {
           body: Stack(
             fit: StackFit.expand,
             children: [
-              const _Stage(),
+              const LiveVideoSurface(
+                role: LiveMediaRole.audience,
+                fallback: _Stage(),
+              ),
               const _StageScrim(),
               SafeArea(
                 child: Column(
@@ -153,28 +165,35 @@ class _Stage extends StatelessWidget {
   const _Stage();
 
   @override
-  Widget build(BuildContext context) => const DecoratedBox(
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [AppColors.primaryDeep, AppColors.stageDark],
+  Widget build(BuildContext context) {
+    // Con Agora activo esto es la sala antes de que llegue la señal, y no
+    // tiene que decir "simulada": lo que se espera es video real.
+    final simulated = context.read<LiveMediaCubit>().engine.isSimulated;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.primaryDeep, AppColors.stageDark],
+        ),
       ),
-    ),
-    child: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.sensors_rounded, color: Colors.white38, size: 54),
-          SizedBox(height: AppSpacing.xs),
-          Text(
-            'Transmisión simulada',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
-          ),
-        ],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.sensors_rounded, color: Colors.white38, size: 54),
+            if (simulated) ...[
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'Transmisión simulada',
+                style: TextStyle(color: Colors.white38, fontSize: 13),
+              ),
+            ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Degradados arriba y abajo. El chrome va sobre video, y sin el velo su

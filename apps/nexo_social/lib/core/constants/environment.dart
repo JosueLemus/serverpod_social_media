@@ -10,6 +10,13 @@ abstract final class Environment {
     defaultValue: 'http://localhost:8080/',
   );
   static const enableNetworkLogs = bool.fromEnvironment('NETWORK_LOGS');
+
+  /// App ID de Agora para el video de los vivos. Vacío = video simulado.
+  ///
+  /// En la etapa A del SDD 0005 el proyecto de Agora está en modo de prueba
+  /// (sin certificado ni token). En la etapa B el token lo emite el servidor
+  /// y este valor viene en su respuesta en lugar de compilarse.
+  static const agoraAppId = String.fromEnvironment('AGORA_APP_ID');
   static const dataSource = String.fromEnvironment(
     'DATA_SOURCE',
     defaultValue: 'mock',
