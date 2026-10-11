@@ -60,6 +60,10 @@ class ServerpodProfileRepository implements ProfileRepository {
     verification: VerificationStatus.values.byName(view.verification.name),
     status: AccountStatus.values.byName(view.status.name),
     joinedAt: view.createdAt.toLocal(),
+    followers: view.followerCount,
+    following: view.followingCount,
+    viewerFollows: view.viewerFollows,
+    avatarUrl: view.avatarUrl,
   );
 
   static Future<T> _guard<T>(Future<T> Function() call) async {

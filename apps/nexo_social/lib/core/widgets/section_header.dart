@@ -30,7 +30,7 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.sm),
+    padding: const EdgeInsets.only(top: AppSpacing.xl, bottom: AppSpacing.sm),
     child: Row(
       children: [
         if (icon != null) ...[
@@ -38,22 +38,15 @@ class SectionHeader extends StatelessWidget {
           const SizedBox(width: 6),
         ],
         Expanded(
-          child: Text(
-            title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleLarge?.copyWith(fontSize: 17),
-          ),
+          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
         ),
         if (action != null)
           action!
         else if (hint != null)
           Text(
             hint!.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: .9,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              letterSpacing: .8,
               color: AppColors.textSecondary,
             ),
           ),

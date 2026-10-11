@@ -10,6 +10,11 @@ import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/layout/nexo_page.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/app_state_views.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
+import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/section_header.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../domain/entities/account_detail.dart';
@@ -59,25 +64,31 @@ class _DetailView extends StatelessWidget {
                   onPressed: () => context.canPop()
                       ? context.pop()
                       : context.go(AppRoutes.admin),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xs,
+                    ),
+                  ),
+                  icon: const NexoIcon(NexoGlyph.back, size: 18),
                   label: const Text('Consola'),
                 ),
               ),
+              const SizedBox(height: AppSpacing.sm),
               if (state.isLoading)
-                const FeedSkeleton(count: 1)
+                const AdminRowsSkeleton(rows: 2)
               else if (detail == null)
                 AppEmptyView(
-                  icon: Icons.person_off_outlined,
+                  mascot: NexoMascot.search,
                   title: 'No pudimos abrir la ficha',
                   message: (state.issue ?? AdminIssue.other).message,
                   actionLabel: 'Volver a la consola',
                   onAction: () => context.go(AppRoutes.admin),
                 )
               else ...[
-                _Summary(detail: detail),
-                const SizedBox(height: AppSpacing.md),
+                _Summary(user: detail.user),
+                _Facts(detail: detail),
                 _Actions(user: detail.user, isWorking: state.isWorking),
-                const SizedBox(height: AppSpacing.lg),
                 _History(sanctions: detail.sanctions),
               ],
             ],
@@ -86,86 +97,143 @@ class _DetailView extends StatelessWidget {
       );
 }
 
+/// Quién es, como el único objeto destacado de la ficha: un sticker con el
+/// corte del logo. Todo lo demás va plano sobre el liner, para que el ojo
+/// llegue primero a la persona y después a los datos.
 class _Summary extends StatelessWidget {
-  const _Summary({required this.detail});
+  const _Summary({required this.user});
+
+  final AppUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    // Dentro del sticker el tema ya es tinta, pero sólo para un contexto que
+    // esté *adentro*: leer el textTheme acá arriba trae el claro del liner, y
+    // el nombre salía blanco sobre blanco. Por eso el Builder.
+    return StickerCard(
+      child: Builder(
+        builder: (context) {
+          final text = Theme.of(context).textTheme;
+          return Row(
+            children: [
+              UserAvatar(name: user.name, size: 60),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.headlineSmall,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '@${user.username}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.bodySmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    AccountBadges(user: user),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// La identidad técnica de la cuenta, en filas planas sobre el liner con
+/// filetes: es una lectura, no un objeto, así que no lleva caja.
+class _Facts extends StatelessWidget {
+  const _Facts({required this.detail});
 
   final AccountDetail detail;
 
   @override
   Widget build(BuildContext context) {
     final user = detail.user;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                UserAvatar(name: user.name, size: 52),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Text(
-                        '@${user.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AccountBadges(user: user),
-            const SizedBox(height: AppSpacing.sm),
-            _Fact(label: 'Correo', value: user.email),
-            _Fact(label: 'Id', value: user.id),
-            _Fact(label: 'Alta', value: RelativeTime.format(detail.joinedAt)),
-            _Fact(label: 'Reportes abiertos', value: '${detail.openReports}'),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SectionHeader(title: 'Datos de la cuenta'),
+        _Fact(glyph: NexoGlyph.mention, label: 'Correo', value: user.email),
+        const _FactDivider(),
+        _Fact(glyph: NexoGlyph.hashtag, label: 'Id', value: user.id),
+        const _FactDivider(),
+        _Fact(
+          glyph: NexoGlyph.clock,
+          label: 'Alta',
+          value: RelativeTime.format(detail.joinedAt),
         ),
-      ),
+        const _FactDivider(),
+        _Fact(
+          glyph: NexoGlyph.flag,
+          label: 'Reportes abiertos',
+          value: '${detail.openReports}',
+        ),
+      ],
     );
   }
 }
 
-class _Fact extends StatelessWidget {
-  const _Fact({required this.label, required this.value});
+class _FactDivider extends StatelessWidget {
+  const _FactDivider();
 
+  @override
+  Widget build(BuildContext context) =>
+      const Divider(height: 1, indent: 20 + AppSpacing.sm);
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.glyph, required this.label, required this.value});
+
+  final NexoGlyph glyph;
   final String label;
   final String value;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.xxs),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          NexoIcon(glyph, size: 20, color: AppColors.textSecondary),
+          const SizedBox(width: AppSpacing.sm),
+          // La etiqueta puede bajar de renglón ("Reportes / abiertos" a
+          // 320); el valor se corta con elipsis. Ninguno de los dos empuja al
+          // otro fuera de la fila.
+          Flexible(
+            flex: 2,
+            child: Text(
+              label,
+              maxLines: 2,
+              style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: text.labelMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _Actions extends StatelessWidget {
@@ -219,43 +287,42 @@ class _Actions extends StatelessWidget {
     // R4: el operador no sanciona a otro operador. El botón no se ofrece, y
     // el servidor lo rechazaría igual.
     final sanctionable = !user.isOperator;
+    // El baneo es el candado cerrado del todo (relleno); la suspensión, el
+    // contorno: la misma diferencia que en el historial.
+    final ban = OutlinedButton.icon(
+      key: const Key('account-ban'),
+      onPressed: isWorking ? null : () => unawaited(_ban(context)),
+      style: AdminButtons.destructiveOutline,
+      icon: const NexoIcon(NexoGlyph.lock, size: 18, filled: true),
+      label: const Text('Banear'),
+    );
     final buttons = <Widget>[
       if (sanctionable && user.status == AccountStatus.active) ...[
         FilledButton.icon(
           key: const Key('account-suspend'),
           onPressed: isWorking ? null : () => unawaited(_suspend(context)),
-          icon: const Icon(Icons.pause_circle_outline_rounded, size: 18),
+          style: AdminButtons.destructiveFill,
+          icon: const NexoIcon(NexoGlyph.lock, size: 18),
           label: const Text('Suspender'),
-          style: FilledButton.styleFrom(backgroundColor: AppColors.warning),
         ),
-        OutlinedButton.icon(
-          key: const Key('account-ban'),
-          onPressed: isWorking ? null : () => unawaited(_ban(context)),
-          icon: const Icon(Icons.block_rounded, size: 18),
-          label: const Text('Banear'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-        ),
+        ban,
       ],
       if (sanctionable && user.status == AccountStatus.suspended) ...[
-        FilledButton.icon(
+        // Restaurar es la acción segura de la ficha: el sticker blanco.
+        FilledButton(
           key: const Key('account-restore'),
           onPressed: isWorking ? null : () => unawaited(cubit.restore()),
-          icon: const Icon(Icons.restart_alt_rounded, size: 18),
-          label: const Text('Restaurar'),
+          style: AdminButtons.safe,
+          child: const Text('Restaurar'),
         ),
-        OutlinedButton.icon(
-          key: const Key('account-ban'),
-          onPressed: isWorking ? null : () => unawaited(_ban(context)),
-          icon: const Icon(Icons.block_rounded, size: 18),
-          label: const Text('Banear'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppColors.error),
-        ),
+        ban,
       ],
       if (user.isCreator && user.isVerified)
         OutlinedButton.icon(
           key: const Key('account-revoke'),
           onPressed: isWorking ? null : () => unawaited(_revoke(context)),
-          icon: const Icon(Icons.remove_moderator_outlined, size: 18),
+          style: AdminButtons.destructiveOutline,
+          icon: const NexoIcon(NexoGlyph.verified, size: 18),
           label: const Text('Revocar verificación'),
         ),
       if (user.isCreator && !user.isVerified)
@@ -264,7 +331,8 @@ class _Actions extends StatelessWidget {
           onPressed: isWorking
               ? null
               : () => unawaited(cubit.setVerification(verified: true)),
-          icon: const Icon(Icons.verified_outlined, size: 18),
+          style: AdminButtons.quiet,
+          icon: const NexoIcon(NexoGlyph.verified, size: 18),
           label: const Text('Verificar'),
         ),
     ];
@@ -272,18 +340,18 @@ class _Actions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Acciones', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: AppSpacing.xs),
+        const SectionHeader(title: 'Acciones'),
         if (user.status == AccountStatus.banned)
-          Text(
-            'Cuenta baneada de forma permanente. No hay acciones '
-            'disponibles.',
-            style: Theme.of(context).textTheme.bodySmall,
+          const _Notice(
+            glyph: NexoGlyph.lock,
+            text:
+                'Cuenta baneada de forma permanente. No hay acciones '
+                'disponibles.',
           )
         else if (buttons.isEmpty)
-          Text(
-            'Las cuentas de operador no se sancionan desde la consola.',
-            style: Theme.of(context).textTheme.bodySmall,
+          const _Notice(
+            glyph: NexoGlyph.console,
+            text: 'Las cuentas de operador no se sancionan desde la consola.',
           )
         else
           Wrap(
@@ -296,6 +364,25 @@ class _Actions extends StatelessWidget {
   }
 }
 
+/// Por qué no hay botones: una línea en gris con su glifo, plana sobre el
+/// liner. Se lee, pero no invita a tocar.
+class _Notice extends StatelessWidget {
+  const _Notice({required this.glyph, required this.text});
+
+  final NexoGlyph glyph;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      NexoIcon(glyph, size: 18, color: AppColors.textSecondary),
+      const SizedBox(width: AppSpacing.xs),
+      Expanded(child: Text(text, style: Theme.of(context).textTheme.bodySmall)),
+    ],
+  );
+}
+
 class _History extends StatelessWidget {
   const _History({required this.sanctions});
 
@@ -304,56 +391,49 @@ class _History extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final text = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Historial de sanciones',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        const SectionHeader(title: 'Historial de sanciones'),
         const SizedBox(height: AppSpacing.xs),
         if (sanctions.isEmpty)
-          Text(
-            'Sin sanciones previas.',
-            style: Theme.of(context).textTheme.bodySmall,
+          Row(
+            children: [
+              const NexoIcon(
+                NexoGlyph.clock,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text('Sin sanciones previas.', style: text.bodySmall),
+              ),
+            ],
           )
         else
-          for (final sanction in sanctions)
-            Padding(
+          for (final (index, sanction) in sanctions.indexed)
+            // Lo vigente lleva el color de su tipo; lo que ya terminó queda
+            // en gris. La lista es append-only: nada se borra, se apaga.
+            AdminTimelineNode(
               key: Key('sanction-${sanction.id}'),
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    sanction.isActiveAt(now)
-                        ? Icons.gpp_maybe_outlined
-                        : Icons.history_rounded,
-                    size: 17,
-                    color: sanction.isActiveAt(now)
-                        ? AppColors.error
-                        : AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${sanction.kind.label} · ${sanction.reason.label}'
-                          '${sanction.isActiveAt(now) ? ' · vigente' : ''}',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        Text(
-                          '${sanction.createdBy} · '
-                          '${RelativeTime.format(sanction.createdAt)}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              glyph: sanction.kind.glyph,
+              filled: sanction.kind.glyphFilled,
+              tone: sanction.isActiveAt(now)
+                  ? sanction.kind.color
+                  : AppColors.textSecondary,
+              title: '${sanction.kind.label} · ${sanction.reason.label}',
+              badge: sanction.isActiveAt(now)
+                  ? StatusBadge(
+                      label: 'Vigente',
+                      color: sanction.kind.color,
+                      foreground: sanction.kind.foreground,
+                    )
+                  : null,
+              meta:
+                  '${sanction.createdBy} · '
+                  '${RelativeTime.format(sanction.createdAt)}',
+              isLast: index == sanctions.length - 1,
             ),
       ],
     );

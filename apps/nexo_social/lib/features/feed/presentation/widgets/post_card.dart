@@ -7,12 +7,19 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/utils/relative_time.dart';
+import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/post.dart';
 
+/// Una publicación, pegada directo sobre el liner.
+///
+/// Sin tarjeta: una columna de cajas con borde es el feed genérico que esta
+/// app no quiere ser, y la media ya es un sticker por su cuenta. Lo que separa
+/// una publicación de la siguiente es el espacio y un filete, que pone el feed.
 class PostCard extends StatelessWidget {
   const PostCard({
     super.key,
@@ -35,66 +42,48 @@ class PostCard extends StatelessWidget {
   final VoidCallback? onShowLikers;
 
   @override
-  Widget build(BuildContext context) => Card(
-    key: Key('post-${post.id}'),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      key: Key('post-${post.id}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.md,
-            AppSpacing.xs,
-            0,
-          ),
-          child: _PostHeader(post: post, onMore: onMore),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.md,
-            AppSpacing.sm,
-            AppSpacing.md,
-            0,
-          ),
-          child: Text(
-            post.body,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(height: 1.45),
-          ),
-        ),
+        _PostHeader(post: post, onMore: onMore),
+        const SizedBox(height: AppSpacing.xs),
+        Text(post.body, style: text.bodyMedium?.copyWith(height: 1.45)),
         if (post.media != null) ...[
           const SizedBox(height: AppSpacing.sm),
-          _PostMedia(kind: post.media!, url: post.mediaUrl),
+          // La media es el sticker del post: troquel blanco, despegado del
+          // liner. El borde dice "publicado", no "al aire".
+          StickerFrame(
+            child: _PostMedia(kind: post.media!, url: post.mediaUrl),
+          ),
         ],
-        if (post.tags.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              0,
-            ),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [for (final tag in post.tags) _TagChip(tag: tag)],
-            ),
+        if (post.tags.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xxs,
+            children: [
+              for (final tag in post.tags)
+                Text(
+                  '#$tag',
+                  style: text.labelMedium?.copyWith(color: AppColors.primary),
+                ),
+            ],
           ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          child: _PostActions(
-            post: post,
-            onLike: onLike,
-            onSave: onSave,
-            onComment: onComment,
-            onShowLikers: onShowLikers,
-          ),
+        ],
+        const SizedBox(height: AppSpacing.xxs),
+        _PostActions(
+          post: post,
+          onLike: onLike,
+          onSave: onSave,
+          onComment: onComment,
+          onShowLikers: onShowLikers,
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _PostHeader extends StatelessWidget {
@@ -104,76 +93,121 @@ class _PostHeader extends StatelessWidget {
   final VoidCallback? onMore;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      UserAvatar(
-        name: post.name,
-        size: 42,
-        ring: post.isLive ? AppColors.secondary : null,
-        ringWidth: 2,
-      ),
-      const SizedBox(width: AppSpacing.sm),
-      Expanded(
-        child: InkWell(
-          // Empujado, no `go`: abrir un perfil desde el feed tiene que dejar
-          // el feed debajo para que el gesto de volver devuelva la misma
-          // posición de scroll. `go` reemplazaría la pila y la perdería.
-          onTap: () => context.push(AppRoutes.profileOf(post.author)),
-          borderRadius: AppRadii.small,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      post.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            // Empujado, no `go`: abrir un perfil desde el feed tiene que dejar
+            // el feed debajo para que el gesto de volver devuelva la misma
+            // posición de scroll. `go` reemplazaría la pila y la perdería.
+            onTap: () => context.push(AppRoutes.profileOf(post.author)),
+            borderRadius: AppRadii.medium,
+            child: Row(
+              children: [
+                _AuthorAvatar(post: post),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Wrap y no Row: a 320 el nombre, el verificado y las
+                      // insignias no entran en una línea, y con la insignia de
+                      // en vivo afuera de esta columna se comía el ancho del
+                      // handle y recortaba la hora a "2…". Acá baja de renglón.
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: AppSpacing.xxs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            post.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleMedium,
+                          ),
+                          if (post.authorIsVerified)
+                            const NexoIcon(
+                              NexoGlyph.verified,
+                              size: 15,
+                              color: AppColors.primary,
+                            ),
+                          if (post.authorIsPro)
+                            const StatusBadge(
+                              label: 'Pro',
+                              color: AppColors.vinylViolet,
+                              foreground: AppColors.ink,
+                            ),
+                          if (post.isLive)
+                            const StatusBadge(label: 'En vivo', pulse: true),
+                        ],
+                      ),
+                      Text(
+                        '@${post.author} · ${RelativeTime.format(post.createdAt)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: text.bodySmall,
+                      ),
+                    ],
                   ),
-                  if (post.authorIsVerified) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 15,
-                      color: AppColors.primary,
-                    ),
-                  ],
-                  if (post.authorIsPro) ...[
-                    const SizedBox(width: 6),
-                    const StatusBadge(
-                      label: 'Pro',
-                      color: AppColors.primarySurface,
-                      foreground: AppColors.textOnBrandSurface,
-                    ),
-                  ],
-                ],
-              ),
-              Text(
-                '@${post.author} · ${RelativeTime.format(post.createdAt)}',
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      if (post.isLive) const StatusBadge(label: 'En vivo', pulse: true),
-      IconButton(
-        key: Key('more-${post.id}'),
-        tooltip: 'Más opciones',
-        iconSize: 20,
-        onPressed: onMore,
-        icon: const Icon(Icons.more_horiz_rounded),
-      ),
-    ],
+        IconButton(
+          key: Key('more-${post.id}'),
+          tooltip: 'Más opciones',
+          onPressed: onMore,
+          icon: const NexoIcon(
+            NexoGlyph.more,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// El avatar del autor en un hueco fijo. Al aire suma el foil holo por fuera
+/// del sticker, así que la cara se achica para que el anillo entre en el
+/// mismo hueco: si no, el nombre de quien transmite queda corrido respecto
+/// del resto de la columna.
+class _AuthorAvatar extends StatelessWidget {
+  const _AuthorAvatar({required this.post});
+
+  final Post post;
+
+  static const _slot = 46.0;
+  static const _ring = 2.0;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: _slot,
+    child: Center(
+      child: post.isLive
+          ? UserAvatar(
+              name: post.name,
+              imageUrl: post.authorAvatarUrl,
+              // UserAvatar separa el anillo con un aro de 1.5 más su ancho.
+              size: _slot - 2 * (_ring + 1.5),
+              ringWidth: _ring,
+              onAir: true,
+            )
+          : UserAvatar(
+              name: post.name,
+              imageUrl: post.authorAvatarUrl,
+              size: 42,
+            ),
+    ),
   );
 }
 
-/// La foto o el video del post. Sin [url] (los posts del mock) dibuja una
-/// superficie de marca: un recuadro gris se lee como una imagen rota, una
-/// superficie de marca se lee como un placeholder.
+/// La foto o el video del post. Sin [url] (los posts del mock), o mientras
+/// carga, queda el dorso liso del sticker con el glifo de media: un recuadro
+/// de marca con degradado se leía como una imagen de verdad.
 class _PostMedia extends StatelessWidget {
   const _PostMedia({required this.kind, this.url});
 
@@ -195,8 +229,7 @@ class _PostMedia extends StatelessWidget {
           cacheWidth: 1080,
           loadingBuilder: (context, child, progress) =>
               progress == null ? child : const _MediaPlaceholder(),
-          errorBuilder: (context, error, stack) =>
-              const _MediaPlaceholder(broken: true),
+          errorBuilder: (context, error, stack) => const _MediaPlaceholder(),
         ),
       );
     }
@@ -211,28 +244,56 @@ class _MediaPlaceholder extends StatelessWidget {
   const _MediaPlaceholder({this.kind = PostMedia.image, this.broken = false});
 
   final PostMedia kind;
+
+  /// Un video que no cargó ya no promete reproducirse: pierde el disco de
+  /// play y queda el glifo de media.
   final bool broken;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
     aspectRatio: 16 / 10,
-    child: DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primarySurface, AppColors.primarySurfaceDeep],
-        ),
-      ),
+    child: ColoredBox(
+      color: AppColors.linerHigh,
       child: Center(
-        child: Icon(
-          broken
-              ? Icons.broken_image_outlined
-              : kind == PostMedia.video
-              ? Icons.play_circle_fill_rounded
-              : Icons.image_outlined,
-          size: kind == PostMedia.video ? 54 : 38,
-          color: AppColors.primary.withValues(alpha: .65),
+        child: kind == PostMedia.video && !broken
+            ? const _PlayDisc()
+            : const NexoIcon(
+                NexoGlyph.media,
+                size: 40,
+                color: AppColors.textTertiary,
+              ),
+      ),
+    ),
+  );
+}
+
+/// El play como un sticker blanco redondo, cortado como el gato del logo:
+/// troquel blanco, contorno de tinta y relleno blanco con el triángulo en
+/// tinta. Sobre una foto o sobre el liner se lee igual.
+class _PlayDisc extends StatelessWidget {
+  const _PlayDisc();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 60,
+    height: 60,
+    padding: const EdgeInsets.all(AppStroke.kissCut),
+    decoration: const BoxDecoration(
+      color: AppColors.sticker,
+      shape: BoxShape.circle,
+    ),
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.sticker,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.ink, width: AppStroke.ink),
+      ),
+      child: const Center(
+        child: NexoIcon(
+          NexoGlyph.play,
+          filled: true,
+          size: 24,
+          color: AppColors.ink,
         ),
       ),
     ),
@@ -296,40 +357,12 @@ class _InlineVideoState extends State<_InlineVideo> {
           alignment: Alignment.center,
           children: [
             VideoPlayer(_controller),
-            if (!_controller.value.isPlaying)
-              const Icon(
-                Icons.play_circle_fill_rounded,
-                size: 56,
-                color: Colors.white,
-              ),
+            if (!_controller.value.isPlaying) const _PlayDisc(),
           ],
         ),
       ),
     );
   }
-}
-
-class _TagChip extends StatelessWidget {
-  const _TagChip({required this.tag});
-
-  final String tag;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 4),
-    decoration: const BoxDecoration(
-      color: AppColors.primarySurface,
-      borderRadius: AppRadii.pill,
-    ),
-    child: Text(
-      '#$tag',
-      style: const TextStyle(
-        color: AppColors.textOnBrandSurface,
-        fontWeight: FontWeight.w700,
-        fontSize: 12,
-      ),
-    ),
-  );
 }
 
 class _PostActions extends StatelessWidget {
@@ -346,6 +379,8 @@ class _PostActions extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback? onComment;
   final VoidCallback? onShowLikers;
+
+  static const _iconSize = 22.0;
 
   /// Un visitante mira; interactuar pide una cuenta. Antes el toque llegaba
   /// al servidor, que lo rechazaba, y el aviso decía "No pudimos guardar tu
@@ -377,14 +412,15 @@ class _PostActions extends StatelessWidget {
     children: [
       _ActionButton(
         buttonKey: Key('like-${post.id}'),
-        // El corazón late sólo al activarse. Keyear Pop en `isLiked` lo
-        // repite cada vez que pasa a true y deja el des-like silencioso, que
-        // es la asimetría real del gesto.
+        // El corazón se "pega" sólo al activarse: el slap de Pop. Keyearlo en
+        // `isLiked` lo repetiría cada vez que pasa a true y dejaría el
+        // des-like silencioso, que es la asimetría real del gesto.
         icon: Pop(
           trigger: post.isLiked,
-          child: Icon(
-            post.isLiked ? Icons.favorite_rounded : Icons.favorite_border,
-            size: 21,
+          child: NexoIcon(
+            NexoGlyph.heart,
+            filled: post.isLiked,
+            size: _iconSize,
             color: post.isLiked ? AppColors.secondary : AppColors.textSecondary,
           ),
         ),
@@ -394,44 +430,55 @@ class _PostActions extends StatelessWidget {
         // Mantener apretado muestra quién dio like: el toque ya es el like.
         onLongPress: onShowLikers,
         emphasised: post.isLiked,
+        edge: _Edge.start,
       ),
       _ActionButton(
         buttonKey: Key('comment-${post.id}'),
-        icon: const Icon(
-          Icons.chat_bubble_outline_rounded,
-          size: 20,
-          color: AppColors.textSecondary,
+        icon: NexoIcon(
+          NexoGlyph.comment,
+          size: _iconSize,
+          color: onComment == null
+              ? AppColors.textTertiary
+              : AppColors.textSecondary,
         ),
         label: '${post.comments}',
         tooltip: 'Comentar',
         onTap: onComment,
       ),
+      // Deshabilitado y no un tap que no hace nada: un botón que no responde
+      // se lee como un bug. Gris de deshabilitado para que no lo parezca.
       _ActionButton(
         buttonKey: Key('share-${post.id}'),
-        icon: const Icon(
-          Icons.send_outlined,
-          size: 19,
-          color: AppColors.textSecondary,
+        icon: const NexoIcon(
+          NexoGlyph.share,
+          size: _iconSize,
+          color: AppColors.textTertiary,
         ),
         tooltip: 'Compartir (próximamente)',
-        // Deshabilitado y no un tap que no hace nada: un botón que no
-        // responde se lee como un bug.
         onTap: null,
       ),
       const Spacer(),
-      IconButton(
-        key: Key('save-${post.id}'),
-        tooltip: post.isSaved ? 'Quitar de guardados' : 'Guardar',
-        onPressed: onSave,
-        icon: Icon(
-          post.isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-          size: 21,
-          color: post.isSaved ? AppColors.primaryDeep : AppColors.textSecondary,
+      // Guardado = despegado: relleno y blanco, como todo lo seleccionado.
+      _ActionButton(
+        buttonKey: Key('save-${post.id}'),
+        icon: NexoIcon(
+          NexoGlyph.bookmark,
+          filled: post.isSaved,
+          size: _iconSize,
+          color: post.isSaved ? AppColors.textPrimary : AppColors.textSecondary,
         ),
+        tooltip: post.isSaved ? 'Quitar de guardados' : 'Guardar',
+        onTap: onSave,
+        edge: _Edge.end,
       ),
     ],
   );
 }
+
+/// De qué lado de la fila está el botón. Los de las puntas pegan el ícono al
+/// borde del texto, para que la fila de acciones quede alineada con el cuerpo
+/// del post y no metida hacia adentro; el área táctil sigue siendo de 44.
+enum _Edge { start, none, end }
 
 class _ActionButton extends StatelessWidget {
   const _ActionButton({
@@ -442,6 +489,7 @@ class _ActionButton extends StatelessWidget {
     this.onLongPress,
     this.label,
     this.emphasised = false,
+    this.edge = _Edge.none,
   });
 
   final Key buttonKey;
@@ -450,44 +498,56 @@ class _ActionButton extends StatelessWidget {
   final String tooltip;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final _Edge edge;
 
   /// Tiñe también el número, no sólo el ícono: con el corazón rojo y el
   /// contador gris, el conteo se lee como si perteneciera a otra acción.
   final bool emphasised;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: InkWell(
-      key: buttonKey,
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: AppRadii.pill,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: AppSpacing.sm,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            icon,
-            if (label != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                label!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: emphasised
-                      ? AppColors.secondary
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ],
+  Widget build(BuildContext context) {
+    final padding = switch (edge) {
+      _Edge.start => const EdgeInsetsDirectional.only(end: AppSpacing.sm),
+      _Edge.end => const EdgeInsetsDirectional.only(start: AppSpacing.sm),
+      _Edge.none => const EdgeInsetsDirectional.symmetric(
+        horizontal: AppSpacing.sm,
+      ),
+    };
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        key: buttonKey,
+        onTap: onTap,
+        onLongPress: onLongPress,
+        borderRadius: AppRadii.pill,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Padding(
+            padding: padding,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: edge == _Edge.end
+                  ? MainAxisAlignment.end
+                  : MainAxisAlignment.start,
+              children: [
+                icon,
+                if (label != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    label!,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: emphasised
+                          ? AppColors.secondary
+                          : AppColors.textSecondary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

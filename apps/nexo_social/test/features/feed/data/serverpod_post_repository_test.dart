@@ -63,4 +63,14 @@ void main() {
     final post = ServerpodPostRepository.toPost(view(authorName: null));
     expect(post.name, 'elena_ux');
   });
+
+  /// M1: el autor trae su foto. Sin foto, la tarjeta dibuja la inicial.
+  test('the author photo travels with the post', () {
+    final post = ServerpodPostRepository.toPost(
+      view().copyWith(authorAvatarUrl: 'https://cdn.example/e.webp'),
+    );
+
+    expect(post.authorAvatarUrl, 'https://cdn.example/e.webp');
+    expect(ServerpodPostRepository.toPost(view()).authorAvatarUrl, isNull);
+  });
 }

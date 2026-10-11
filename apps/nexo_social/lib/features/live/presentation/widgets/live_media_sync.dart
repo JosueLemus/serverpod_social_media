@@ -25,11 +25,17 @@ class LiveMediaSync extends StatelessWidget {
       BlocListener<LiveRoomCubit, LiveRoomState>(
         listenWhen: (previous, current) =>
             previous.session?.status != current.session?.status ||
-            previous.session?.id != current.session?.id,
+            previous.session?.id != current.session?.id ||
+            previous.role != current.role,
         listener: (context, state) {
           final media = context.read<LiveMediaCubit>();
           final session = state.session;
-          if (session != null && _shouldBeInChannel(session)) {
+          // El host no es audiencia de su propio vivo. Entrar desde la sala
+          // abría un segundo motor de video, y Agora tiene uno por proceso:
+          // al salir, su release cortaba la transmisión del Studio.
+          final hostWatching =
+              role == LiveMediaRole.audience && state.role == LiveRole.host;
+          if (session != null && !hostWatching && _shouldBeInChannel(session)) {
             unawaited(media.join(session.id, role));
           } else {
             unawaited(media.leave());

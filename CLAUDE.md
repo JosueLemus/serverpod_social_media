@@ -245,58 +245,98 @@ un `ListView`.
 
 ---
 
-## Diseño
+## Diseño — "Plancha de stickers"
 
-El design system está transcrito de Stitch. Los valores de abajo **son** el
-diseño, no una aproximación: si algo en pantalla no coincide, lo que está mal
-es la pantalla.
+Nexo es una **plancha de stickers**. El suelo es el liner negro sobre el que
+vienen pegados, y todo lo que se publica, se reacciona o se colecciona es un
+sticker troquelado, cortado como el gato del logo: relleno blanco, contorno de
+tinta y borde troquelado. La dirección completa está en
+`.impeccable/surfaces/apps-nexo-social.md`, y el sistema documentado en
+`DESIGN.md`. El tema es **oscuro**: así es el lugar donde se usa (alguien de
+noche, saltando del feed a un vivo) y así lo pide el material, porque el borde
+troquelado blanco sólo se lee sobre negro.
+
+### El borde dice el estado
+
+Cada borde tiene **un solo** significado, en toda la app:
+
+| Borde | `StickerEdge` | Significa |
+|---|---|---|
+| Troquel blanco | `kissCut` | Publicado, normal, y también terminado o replay |
+| Foil holográfico que gira | `holo` | **Al aire ahora.** Nada más lo lleva |
+| Línea de corte punteada | `dashed` | Programado: todavía está en la plancha |
+| El dorso del sticker | `linerHigh` + `textTertiary` | Oculto por moderación, con su motivo |
+
+Un borde holo sobre algo que no está al aire le quita el significado al de los
+vivos. `UserAvatar(onAir: true)` y `HoloRing` son la forma de dibujarlo.
 
 ### Colores — `app_tokens.dart`
 
-Cuatro colores base, y todo lo demás sale de ellos:
-
 | Token | Valor | Uso |
 |---|---|---|
-| `primary` | `#3B82F6` | Acentos, selección, enlaces |
-| `secondary` | `#EF4444` | **No es "error"**: es la marca de en vivo y de reacción |
-| `tertiary` | `#16A34A` | Confirmación, online, disponibilidad |
-| `neutral` | `#172033` | Texto principal y el botón invertido |
+| `background` = `liner` | `#0F0F12` | El suelo de toda la app |
+| `surface` = `linerRaised` | `#18181D` | Hojas, paneles, tarjetas |
+| `linerHigh` | `#23232B` | Campos, controles en reposo, filas |
+| `sticker` / `ink` | `#FFFFFF` / `#0F0F12` | **El CTA es un sticker blanco con tinta** |
+| `primary` | `#8E8BFF` | Acento: enlaces, foco, selección |
+| `primaryDeep` | `#5B4BFF` | **Sólo relleno con texto blanco.** Nunca texto sobre el liner |
+| `secondary` = `error` | `#F0234A` | En vivo y reacción, y también fallo (mismo valor, dos nombres) |
+| `tertiary` | `#3EE58C` | Confirmación, online. Lleva tinta encima, no blanco |
+| `warning` | `#FFB020` | "Mirá esto". Lleva tinta encima |
+| `vinylCyan/Blue/Violet/Magenta/Lime/Green` | del logo | Categorías, insignias, avatares. Siempre con tinta encima |
+| `holo` | la lista de los vinilos | El foil del logo, **sólo al aire** |
 
-- **`primaryDeep` (`#1D4ED8`) es el azul de los CTA rellenos**, no `primary`.
-  En el design system el swatch es el acento y el botón usa un paso más
-  profundo.
 - **`error` y `secondary` son el mismo valor, con dos nombres.** Se elige por
-  lo que la pantalla quiere decir: `error` cuando algo falló, `secondary`
-  cuando es la insignia de en vivo o el corazón de un like. Pintar un pill de
-  "EN VIVO" con un token llamado `error` hace que la próxima persona lo trate
-  como un fallo.
-- **`secondary` del `ColorScheme` es `primaryDeep`, no `tertiary`.** Material
-  saca el tinte de "seleccionado" del contenedor secundario: con el verde ahí,
-  **el indicador del rail salía verde** y la selección se leía como
-  confirmación.
+  lo que la pantalla quiere decir. Pintar un "EN VIVO" con un token llamado
+  `error` hace que la próxima persona lo trate como un fallo.
+- **`secondary` del `ColorScheme` es el sticker blanco.** Material saca de ahí
+  el tinte de "seleccionado", y seleccionar es despegar un sticker.
+- **No hay degradados** salvo el foil holo. Un banner con degradado de marca es
+  el diseño viejo.
 
 **Siempre `AppColors`. Nunca hex crudo, nunca `Colors.X`** (salvo
-`Colors.white` / `transparent` sobre una superficie de marca, que son
-absolutos y no decisiones de paleta). Única excepción: el color de marca de un
-tercero (el azul de Google en el botón de identidad). Es suyo, no nuestro.
+`Colors.transparent`). Para blanco, `AppColors.sticker`. Única excepción: el
+color de marca de un tercero (el azul de Google en el botón de identidad).
 
-### Forma — todo es pill
+### Forma — todo control es una pastilla
 
 **`AppRadii.pill` es la forma por defecto de todo control**: botones, chips,
-campos de búsqueda, snackbars, insignias. No es una variante — un rectángulo
-redondeado en un botón se lee como otra app. Los radios `small` / `medium` /
-`large` son para superficies (tarjetas, hojas, media), no para controles.
+campos, snackbars, insignias. Los radios `small` / `medium` (18) / `large` (26)
+son para superficies. `AppStroke` fija el troquel (`kissCut` 3) y la tinta
+(`ink` 2.5). `AppSizes` fija los altos (`buttonHeight` 52, `buttonHeightDense`
+44, `chipHeight` 38, `searchHeight` 46, `icon` 24).
 
-`AppSizes` fija los altos (`buttonHeight` 52, `buttonHeightDense` 44,
-`chipHeight` 38, `searchHeight` 46) para que dos pantallas no inventen dos
-botones distintos.
+### Tipografía — empaquetada, no descargada
 
-### Tipografía
+**Dela Gothic One** (`AppFonts.display`) para titulares, secciones y números
+grandes. **M PLUS Rounded 1c** (`AppFonts.text`) para todo lo demás. Viven en
+`assets/fonts`, **recortadas a latín** con `pyftsubset` (pasaron de 22 MB a 400
+KB, porque las dos traen japonés), con su licencia OFL al lado. La demo no puede
+depender de bajar la tipografía en vivo, así que no se usa `GoogleFonts` en
+runtime. Las dos salen del tema: `context.textTheme`. **Nunca
+`TextStyle(fontSize: …)` crudo** salvo micro-etiquetas (pills de 9–11px); para
+un ajuste puntual, `.copyWith()`. Cifras de contadores con
+`FontFeature.tabularFigures()`.
 
-**Bricolage Grotesque** para titulares, **Hanken Grotesk** para cuerpo y
-etiquetas. Las dos salen del tema: `context.textTheme`. **Nunca
-`TextStyle(fontSize: …)` crudo** salvo para micro-etiquetas (pills de 9–11px)
-que no existen en la escala; para un ajuste puntual, `.copyWith()`.
+### Íconos — `NexoIcon`, nunca `Icons.*` si hay glifo
+
+Los 80 SVG de `assets/icons` salen de planchas generadas con **GPT Image 2.5
+(Higgsfield)**, vectorizadas con potrace y llevadas a un `viewBox` común
+(`40 40 432 432`) para que todas tengan el mismo tamaño óptico que un ícono de
+Material. Los de dos estados tienen versión `_outline` (reposo) y rellena
+(seleccionado o activo): en la barra, el cambio de forma **es** la marca de
+selección. `NexoIcon(NexoGlyph.x, filled:)` toma el color del `IconTheme` como
+un `Icon`. Mezclar un `Icons.*` donde existe un glifo es otro trazo y otra mano,
+y se nota primero en la barra.
+
+### La mascota — `MascotIllustration(NexoMascot.x)`
+
+El gato del logo, generado con GPT usando el logo como referencia, en 15
+estados: `wave`, `peek`, `empty`, `error`, `offline`, `success`, `bell`,
+`search`, `mic`, `lock`, `crown`, `shield`, `camera`, `heart`, `calendar`. Es el
+que acompaña todo estado vacío, error, éxito, bloqueo y paywall. **Un estado
+vacío de Nexo lo acompaña el gato, no un ícono gris en un círculo.** Cada
+raster lleva su prompt embebido (procedencia) en el `.json` de al lado.
 
 ### Componentes compartidos
 
@@ -304,15 +344,18 @@ Antes de escribir un widget, revisar `core/widgets/`:
 
 | Widget | Para qué |
 |---|---|
-| `NexoWordmark` / `NexoMark` / `NexoLogo` | La marca: header, header chico, presentación |
-| `UserAvatar` | Avatar con inicial y anillo opcional (rojo = en vivo) |
-| `SearchField` | El buscador pill del design system |
+| `NexoWordmark` / `NexoMark` / `NexoLogo` | El logo del gato: header, chico, presentación |
+| `StickerFrame` / `HoloRing` / `vinylFor()` | El troquel según el estado, el foil al aire y el vinilo estable por nombre |
+| `NexoIcon` / `NexoGlyph` | Los íconos propios |
+| `MascotIllustration` / `NexoMascot` | El gato en cada estado |
+| `UserAvatar` | Sticker redondo: foto (`imageUrl`) o inicial sobre vinilo; `onAir` = holo |
+| `SearchField` | El buscador pastilla |
 | `SectionHeader` | Título de sección + pista o acción |
-| `FilterPill` | Chip de filtro con estado, punto de color y contador |
-| `StatusBadge` | EN VIVO, PRO, DESTACADO, VIP — con pulso opcional |
+| `FilterPill` | Filtro: gris pegado a la plancha, blanco al despegarse |
+| `StatusBadge` | Sticker chico de vinilo con troquel: EN VIVO, PRO, VIP… |
 | `PulsingDot` | El punto que late, ya aislado en su capa |
 | `compactCount()` | 2845 → "2.8K" |
-| `AppOfflineView` | Modo sin conexión con lecturas guardadas |
+| `AppEmptyView` / `AppErrorView` / `AppOfflineView` | Estados con el gato |
 
 ### Layout de pantalla — `NexoPage`
 
@@ -374,6 +417,9 @@ entero se mueva a un solo tempo. Tres reglas, y las tres salieron de romperlas:
   forma obvia, **todos los corazones sin like desaparecieron del feed** y quedó
   un contador sin nada que tocar. Por eso `Pop` devuelve el hijo tal cual
   cuando no hay que animar, en vez de pasar el flag.
+- **`Pop` es el "slap" del sticker**: el corazón cae al 135% y torcido 7°, y se
+  asienta en 280 ms. Es la interacción firma de la app, y sólo escala y rota:
+  nunca opacidad, así que el ícono se ve en todos los frames.
 - **Nada bloquea la UX**: 200–400 ms, `delay` con moderación, y nunca una
   animación de más de 500 ms sin que el usuario la haya pedido.
 
@@ -609,9 +655,12 @@ flutter test
   comparten el estado de `MockPlatform` por `localStorage`, que es la demo de
   suspensión en el acto. `PlatformSync` escucha el evento `storage`. Las dos
   cosas se borran cuando exista el backend.
-- **Los assets son WebP.** Hoy sólo hay `assets/branding/nexo_mark.svg`. Al
-  sumar imágenes: medir antes de convertir, y acotar el decode de cualquier PNG
-  grande — Flutter decodifica a resolución nativa y se queda con ese bitmap.
+- **Los assets son WebP**, y los íconos SVG. `assets/branding/nexo_logo.webp`
+  es el logo recortado sobre transparente; `assets/mascot` y `assets/stickers`
+  son WebP con alfa. Todo `Image.asset` acota el decode con `cacheWidth`:
+  Flutter decodifica a resolución nativa y se queda con ese bitmap. Los íconos
+  de la app (iOS, Android, macOS, web) y el arranque nativo salen del mismo
+  logo, sobre el negro del liner.
 
 ---
 

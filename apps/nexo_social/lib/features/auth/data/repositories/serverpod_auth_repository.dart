@@ -221,6 +221,7 @@ class ServerpodAuthRepository implements AuthRepository {
       isCreator: profile.isCreator,
       verification: VerificationStatus.values.byName(profile.verification.name),
       status: AccountStatus.values.byName(profile.status.name),
+      avatarUrl: profile.avatarUrl,
     );
   }
 

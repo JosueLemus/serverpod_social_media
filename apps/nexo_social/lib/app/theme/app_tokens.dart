@@ -1,79 +1,130 @@
 import 'package:flutter/material.dart';
 
-/// La paleta, transcrita del design system de Stitch.
+/// La paleta de Nexo: una **plancha de stickers**.
 ///
-/// Todo color de la app sale de acá — nunca hex crudo, nunca `Colors.X`. Un
-/// literal suelto es invisible a un cambio de tema y es cómo dos pantallas
-/// terminan con dos azules apenas distintos.
+/// El suelo es el liner negro sobre el que vienen pegados los stickers. Cada
+/// sticker se corta como el gato del logo: relleno blanco, contorno de tinta y
+/// borde troquelado. Los colores de vinilo salen del borde holográfico del
+/// logo, y el holo en sí está reservado para lo que está **al aire**.
+///
+/// Todo color de la app sale de acá: nunca hex crudo, nunca `Colors.X`. Un
+/// literal suelto es invisible a un cambio de tema, y así es como dos
+/// pantallas terminan con dos negros apenas distintos.
 ///
 /// Única excepción: el color de marca de un tercero (el azul de Google en el
 /// botón de identidad). Es suyo, no nuestro, y no se re-tematiza.
 abstract final class AppColors {
-  // ── Los cuatro del design system ──────────────────────────────────────────
-  /// `Primary #3B82F6`. Acentos, selección, enlaces.
-  static const primary = Color(0xFF3B82F6);
+  // ── El liner ──────────────────────────────────────────────────────────────
+  /// El negro de la plancha. Es el suelo de toda la app.
+  static const liner = Color(0xFF0F0F12);
 
-  /// `Secondary #EF4444`. En el design system el rojo es **secundario**, no un
-  /// color de error: es la marca de "en vivo" y de reacción, y aparece en
-  /// pantallas donde nada falló. [error] apunta al mismo valor para cuando sí
-  /// se trata de un fallo, y los dos nombres se usan según lo que la pantalla
-  /// quiera decir.
-  static const secondary = Color(0xFFEF4444);
+  /// Una hoja apoyada sobre el liner: paneles, hojas inferiores, tarjetas.
+  static const linerRaised = Color(0xFF18181D);
 
-  /// `Tertiary #16A34A`. Confirmación, "online", disponibilidad.
-  static const tertiary = Color(0xFF16A34A);
+  /// Un paso más arriba: campos, controles en reposo, filas presionadas.
+  static const linerHigh = Color(0xFF23232B);
 
-  /// `Neutral #172033`. Texto principal y la superficie del botón invertido.
-  static const neutral = Color(0xFF172033);
+  // ── El sticker ────────────────────────────────────────────────────────────
+  /// El relleno de un sticker. Es la acción principal: un CTA es un sticker
+  /// blanco con tinta encima.
+  static const sticker = Color(0xFFFFFFFF);
 
-  // ── Rampa del primario ────────────────────────────────────────────────────
-  /// El azul de los CTA rellenos. Un paso más profundo que [primary]: en el
-  /// design system el swatch es el acento y el botón usa este.
-  static const primaryDeep = Color(0xFF1D4ED8);
-  static const primaryDark = Color(0xFF2563EB);
+  /// La tinta: el contorno grueso del gato y el texto sobre un sticker.
+  static const ink = Color(0xFF0F0F12);
 
-  /// Superficie del botón secundario, de los chips y de las tarjetas de marca.
-  static const primarySurface = Color(0xFFEAF3FF);
+  /// Texto secundario **sobre un sticker blanco**. El gris de [textSecondary]
+  /// está pensado para el liner y sobre blanco no llega al contraste.
+  static const inkSecondary = Color(0xFF57555F);
+
+  // ── Vinilos, sacados del borde holográfico del logo ───────────────────────
+  static const vinylCyan = Color(0xFF3FE0F2);
+  static const vinylBlue = Color(0xFF4F7BFF);
+  static const vinylViolet = Color(0xFF9B5CFF);
+  static const vinylMagenta = Color(0xFFE24CF2);
+  static const vinylLime = Color(0xFFC9F24A);
+  static const vinylGreen = Color(0xFF3EE58C);
+
+  /// El foil holográfico del logo, en el orden en que gira alrededor del gato.
+  /// **Sólo para lo que está al aire** y para la marca: un borde holo dice
+  /// "está pasando ahora", y gastarlo en decoración le quita el significado.
+  static const holo = <Color>[
+    vinylCyan,
+    vinylBlue,
+    vinylViolet,
+    vinylMagenta,
+    vinylLime,
+    vinylGreen,
+    vinylCyan,
+  ];
+
+  // ── Roles (los nombres que usa toda la app) ───────────────────────────────
+  /// Acento: enlaces, selección y foco. El lila del centro del holo, que se
+  /// lee sobre el liner.
+  static const primary = Color(0xFF8E8BFF);
+
+  /// Relleno de marca que lleva texto blanco encima. **No** es un color de
+  /// texto sobre el liner: ahí no llega al contraste. Para texto, [primary].
+  static const primaryDeep = Color(0xFF5B4BFF);
+  static const primaryDark = Color(0xFF6F63FF);
+
+  /// Superficie teñida de marca: chips en reposo, tarjetas de marca.
+  static const primarySurface = Color(0xFF211F38);
 
   /// El extremo profundo del degradado de marca, para placeholders de media.
-  static const primarySurfaceDeep = Color(0xFFDCE8FB);
+  static const primarySurfaceDeep = Color(0xFF2D2A55);
+
+  /// El rojo de sticker. **No es "error"**: es la marca de en vivo y de
+  /// reacción, y aparece en pantallas donde nada falló. [error] apunta al
+  /// mismo valor para cuando sí se trata de un fallo.
+  static const secondary = Color(0xFFF0234A);
+
+  /// Confirmación, "online", disponibilidad. Lleva tinta encima, no blanco.
+  static const tertiary = vinylGreen;
+
+  /// Tinta para velos y superficies invertidas sobre media. Sigue oscuro: un
+  /// velo encima de un video tiene que bajar la luz, no subirla.
+  static const neutral = ink;
 
   // ── Semánticos ────────────────────────────────────────────────────────────
   static const success = tertiary;
-  static const successSurface = Color(0xFFEAF8EF);
+  static const successSurface = Color(0xFF12291E);
 
   /// Ámbar. Distinto de [error] porque "mirá esto" y "se rompió" son dos
   /// promesas distintas.
-  static const warning = Color(0xFFD97706);
+  static const warning = Color(0xFFFFB020);
 
   /// Mismo valor que [secondary]. Se elige el nombre por lo que dice la
   /// pantalla: `error` cuando algo falló, `secondary` cuando es la marca de
   /// en vivo o de reacción.
   static const error = secondary;
 
-  static const textPrimary = neutral;
-  static const textSecondary = Color(0xFF667085);
+  static const textPrimary = Color(0xFFF4F3EF);
+  static const textSecondary = Color(0xFFA09EAB);
 
-  /// Texto sobre una superficie de marca clara.
-  static const textOnBrandSurface = primaryDeep;
+  /// Texto deshabilitado o de tercer orden. No se usa para nada que haya que
+  /// leer: no llega a 4.5:1.
+  static const textTertiary = Color(0xFF6C6A76);
 
-  static const background = Color(0xFFF8FAFC);
-  static const surface = Color(0xFFFFFFFF);
-  static const border = Color(0xFFE5E7EB);
+  /// Texto sobre [primarySurface].
+  static const textOnBrandSurface = Color(0xFFC7C3FF);
+
+  static const background = liner;
+  static const surface = linerRaised;
+  static const border = Color(0xFF2B2A33);
 
   /// Video y salas en vivo, donde el contenido es la luz.
-  static const stageDark = Color(0xFF0B1220);
+  static const stageDark = Color(0xFF070709);
 
   /// El velo sobre el video que deja legible el chrome encima.
-  static const stageScrim = Color(0x99101828);
+  static const stageScrim = Color(0x99070709);
 
-  /// Elevación suave. Derivada de [neutral] y no de negro puro, para que una
-  /// superficie elevada se lea de la misma familia que el texto que lleva.
-  static const shadow = Color(0x1A172033);
+  /// Elevación: sobre un liner negro una sombra casi no se ve, así que la
+  /// separación la hace el borde troquelado. La sombra queda para lo que se
+  /// despega (un sticker levantado, una hoja).
+  static const shadow = Color(0x66000000);
 
-  /// La sombra del botón de componer: teñida de marca, no gris. Una sombra
-  /// neutra bajo un disco azul se lee como suciedad, no como elevación.
-  static const brandShadow = Color(0x4D1D4ED8);
+  /// La sombra teñida del botón de crear.
+  static const brandShadow = Color(0x665B4BFF);
 }
 
 abstract final class AppSpacing {
@@ -88,14 +139,25 @@ abstract final class AppSpacing {
 
 abstract final class AppRadii {
   static const small = BorderRadius.all(Radius.circular(10));
-  static const medium = BorderRadius.all(Radius.circular(16));
-  static const large = BorderRadius.all(Radius.circular(24));
+  static const medium = BorderRadius.all(Radius.circular(18));
+  static const large = BorderRadius.all(Radius.circular(26));
 
-  /// Completamente redondeado. **Es la forma por defecto de todo control** en
-  /// este design system: botones, chips, campos de búsqueda y pills. Un radio
-  /// fijo grande sobre un control bajo deja los cantos planos visibles, así
-  /// que el valor es deliberadamente mayor que cualquier alto.
+  /// Completamente redondeado. **Es la forma por defecto de todo control**:
+  /// botones, chips, campos de búsqueda e insignias son stickers con forma de
+  /// pastilla. El valor es deliberadamente mayor que cualquier alto.
   static const pill = BorderRadius.all(Radius.circular(999));
+}
+
+/// El corte de un sticker: cuánto mide cada capa alrededor del relleno.
+abstract final class AppStroke {
+  /// El contorno de tinta. Es el trazo grueso del gato.
+  static const ink = 2.5;
+
+  /// El borde troquelado blanco (o holo) alrededor del contorno.
+  static const kissCut = 3.0;
+
+  /// El filete de un panel sobre el liner.
+  static const hairline = 1.0;
 }
 
 /// Altos de control, para que dos pantallas no inventen dos botones distintos.
@@ -114,4 +176,7 @@ abstract final class AppSizes {
 
   /// Avatar del header.
   static const avatarHeader = 34.0;
+
+  /// Ícono de navegación y de acción.
+  static const icon = 24.0;
 }

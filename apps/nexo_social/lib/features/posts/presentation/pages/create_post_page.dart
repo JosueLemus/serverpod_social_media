@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/post_composer_cubit.dart';
@@ -117,16 +120,16 @@ class _ComposerViewState extends State<_ComposerView> {
                         }
                       },
                     ),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.lg),
                     _AuthorRow(visibility: state.visibility),
-                    const SizedBox(height: AppSpacing.xs),
+                    const SizedBox(height: AppSpacing.sm),
                     _Editor(
                       controller: _controller,
                       state: state,
                       onChanged: cubit.change,
                     ),
                     if (state.attachment != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: AppSpacing.md),
                       ComposerMediaPreview(
                         attachment: state.attachment!,
                         onRemove: cubit.removeMedia,
@@ -141,15 +144,13 @@ class _ComposerViewState extends State<_ComposerView> {
                         onRemove: cubit.togglePoll,
                       ),
                     ],
-                    const SizedBox(height: AppSpacing.sm),
+                    const SizedBox(height: AppSpacing.md),
                     ComposerAttachments(
                       onAttach: cubit.attach,
                       onPoll: cubit.togglePoll,
                       pollActive: state.poll != null,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    const Enter(child: ComposerAiTeaser()),
-                    const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.lg),
                     ComposerToggles(
                       allowComments: state.allowComments,
                       notifyVip: state.notifyVip,
@@ -157,7 +158,11 @@ class _ComposerViewState extends State<_ComposerView> {
                           cubit.setAllowComments(value: value),
                       onNotifyVip: (value) => cubit.setNotifyVip(value: value),
                     ),
+                    // Lo que todavía no existe va después de lo que sí: el
+                    // asistente no se gana el espacio de los ajustes reales.
                     const SizedBox(height: AppSpacing.md),
+                    const Enter(child: ComposerAiTeaser()),
+                    const SizedBox(height: AppSpacing.lg),
                     const _CommunityNote(),
                   ],
                 );
@@ -182,32 +187,76 @@ class _ComposerBar extends StatelessWidget {
   /// Debajo de esto sólo entran los dos botones.
   static const _statusMinWidth = 320.0;
 
+  static const _height = 40.0;
+
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<PostComposerCubit, PostComposerState>(
         builder: (context, state) {
           final draft = state is PostComposerIdle ? state : null;
+          final publishing = draft?.isPublishing ?? false;
+          final label = Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800);
           return LayoutBuilder(
             builder: (context, constraints) {
               final showStatus =
                   constraints.maxWidth.isFinite &&
                   constraints.maxWidth >= _statusMinWidth;
-              return Row(
-                children: [
-                  SizedBox(
-                    height: 36,
-                    child: TextButton(
-                      key: const Key('composer-close'),
-                      onPressed: context.pop,
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.primarySurface,
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
+              final publish = FilledButton.icon(
+                key: const Key('publish-button'),
+                // Deshabilitado por estado, no por un bool local: el cubit es
+                // lo único que sabe si el borrador es publicable.
+                onPressed: draft != null && draft.canPublish
+                    ? context.read<PostComposerCubit>().publish
+                    : null,
+                iconAlignment: IconAlignment.end,
+                icon: publishing
+                    ? const SizedBox.square(
+                        dimension: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.textSecondary,
                         ),
+                      )
+                    : const NexoIcon(NexoGlyph.send, size: 16),
+                label: Text(
+                  publishing ? 'Publicando…' : 'Publicar',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, _height),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                  ),
+                  textStyle: label,
+                ),
+              );
+              return Row(
+                // Sin el estado en el medio, los dos botones se separan solos
+                // y el CTA puede encogerse: "Publicando…" es más largo que
+                // "Publicar", y a 320 no debe empujar la fila fuera de la
+                // pantalla.
+                mainAxisAlignment: showStatus
+                    ? MainAxisAlignment.start
+                    : MainAxisAlignment.spaceBetween,
+                children: [
+                  // Sticker en reposo: se puede tocar, pero no compite con
+                  // el blanco de publicar.
+                  TextButton(
+                    key: const Key('composer-close'),
+                    onPressed: context.pop,
+                    style: TextButton.styleFrom(
+                      backgroundColor: AppColors.linerHigh,
+                      foregroundColor: AppColors.textPrimary,
+                      minimumSize: const Size(0, _height),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
                       ),
-                      child: const Text('Cancelar'),
+                      textStyle: label,
                     ),
+                    child: const Text('Cancelar'),
                   ),
                   if (showStatus)
                     Expanded(
@@ -227,46 +276,10 @@ class _ComposerBar extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ),
-                    )
-                  else
-                    const Spacer(),
-                  SizedBox(
-                    height: 36,
-                    child: FilledButton.icon(
-                      key: const Key('publish-button'),
-                      // Deshabilitado por estado, no por un bool local: el
-                      // cubit es lo único que sabe si el borrador es
-                      // publicable.
-                      onPressed: draft != null && draft.canPublish
-                          ? context.read<PostComposerCubit>().publish
-                          : null,
-                      iconAlignment: IconAlignment.end,
-                      icon: draft?.isPublishing ?? false
-                          ? const SizedBox.square(
-                              dimension: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded, size: 15),
-                      label: Text(
-                        draft?.isPublishing ?? false
-                            ? 'Publicando…'
-                            : 'Publicar',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                     ),
-                  ),
+                  // El CTA es el sticker blanco del tema: deshabilitado vuelve
+                  // a la plancha solo, sin estilos a mano.
+                  if (showStatus) publish else Flexible(child: publish),
                 ],
               );
             },
@@ -290,7 +303,7 @@ class _AuthorRow extends StatelessWidget {
     final name = user?.name ?? '';
     return Row(
       children: [
-        UserAvatar(name: name, size: 42),
+        UserAvatar(name: name, size: 44),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(
@@ -301,21 +314,23 @@ class _AuthorRow extends StatelessWidget {
                   Flexible(
                     child: Text(
                       name,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   if (user?.isVerified ?? false) ...[
                     const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 14,
+                    const NexoIcon(
+                      NexoGlyph.verified,
+                      size: 15,
                       color: AppColors.primary,
+                      semanticLabel: 'Verificado',
                     ),
                   ],
                 ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: AppSpacing.xxs),
               VisibilityPicker(visibility: visibility),
             ],
           ),
@@ -355,10 +370,14 @@ class _Editor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     final over = state.length > PostComposerCubit.maxLength;
+    final body = text.bodyLarge?.copyWith(height: 1.45);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // El texto va directo sobre la plancha, sin campo relleno: es lo que
+        // se está escribiendo, no un formulario.
         TextField(
           key: const Key('create-post-field'),
           controller: controller,
@@ -373,36 +392,41 @@ class _Editor extends StatelessWidget {
             hintText: state.mode == ComposerMode.live
                 ? '¿De qué vas a hablar en tu directo?'
                 : 'Comparte algo con tu comunidad…',
+            hintStyle: body?.copyWith(color: AppColors.textSecondary),
             border: InputBorder.none,
             enabledBorder: InputBorder.none,
             focusedBorder: InputBorder.none,
             filled: false,
             contentPadding: EdgeInsets.zero,
           ),
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.45),
+          style: body,
         ),
+        const SizedBox(height: AppSpacing.xs),
         Row(
           children: [
             IconButton(
               key: const Key('composer-insert-hashtag'),
               tooltip: 'Añadir hashtag',
               visualDensity: VisualDensity.compact,
+              color: AppColors.textSecondary,
               onPressed: () => _insert('#'),
-              icon: const Icon(Icons.tag_rounded, size: 19),
+              icon: const NexoIcon(NexoGlyph.hashtag, size: 20),
             ),
             IconButton(
               key: const Key('composer-insert-mention'),
               tooltip: 'Mencionar a alguien',
               visualDensity: VisualDensity.compact,
+              color: AppColors.textSecondary,
               onPressed: () => _insert('@'),
-              icon: const Icon(Icons.alternate_email_rounded, size: 19),
+              icon: const NexoIcon(NexoGlyph.mention, size: 20),
             ),
             const Spacer(),
             Text(
               '${state.length}/${PostComposerCubit.maxLength}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: text.labelSmall?.copyWith(
                 color: over ? AppColors.error : AppColors.textSecondary,
-                fontWeight: over ? FontWeight.w700 : FontWeight.w400,
+                fontWeight: over ? FontWeight.w900 : FontWeight.w700,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],
@@ -416,25 +440,43 @@ class _Editor extends StatelessWidget {
 class _CommunityNote extends StatelessWidget {
   const _CommunityNote();
 
+  /// El escudo va dentro del texto y no al lado: en una fila, al partirse la
+  /// frase en dos renglones el texto se centra y el ícono queda solo contra
+  /// el borde izquierdo.
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      const Icon(
-        Icons.shield_outlined,
-        size: 13,
-        color: AppColors.textSecondary,
-      ),
-      const SizedBox(width: 5),
-      Flexible(
-        child: Text(
-          'Publicación protegida bajo las directrices comunitarias de Nexo',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodySmall,
+  Widget build(BuildContext context) => Text.rich(
+    const TextSpan(
+      children: [
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          child: Padding(
+            padding: EdgeInsets.only(right: 6),
+            child: NexoIcon(
+              NexoGlyph.moderation,
+              size: 14,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ),
-      ),
-    ],
+        TextSpan(
+          text:
+              'Publicación protegida bajo las directrices comunitarias de Nexo',
+        ),
+      ],
+    ),
+    textAlign: TextAlign.center,
+    style: Theme.of(context).textTheme.bodySmall,
   );
+}
+
+/// El glifo de cada audiencia: lo descubre cualquiera, la gente que te sigue,
+/// o los miembros (la corona es el vocabulario de membresías de la app).
+extension _VisibilityGlyph on PostVisibility {
+  NexoGlyph get glyph => switch (this) {
+    PostVisibility.public => NexoGlyph.explore,
+    PostVisibility.followers => NexoGlyph.community,
+    PostVisibility.members => NexoGlyph.crown,
+  };
 }
 
 /// Selector de visibilidad. Hoja de opciones en vez de menú: en teléfono un
@@ -445,79 +487,146 @@ class VisibilityPicker extends StatelessWidget {
 
   final PostVisibility visibility;
 
-  @override
-  Widget build(BuildContext context) {
+  void _open(BuildContext context) {
     final cubit = context.read<PostComposerCubit>();
-    return InkWell(
-      key: const Key('composer-visibility'),
-      borderRadius: AppRadii.pill,
-      onTap: () => showModalBottomSheet<void>(
+    unawaited(
+      showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
         builder: (sheetContext) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final option in PostVisibility.values)
-                ListTile(
-                  leading: Icon(
-                    option == visibility
-                        ? Icons.radio_button_checked_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    color: option == visibility
-                        ? AppColors.primaryDeep
-                        : AppColors.textSecondary,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xs,
+              0,
+              AppSpacing.xs,
+              AppSpacing.sm,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xs,
+                    0,
+                    AppSpacing.xs,
+                    AppSpacing.sm,
                   ),
-                  title: Text(option.label),
-                  subtitle: Text(option.detail),
-                  onTap: () {
-                    cubit.setVisibility(option);
-                    Navigator.pop(sheetContext);
-                  },
+                  child: Text(
+                    '¿Quién puede verlo?',
+                    style: Theme.of(sheetContext).textTheme.headlineSmall,
+                  ),
                 ),
-            ],
+                for (final option in PostVisibility.values)
+                  ListTile(
+                    selected: option == visibility,
+                    selectedTileColor: AppColors.linerHigh,
+                    selectedColor: AppColors.textPrimary,
+                    leading: NexoIcon(
+                      option.glyph,
+                      size: 22,
+                      filled: option == visibility,
+                      color: option == visibility
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
+                    ),
+                    title: Text(option.label),
+                    subtitle: Text(option.detail),
+                    trailing: _RadioMark(selected: option == visibility),
+                    onTap: () {
+                      cubit.setVisibility(option);
+                      Navigator.pop(sheetContext);
+                    },
+                  ),
+              ],
+            ),
           ),
-        ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.xs,
-          vertical: 3,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.primarySurface,
-          borderRadius: AppRadii.pill,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.public_rounded,
-              size: 13,
-              color: AppColors.textOnBrandSurface,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              visibility.label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textOnBrandSurface,
-              ),
-            ),
-            const Icon(
-              Icons.expand_more_rounded,
-              size: 15,
-              color: AppColors.textOnBrandSurface,
-            ),
-          ],
         ),
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: AppColors.linerHigh,
+    shape: const StadiumBorder(),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      key: const Key('composer-visibility'),
+      onTap: () => _open(context),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 5, 8, 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            NexoIcon(
+              visibility.glyph,
+              size: 14,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                visibility.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ),
+            const SizedBox(width: 2),
+            // El chevrón del set apunta hacia adelante; girado, dice "abre
+            // opciones" sin traer un ícono de otra mano.
+            const RotatedBox(
+              quarterTurns: 1,
+              child: NexoIcon(
+                NexoGlyph.forward,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
-/// Pestañas Post / En vivo.
+/// La marca de opción elegida: un punto de tinta sobre un sticker blanco. En
+/// reposo, sólo la línea de corte.
+class _RadioMark extends StatelessWidget {
+  const _RadioMark({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: AppMotion.feedbackDuration,
+    width: 22,
+    height: 22,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: selected ? AppColors.sticker : Colors.transparent,
+      border: Border.all(
+        color: selected ? AppColors.sticker : AppColors.textTertiary,
+        width: 2,
+      ),
+    ),
+    child: selected
+        ? Container(
+            width: 8,
+            height: 8,
+            decoration: const BoxDecoration(
+              color: AppColors.ink,
+              shape: BoxShape.circle,
+            ),
+          )
+        : null,
+  );
+}
+
+/// Pestañas Post / En vivo, como el par de filtros de la app: la elegida se
+/// despega en blanco, la otra queda en la plancha.
 class ComposerModeTabs extends StatelessWidget {
   const ComposerModeTabs({
     super.key,
@@ -532,61 +641,67 @@ class ComposerModeTabs extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(4),
     decoration: const BoxDecoration(
-      color: AppColors.primarySurface,
+      color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
-    child: Row(
-      children: [
-        for (final option in ComposerMode.values)
-          Expanded(
-            child: InkWell(
-              key: Key('composer-mode-${option.name}'),
-              onTap: () => onChanged(option),
-              borderRadius: AppRadii.pill,
-              child: AnimatedContainer(
-                duration: AppMotion.feedbackDuration,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: option == mode
-                      ? AppColors.surface
-                      : Colors.transparent,
+    // La tinta del toque se pinta en este Material y no en el del Scaffold,
+    // que queda debajo del riel y la escondería.
+    child: Material(
+      type: MaterialType.transparency,
+      child: Row(
+        children: [
+          for (final option in ComposerMode.values)
+            Expanded(
+              child: Semantics(
+                selected: option == mode,
+                child: InkWell(
+                  key: Key('composer-mode-${option.name}'),
+                  onTap: () => onChanged(option),
                   borderRadius: AppRadii.pill,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (option == ComposerMode.live)
-                      Container(
-                        width: 7,
-                        height: 7,
-                        margin: const EdgeInsets.only(right: 6),
-                        decoration: const BoxDecoration(
-                          color: AppColors.secondary,
-                          shape: BoxShape.circle,
-                        ),
-                      )
-                    else
-                      const Padding(
-                        padding: EdgeInsets.only(right: 5),
-                        child: Icon(Icons.edit_note_rounded, size: 17),
-                      ),
-                    Text(
-                      option.label,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: option == mode
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                      ),
+                  child: AnimatedContainer(
+                    duration: AppMotion.feedbackDuration,
+                    curve: Curves.easeOutCubic,
+                    height: AppSizes.chipHeight,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: option == mode
+                          ? AppColors.sticker
+                          : Colors.transparent,
+                      borderRadius: AppRadii.pill,
                     ),
-                  ],
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // El punto rojo es la marca de en vivo de toda la
+                        // app; "Post" no necesita ícono para distinguirse.
+                        if (option == ComposerMode.live)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 7),
+                            decoration: const BoxDecoration(
+                              color: AppColors.secondary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        Text(
+                          option.label,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                color: option == mode
+                                    ? AppColors.ink
+                                    : AppColors.textSecondary,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }

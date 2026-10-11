@@ -1,13 +1,30 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:nexo_social/core/errors/failures.dart';
+import 'package:nexo_social/features/feed/data/repositories/mock_home_feed_repository.dart';
 import 'package:nexo_social/features/feed/domain/entities/post.dart';
 import 'package:nexo_social/features/feed/domain/entities/feed_filter.dart';
+import 'package:nexo_social/features/feed/domain/entities/home_feed.dart';
+import 'package:nexo_social/features/feed/domain/repositories/home_feed_repository.dart';
+import 'package:nexo_social/features/profile/domain/entities/follow.dart';
+import 'package:nexo_social/features/profile/domain/repositories/follow_repository.dart';
 import 'package:nexo_social/features/feed/domain/entities/post_extras.dart';
 import 'package:nexo_social/features/feed/presentation/bloc/feed_cubit.dart';
 import 'package:nexo_social/features/moderation/domain/entities/moderation_action.dart';
 
 import '../../../support/fake_post_repository.dart';
+
+class _MockHome extends Mock implements HomeFeedRepository {}
+
+class _MockFollows extends Mock implements FollowRepository {}
+
+const _carlos = ProfileSummary(
+  id: 'uuid-carlos',
+  username: 'carlos_mendez',
+  name: 'Carlos Méndez',
+  isVerified: true,
+);
 
 void main() {
   late FakePostRepository repository;
@@ -23,7 +40,7 @@ void main() {
   group('load', () {
     blocTest<FeedCubit, FeedState>(
       'shows the posts the server returns',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) => cubit.load(),
       expect: () => [
         const FeedLoading(),
@@ -35,7 +52,7 @@ void main() {
     /// puede esperar, la otra es nuestra.
     blocTest<FeedCubit, FeedState>(
       'a dead network is a failure that says so',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       setUp: () => repository.failNext = const NetworkFailure('offline'),
       act: (cubit) => cubit.load(),
       expect: () => [const FeedLoading(), const FeedFailure(offline: true)],
@@ -43,7 +60,7 @@ void main() {
 
     blocTest<FeedCubit, FeedState>(
       'a failed refresh keeps what was on screen',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         repository.failNext = const ServerFailure('500');
@@ -54,7 +71,10 @@ void main() {
 
     blocTest<FeedCubit, FeedState>(
       'pages until there is no cursor, without repeating posts',
-      build: () => FeedCubit(repository..pageSize = 2),
+      build: () => FeedCubit(
+        repository..pageSize = 2,
+        MockHomeFeedRepository(repository),
+      ),
       act: (cubit) async {
         await cubit.load();
         await cubit.loadMore();
@@ -71,7 +91,7 @@ void main() {
     /// Navigator por pestaña): el feed se entera por el repositorio.
     blocTest<FeedCubit, FeedState>(
       'a change in the repository refreshes the feed',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         repository.posts = [fakePost('nuevo'), ...repository.posts];
@@ -128,7 +148,7 @@ void main() {
   group('likes', () {
     blocTest<FeedCubit, FeedState>(
       'liking flips only the targeted post and the server count wins',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         await cubit.toggleLike('1');
@@ -145,7 +165,7 @@ void main() {
     /// vuelve como estaba y se avisa.
     blocTest<FeedCubit, FeedState>(
       'a like the server rejects is rolled back and reported',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         repository.failNext = const NetworkFailure('offline');
@@ -163,7 +183,7 @@ void main() {
   group('post actions', () {
     blocTest<FeedCubit, FeedState>(
       'deleting removes the post and confirms it',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         await cubit.delete(fakePost('2'));
@@ -177,7 +197,7 @@ void main() {
 
     blocTest<FeedCubit, FeedState>(
       'a delete the server forbids keeps the post and says why',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         repository.failNext = const ForbiddenFailure('not yours');
@@ -192,7 +212,7 @@ void main() {
 
     blocTest<FeedCubit, FeedState>(
       'editing replaces the post with what the server returns',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         await cubit.edit(fakePost('1'), 'texto nuevo');
@@ -206,7 +226,7 @@ void main() {
 
     blocTest<FeedCubit, FeedState>(
       'reporting sends the typed reason',
-      build: () => FeedCubit(repository),
+      build: () => FeedCubit(repository, MockHomeFeedRepository(repository)),
       act: (cubit) async {
         await cubit.load();
         await cubit.report(fakePost('3'), ModerationReason.spam);
@@ -252,7 +272,7 @@ void main() {
     /// perdía sus guardados.
     test('the loaded pages and the saved posts survive a refresh', () async {
       repository = FakePostRepository(timeline(25))..pageSize = 10;
-      final cubit = FeedCubit(repository);
+      final cubit = FeedCubit(repository, MockHomeFeedRepository(repository));
       await cubit.load();
       await cubit.loadMore();
       cubit.toggleSave('15');
@@ -300,6 +320,115 @@ void main() {
 
       expect(merged.posts, hasLength(2));
       expect(merged.nextCursor, isNull);
+    });
+  });
+
+  group('home by sections', () {
+    late _MockHome home;
+    late _MockFollows follows;
+
+    setUp(() {
+      home = _MockHome();
+      follows = _MockFollows();
+      when(() => home.home()).thenAnswer(
+        (_) async => HomeFeedPage([
+          FeedSection(
+            kind: FeedSectionKind.following,
+            items: [PostFeedItem(fakePost('f1', followed: true))],
+          ),
+          const FeedSection(
+            kind: FeedSectionKind.suggestedAccounts,
+            accounts: [_carlos],
+          ),
+          FeedSection(
+            kind: FeedSectionKind.discover,
+            items: [PostFeedItem(fakePost('d1'))],
+          ),
+        ], nextCursor: 'opaque-1'),
+      );
+    });
+
+    FeedCubit build() => FeedCubit(repository, home, follows);
+
+    test('splits followed posts, suggestions and discover', () async {
+      final cubit = build();
+
+      await cubit.load();
+
+      final state = cubit.state as FeedLoaded;
+      expect(state.followingPosts.map((p) => p.id), ['f1']);
+      expect(state.discoverPosts.map((p) => p.id), ['d1']);
+      expect(state.suggestions, [_carlos]);
+      // El chip "Siguiendo" es la sección de seguidos.
+      expect(
+        state.copyWith(filter: FeedFilter.following).visible.map((p) => p.id),
+        ['f1'],
+      );
+      await cubit.close();
+    });
+
+    /// El cursor del inicio es opaco: la pantalla lo devuelve tal cual.
+    test('pages with the opaque cursor and appends', () async {
+      when(() => home.home(cursor: 'opaque-1')).thenAnswer(
+        (_) async => HomeFeedPage([
+          FeedSection(
+            kind: FeedSectionKind.discover,
+            items: [PostFeedItem(fakePost('d2'))],
+          ),
+        ]),
+      );
+      final cubit = build();
+      await cubit.load();
+
+      await cubit.loadMore();
+
+      final state = cubit.state as FeedLoaded;
+      expect(state.posts.map((p) => p.id), ['f1', 'd1', 'd2']);
+      expect(state.hasMore, isFalse);
+      // Las sugerencias son de la primera página y se quedan.
+      expect(state.suggestions, [_carlos]);
+      await cubit.close();
+    });
+
+    test('following a suggestion is optimistic and rolls back', () async {
+      when(
+        () => follows.follow('uuid-carlos'),
+      ).thenThrow(const NetworkFailure('offline'));
+      final cubit = build();
+      await cubit.load();
+      final states = <FeedState>[];
+      final sub = cubit.stream.listen(states.add);
+
+      await cubit.toggleFollow(_carlos);
+
+      expect(
+        (states.first as FeedLoaded).suggestions.single.viewerFollows,
+        isTrue,
+      );
+      final state = cubit.state as FeedLoaded;
+      expect(state.suggestions.single.viewerFollows, isFalse);
+      expect(state.notice, FeedNotice.followFailed);
+      await sub.cancel();
+      await cubit.close();
+    });
+
+    test('following a suggestion keeps what the server says', () async {
+      when(() => follows.follow('uuid-carlos')).thenAnswer(
+        (_) async => const FollowState(
+          userId: 'uuid-carlos',
+          viewerFollows: true,
+          followerCount: 40,
+        ),
+      );
+      final cubit = build();
+      await cubit.load();
+
+      await cubit.toggleFollow(_carlos);
+
+      final account = (cubit.state as FeedLoaded).suggestions.single;
+      expect(account.viewerFollows, isTrue);
+      expect(account.followerCount, 40);
+      await cubit.close();
     });
   });
 }

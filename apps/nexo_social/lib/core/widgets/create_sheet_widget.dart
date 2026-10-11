@@ -2,26 +2,46 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../animations/app_motion.dart';
+import 'nexo_icon.dart';
+import 'nexo_mascot.dart';
 import 'pills.dart';
+import 'sticker.dart';
 
 enum CreateOption {
   post(
     title: 'Publicación',
     detail: 'Ideas, encuestas interactivas y fotos para tu comunidad',
+    mascot: NexoMascot.peek,
+    edge: StickerEdge.kissCut,
   ),
   goLive(
     title: 'Transmitir en Vivo',
     detail: 'Inicia stream al instante con tu audiencia',
+    mascot: NexoMascot.mic,
+    edge: StickerEdge.holo,
   ),
   scheduleShow(
     title: 'Programar Show',
     detail: 'Agenda con fecha, invitados y recordatorios',
+    mascot: NexoMascot.calendar,
+    edge: StickerEdge.dashed,
   );
 
-  const CreateOption({required this.title, required this.detail});
+  const CreateOption({
+    required this.title,
+    required this.detail,
+    required this.mascot,
+    required this.edge,
+  });
 
   final String title;
   final String detail;
+  final NexoMascot mascot;
+
+  /// Las tres opciones enseñan el vocabulario de bordes de la app: lo que se
+  /// publica ya está despegado, lo que sale al aire lleva holo, lo programado
+  /// sigue punteado en la plancha.
+  final StickerEdge edge;
 }
 
 Future<CreateOption?> showCreateSheet(BuildContext context) =>
@@ -73,10 +93,10 @@ class CreateSheetWidget extends StatelessWidget {
                   tooltip: 'Cerrar',
                   onPressed: () => Navigator.pop(context),
                   style: IconButton.styleFrom(
-                    backgroundColor: AppColors.background,
+                    backgroundColor: AppColors.linerHigh,
                     foregroundColor: AppColors.textPrimary,
                   ),
-                  icon: const Icon(Icons.close_rounded, size: 20),
+                  icon: const NexoIcon(NexoGlyph.close, size: 18),
                 ),
               ],
             ),
@@ -93,7 +113,6 @@ class CreateSheetWidget extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
             ],
-            const _ScheduleTip(),
           ],
         ),
       ),
@@ -107,32 +126,27 @@ class _CreateOptionTile extends StatelessWidget {
   final CreateOption option;
   final VoidCallback onTap;
 
-  /// Programar es la opción que el diseño destaca: superficie blanca con
-  /// borde de acento, en vez del relleno tenue de las otras dos.
-  bool get _featured => option == CreateOption.scheduleShow;
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Material(
-      color: _featured ? AppColors.surface : AppColors.primarySurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadii.large,
-        side: BorderSide(
-          color: _featured ? AppColors.primary : AppColors.primarySurfaceDeep,
-          width: _featured ? 1.5 : 1,
-        ),
-      ),
+    final tile = Material(
+      color: AppColors.linerHigh,
+      borderRadius: AppRadii.large,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: Key('create-option-${option.name}'),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xs,
+            AppSpacing.xs,
+            AppSpacing.md,
+            AppSpacing.xs,
+          ),
           child: Row(
             children: [
-              _OptionIcon(option: option),
-              const SizedBox(width: AppSpacing.md),
+              MascotIllustration(option.mascot, size: 64),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,19 +158,14 @@ class _CreateOptionTile extends StatelessWidget {
                       runSpacing: AppSpacing.xxs,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text(
-                          option.title,
-                          style: text.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        Text(option.title, style: text.titleMedium),
                         ?_badgeFor(option),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
                       option.detail,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: text.bodySmall,
                     ),
@@ -164,129 +173,31 @@ class _CreateOptionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: _featured
-                    ? AppColors.primaryDeep
-                    : AppColors.textSecondary,
+              const NexoIcon(
+                NexoGlyph.forward,
+                size: 18,
+                color: AppColors.textSecondary,
               ),
             ],
           ),
         ),
       ),
     );
+    return StickerFrame(
+      edge: option.edge,
+      radius: 26,
+      edgeWidth: option.edge == StickerEdge.kissCut ? 0 : AppStroke.kissCut,
+      child: tile,
+    );
   }
 
   static Widget? _badgeFor(CreateOption option) => switch (option) {
     CreateOption.post => null,
-    CreateOption.goLive => const StatusBadge(label: 'Directo'),
+    CreateOption.goLive => const StatusBadge(label: 'Directo', pulse: true),
     CreateOption.scheduleShow => const StatusBadge(
       label: 'Nuevo',
-      color: AppColors.primaryDeep,
+      color: AppColors.vinylLime,
+      foreground: AppColors.ink,
     ),
   };
-}
-
-class _OptionIcon extends StatelessWidget {
-  const _OptionIcon({required this.option});
-
-  final CreateOption option;
-
-  static const _size = 48.0;
-
-  @override
-  Widget build(BuildContext context) {
-    final (background, foreground, icon) = switch (option) {
-      CreateOption.post => (
-        AppColors.primarySurfaceDeep,
-        AppColors.primaryDeep,
-        Icons.edit_note_rounded,
-      ),
-      CreateOption.goLive => (
-        AppColors.successSurface,
-        AppColors.tertiary,
-        Icons.sensors_rounded,
-      ),
-      CreateOption.scheduleShow => (
-        AppColors.primaryDeep,
-        Colors.white,
-        Icons.edit_calendar_rounded,
-      ),
-    };
-    final circle = Container(
-      width: _size,
-      height: _size,
-      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-      child: Icon(icon, color: foreground, size: 24),
-    );
-    if (option != CreateOption.goLive) return circle;
-
-    // El punto verde dice "disponible ahora". Late aislado en su capa.
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        circle,
-        Positioned(
-          top: 0,
-          right: 0,
-          child: PulsingDot(
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: AppColors.tertiary,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.surface, width: 2),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ScheduleTip extends StatelessWidget {
-  const _ScheduleTip();
-
-  @override
-  Widget build(BuildContext context) {
-    final style = Theme.of(
-      context,
-    ).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary);
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: const BoxDecoration(
-        color: AppColors.primarySurface,
-        borderRadius: AppRadii.small,
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.auto_awesome_rounded,
-            size: 18,
-            color: AppColors.primaryDeep,
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                text:
-                    'Los shows programados incrementan la asistencia '
-                    'hasta un ',
-                children: [
-                  TextSpan(
-                    text: '45%',
-                    style: style?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const TextSpan(text: '.'),
-                ],
-              ),
-              style: style,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

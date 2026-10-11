@@ -88,7 +88,9 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byType(Card), findsOneWidget);
+      // Un placeholder por post pedido. Ya no es una Card: el post de verdad
+      // vive sobre el liner, sin tarjeta, y el placeholder copia su forma.
+      expect(find.byKey(const Key('feed-skeleton-item')), findsOneWidget);
     });
 
     /// A pulse repaints every frame. Without a boundary that repaint walks up

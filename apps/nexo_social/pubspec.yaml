@@ -80,6 +80,13 @@ flutter:
 
   assets:
     - assets/branding/
+    # Íconos de la app: siluetas generadas con GPT Image (Higgsfield) y
+    # vectorizadas. Cada uno tiene su versión rellena y `_outline`.
+    - assets/icons/
+    # El gato de la marca en cada estado (vacío, error, sin conexión...).
+    - assets/mascot/
+    # Stickers de reacción.
+    - assets/stickers/
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
@@ -96,6 +103,25 @@ flutter:
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
+
+  # Empaquetadas y recortadas a latín (de 22 MB a 400 KB): la demo no puede
+  # depender de bajar la tipografía en vivo. Licencia OFL en assets/fonts.
+  fonts:
+    - family: DelaGothicOne
+      fonts:
+        - asset: assets/fonts/DelaGothicOne-Regular.ttf
+    - family: MPlusRounded
+      fonts:
+        - asset: assets/fonts/MPLUSRounded1c-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/MPLUSRounded1c-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/MPLUSRounded1c-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/MPLUSRounded1c-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/MPLUSRounded1c-Black.ttf
+          weight: 900
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

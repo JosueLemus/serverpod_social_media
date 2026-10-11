@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../../../app/theme/app_tokens.dart';
+import '../../../../../../../core/widgets/nexo_icon.dart';
 import '../utils/show_date_format.dart';
 import 'show_section.dart';
 
@@ -22,7 +23,6 @@ class ShowDateTimeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final inPast = !startsAt.isAfter(now);
     return ShowSection(
-      icon: Icons.calendar_month_outlined,
       title: 'Fecha y Hora del Evento',
       child: IntrinsicHeight(
         child: Row(
@@ -32,12 +32,9 @@ class ShowDateTimeRow extends StatelessWidget {
               child: _PickerTile(
                 key: const Key('schedule-date'),
                 label: 'Fecha',
-                icon: Icons.edit_calendar_outlined,
+                glyph: NexoGlyph.calendar,
                 value: ShowDateFormat.date(startsAt),
                 detail: ShowDateFormat.countdown(startsAt, now: now),
-                detailIcon: inPast
-                    ? Icons.error_outline_rounded
-                    : Icons.check_rounded,
                 detailColor: inPast ? AppColors.error : AppColors.tertiary,
                 onTap: onPickDate,
               ),
@@ -47,7 +44,7 @@ class ShowDateTimeRow extends StatelessWidget {
               child: _PickerTile(
                 key: const Key('schedule-time'),
                 label: 'Hora',
-                icon: Icons.schedule_rounded,
+                glyph: NexoGlyph.clock,
                 value:
                     '${ShowDateFormat.time(startsAt)} '
                     '${ShowDateFormat.gmtOffset(startsAt.timeZoneOffset)}',
@@ -62,36 +59,36 @@ class ShowDateTimeRow extends StatelessWidget {
   }
 }
 
+/// Un control en reposo: `linerHigh`, sin filete, con el valor grande en la
+/// voz de sticker porque es lo que se vino a elegir.
 class _PickerTile extends StatelessWidget {
   const _PickerTile({
     super.key,
     required this.label,
-    required this.icon,
+    required this.glyph,
     required this.value,
     required this.detail,
     required this.onTap,
-    this.detailIcon,
     this.detailColor,
   });
 
   final String label;
-  final IconData icon;
+  final NexoGlyph glyph;
   final String value;
   final String detail;
-  final IconData? detailIcon;
+
+  /// Con color, el detalle es un estado (verde a tiempo, rojo ya pasó) y
+  /// lleva su punto delante. Sin color es una aclaración.
   final Color? detailColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final color = detailColor ?? AppColors.textSecondary;
+    final color = detailColor;
     return Material(
-      color: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadii.medium,
-        side: BorderSide(color: AppColors.border),
-      ),
+      color: AppColors.linerHigh,
+      borderRadius: AppRadii.medium,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -102,30 +99,51 @@ class _PickerTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: ShowFieldLabel(label)),
-                  Icon(icon, size: 18, color: AppColors.primaryDeep),
+                  NexoIcon(glyph, size: 18, color: AppColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: text.labelMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text(value, style: text.titleLarge?.copyWith(fontSize: 15.5)),
-              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                value,
+                style: text.titleLarge?.copyWith(
+                  fontSize: 16,
+                  height: 1.2,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              const Spacer(),
+              const SizedBox(height: AppSpacing.xs),
               Row(
                 children: [
-                  if (detailIcon != null) ...[
-                    Icon(detailIcon, size: 13, color: color),
-                    const SizedBox(width: AppSpacing.xxs),
+                  if (color != null) ...[
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
                   ],
                   Expanded(
                     child: Text(
                       detail,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: text.bodySmall?.copyWith(
-                        fontSize: 11.5,
-                        color: color,
-                        fontWeight: detailColor == null
-                            ? FontWeight.w400
-                            : FontWeight.w600,
+                      style: text.labelSmall?.copyWith(
+                        color: color ?? AppColors.textSecondary,
                       ),
                     ),
                   ),

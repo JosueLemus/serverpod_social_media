@@ -10,6 +10,7 @@ class LiveComment extends Equatable {
     required this.body,
     this.authorId = '',
     this.isMine = false,
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -18,6 +19,16 @@ class LiveComment extends Equatable {
   final String body;
   final bool isMine;
 
+  /// La foto de quien escribió. Null: se dibuja la inicial.
+  final String? authorAvatarUrl;
+
   @override
-  List<Object?> get props => [id, author, authorId, body, isMine];
+  List<Object?> get props => [
+    id,
+    author,
+    authorId,
+    body,
+    isMine,
+    authorAvatarUrl,
+  ];
 }

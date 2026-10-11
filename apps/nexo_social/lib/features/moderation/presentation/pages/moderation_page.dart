@@ -24,6 +24,7 @@ class _ModerationView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => NexoPage(
     title: 'Moderación',
+    subtitle: 'Decide sobre lo reportado. Cada acción queda en la auditoría.',
     onRefresh: context.read<ModerationCubit>().load,
     children: const [ReportQueueSection()],
   );

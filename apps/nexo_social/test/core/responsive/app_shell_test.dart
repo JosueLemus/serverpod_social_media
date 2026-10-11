@@ -32,7 +32,7 @@ void main() {
       BlocProvider.value(
         value: auth,
         child: MaterialApp.router(
-          theme: AppTheme.light,
+          theme: AppTheme.nexo,
           routerConfig: createRouter(auth, initialLocation: AppRoutes.feed),
         ),
       ),
@@ -142,9 +142,9 @@ void main() {
 
       expect(find.byType(PostCard), findsWidgets);
 
-      // By icon, not by text: "En vivo" is also the label of a feed filter
-      // chip, so `find.text` is ambiguous on this screen.
-      await tester.tap(find.byIcon(Icons.explore_outlined));
+      // By the tab's key, not by text: "En vivo" is also the label of a feed
+      // filter chip, so `find.text` is ambiguous on this screen.
+      await tester.tap(find.byKey(const Key('tab-/explore')));
       await AppHarness.settle(tester);
 
       expect(find.text('En vivo ahora'), findsWidgets);

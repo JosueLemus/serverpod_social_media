@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/moderation_cubit.dart';
 
@@ -31,8 +33,29 @@ class StaffShortcutCard extends StatelessWidget {
   }
 }
 
+/// En qué está la cola. Un fallo no es una cola vacía: la tarjeta decía "No
+/// hay reportes pendientes" cuando en realidad no había podido leerla.
+enum _QueueStatus { loading, unreadable, clear, pending }
+
 class _Card extends StatelessWidget {
   const _Card({required this.isOperator});
+
+  final bool isOperator;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+    child: StickerCard(
+      key: const Key('staff-shortcut'),
+      child: _CardBody(isOperator: isOperator),
+    ),
+  );
+}
+
+/// El contenido, aparte para leer el tema **dentro** de la [StickerCard]: ahí
+/// el texto es tinta y el CTA es relleno de tinta.
+class _CardBody extends StatelessWidget {
+  const _CardBody({required this.isOperator});
 
   final bool isOperator;
 
@@ -40,84 +63,142 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<ModerationCubit>().state;
     final pending = state.reports.length;
-    return Container(
-      key: const Key('staff-shortcut'),
-      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: const BoxDecoration(
-        color: AppColors.neutral,
-        borderRadius: AppRadii.medium,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isOperator
-                    ? Icons.admin_panel_settings_rounded
-                    : Icons.shield_rounded,
-                color: Colors.white,
+    final status = state.isLoading
+        ? _QueueStatus.loading
+        : state.issue != null && pending == 0
+        ? _QueueStatus.unreadable
+        : pending == 0
+        ? _QueueStatus.clear
+        : _QueueStatus.pending;
+    final text = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.ink,
+                shape: BoxShape.circle,
+              ),
+              child: NexoIcon(
+                isOperator ? NexoGlyph.console : NexoGlyph.moderation,
                 size: 20,
+                color: AppColors.sticker,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Expanded(
-                child: Text(
-                  isOperator ? 'Sesión de operador' : 'Sesión de moderación',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleMedium?.copyWith(color: Colors.white),
-                ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Wrap y no Row: a 320 el título y la insignia no entran
+                  // en un renglón, y una fila recortaría la insignia.
+                  Wrap(
+                    spacing: AppSpacing.xs,
+                    runSpacing: AppSpacing.xxs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        isOperator
+                            ? 'Sesión de operador'
+                            : 'Sesión de moderación',
+                        style: text.titleMedium,
+                      ),
+                      if (pending > 0)
+                        // Vinilo con tinta: es un contador, no un fallo, y
+                        // el rojo con blanco es la marca de en vivo.
+                        StatusBadge(
+                          label: '$pending PENDIENTES',
+                          color: AppColors.vinylLime,
+                          foreground: AppColors.ink,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xxs),
+                  Row(
+                    children: [
+                      _StatusDot(status: status),
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Text(
+                          switch (status) {
+                            _QueueStatus.loading =>
+                              'Leyendo la cola de reportes…',
+                            _QueueStatus.unreadable =>
+                              'No pudimos leer la cola de reportes.',
+                            _QueueStatus.clear => 'No hay reportes pendientes.',
+                            _QueueStatus.pending =>
+                              pending == 1
+                                  ? 'Hay 1 reporte esperando una decisión.'
+                                  : 'Hay $pending reportes esperando una '
+                                        'decisión.',
+                          },
+                          // Un fallo se lee en tinta plena, no en gris: es lo
+                          // que la tarjeta tiene que decir.
+                          style: status == _QueueStatus.unreadable
+                              ? text.bodySmall?.copyWith(color: AppColors.ink)
+                              : text.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              if (pending > 0)
-                StatusBadge(label: '$pending PENDIENTES', pulse: true),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            state.isLoading
-                ? 'Leyendo la cola de reportes…'
-                // Un fallo no es una cola vacía: decía "No hay reportes
-                // pendientes" cuando en realidad no había podido leerla.
-                : state.issue != null && pending == 0
-                ? 'No pudimos leer la cola de reportes.'
-                : pending == 0
-                ? 'No hay reportes pendientes.'
-                : pending == 1
-                ? 'Hay 1 reporte esperando una decisión.'
-                : 'Hay $pending reportes esperando una decisión.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
-          ),
-          if (isOperator) ...[
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              'Puedes suspender cuentas, revocar verificaciones y cortar '
-              'vivos. Todo queda auditado.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.white70),
             ),
           ],
+        ),
+        if (isOperator) ...[
           const SizedBox(height: AppSpacing.sm),
-          FilledButton.icon(
-            key: const Key('staff-shortcut-open'),
-            onPressed: () =>
-                context.go(isOperator ? AppRoutes.admin : AppRoutes.moderation),
-            icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-            iconAlignment: IconAlignment.end,
-            label: Text(
-              isOperator ? 'Abrir consola de operador' : 'Abrir moderación',
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.neutral,
-              minimumSize: const Size(0, AppSizes.buttonHeightDense),
-            ),
+          Text(
+            'Puedes suspender cuentas, revocar verificaciones y cortar '
+            'vivos. Todo queda auditado.',
+            style: text.bodySmall,
           ),
         ],
-      ),
+        const SizedBox(height: AppSpacing.sm),
+        FilledButton.icon(
+          key: const Key('staff-shortcut-open'),
+          onPressed: () =>
+              context.go(isOperator ? AppRoutes.admin : AppRoutes.moderation),
+          icon: const NexoIcon(NexoGlyph.forward, size: 18),
+          iconAlignment: IconAlignment.end,
+          label: Text(
+            isOperator ? 'Abrir consola de operador' : 'Abrir moderación',
+          ),
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, AppSizes.buttonHeightDense),
+          ),
+        ),
+      ],
     );
   }
+}
+
+/// El estado de la cola en un punto, para leerlo sin leer la frase: verde si
+/// está limpia, ámbar si algo espera, rojo si no se pudo leer.
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({required this.status});
+
+  final _QueueStatus status;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 8,
+    height: 8,
+    decoration: BoxDecoration(
+      color: switch (status) {
+        _QueueStatus.loading => AppColors.inkSecondary,
+        _QueueStatus.unreadable => AppColors.error,
+        _QueueStatus.clear => AppColors.tertiary,
+        _QueueStatus.pending => AppColors.vinylLime,
+      },
+      shape: BoxShape.circle,
+    ),
+  );
 }

@@ -6,7 +6,8 @@ import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
-import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../explore/presentation/bloc/explore_cubit.dart';
 import '../../../explore/presentation/widgets/discovery_sections.dart';
 import '../../domain/entities/feed_filter.dart';
@@ -15,7 +16,7 @@ import '../../domain/entities/feed_filter.dart';
 ///
 /// No es un estado vacío genérico: alguien que no sigue a nadie no necesita
 /// que le digan que no hay nada, necesita a quién seguir. Por eso trae los
-/// mismos temas y creadores que Explorar, en vez de una ilustración y un
+/// mismos temas y creadores que Explorar debajo del gato, en vez de sólo un
 /// botón que lleva a otra pantalla a empezar de nuevo.
 class EmptyFeedView extends StatelessWidget {
   const EmptyFeedView({
@@ -49,36 +50,37 @@ class _FilterEmpty extends StatelessWidget {
   final VoidCallback onShowAll;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-    child: Column(
-      children: [
-        const CircleAvatar(
-          radius: 32,
-          backgroundColor: AppColors.primarySurface,
-          child: Icon(
-            Icons.filter_list_rounded,
-            color: AppColors.primaryDeep,
-            size: 28,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+      child: Column(
+        children: [
+          const MascotIllustration(NexoMascot.empty, size: 132),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            filter == FeedFilter.following
+                ? 'Nada de quienes sigues'
+                : 'Nada en ${filter.label}',
+            style: text.headlineSmall,
+            textAlign: TextAlign.center,
           ),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          'Nada en ${filter.label}',
-          style: Theme.of(context).textTheme.headlineSmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          'Prueba con otro filtro o vuelve más tarde.',
-          style: Theme.of(context).textTheme.bodyMedium,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        FilledButton(onPressed: onShowAll, child: const Text('Ver todo')),
-      ],
-    ),
-  );
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            // "Siguiendo" vacío casi siempre es no seguir a nadie todavía: la
+            // salida es seguir a alguien, no esperar.
+            filter == FeedFilter.following
+                ? 'Sigue a alguien para ver sus publicaciones acá.'
+                : 'Prueba con otro filtro o vuelve más tarde.',
+            style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          FilledButton(onPressed: onShowAll, child: const Text('Ver todo')),
+        ],
+      ),
+    );
+  }
 }
 
 class _OnboardingEmpty extends StatelessWidget {
@@ -92,12 +94,14 @@ class _OnboardingEmpty extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppSpacing.lg),
-          const Enter(child: Center(child: _PrimerosPasos())),
-          const SizedBox(height: AppSpacing.md),
-          const Enter(index: 1, child: Center(child: _CommunityGlyph())),
+          // La plancha en blanco: el gato acompaña el momento vacío en vez de
+          // un ícono gris en un círculo.
+          const Enter(
+            child: Center(child: MascotIllustration(NexoMascot.empty)),
+          ),
           const SizedBox(height: AppSpacing.md),
           Enter(
-            index: 2,
+            index: 1,
             child: Text(
               'Tu feed está esperando por ti',
               textAlign: TextAlign.center,
@@ -106,7 +110,7 @@ class _OnboardingEmpty extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Enter(
-            index: 3,
+            index: 2,
             child: Text(
               'Aún no sigues a ningún creador ni tema. Explora los perfiles '
               'más influyentes de diseño, desarrollo y tecnología para '
@@ -118,18 +122,18 @@ class _OnboardingEmpty extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
           // Sólo opacidad: es el CTA de la pantalla y tiene que ser tocable en
           // el frame en que aparece.
           EnterStatic(
-            index: 4,
+            index: 3,
             child: SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
                 key: const Key('empty-feed-explore'),
                 onPressed: () => context.go(AppRoutes.explore),
                 iconAlignment: IconAlignment.end,
-                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                icon: const NexoIcon(NexoGlyph.forward, size: 18),
                 label: const Text('Explorar creadores destacados'),
               ),
             ),
@@ -145,37 +149,5 @@ class _OnboardingEmpty extends StatelessWidget {
         ],
       );
     },
-  );
-}
-
-class _PrimerosPasos extends StatelessWidget {
-  const _PrimerosPasos();
-
-  @override
-  Widget build(BuildContext context) => const StatusBadge(
-    label: 'Primeros pasos',
-    color: AppColors.primarySurface,
-    foreground: AppColors.textOnBrandSurface,
-    icon: Icons.flag_outlined,
-  );
-}
-
-class _CommunityGlyph extends StatelessWidget {
-  const _CommunityGlyph();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 84,
-    height: 84,
-    decoration: const BoxDecoration(
-      color: AppColors.primarySurface,
-      shape: BoxShape.circle,
-    ),
-    alignment: Alignment.center,
-    child: const Icon(
-      Icons.groups_rounded,
-      size: 40,
-      color: AppColors.primaryDeep,
-    ),
   );
 }

@@ -174,6 +174,7 @@ class ServerpodPostRepository implements PostRepository {
       allowComments: view.allowComments,
       visibility: PostVisibility.values.byName(view.visibility.name),
       editedAt: view.editedAt?.toLocal(),
+      authorAvatarUrl: view.authorAvatarUrl,
     );
   }
 
@@ -185,6 +186,7 @@ class ServerpodPostRepository implements PostRepository {
     body: view.body,
     createdAt: view.createdAt.toLocal(),
     canDelete: view.canDelete,
+    authorAvatarUrl: view.authorAvatarUrl,
   );
 
   /// El cursor del servidor viaja como texto opaco: la app no sabe ni

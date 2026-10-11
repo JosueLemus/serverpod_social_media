@@ -44,6 +44,7 @@ class MockProfileRepository implements ProfileRepository {
         followers: extras?.followers,
         following: extras?.following,
         likes: extras?.likes,
+        viewerFollows: _store.isFollowing(user.username),
       );
     }
     // Los autores del feed mock que no son cuentas sembradas: su perfil sale
@@ -58,6 +59,7 @@ class MockProfileRepository implements ProfileRepository {
           verification: post.authorIsVerified
               ? VerificationStatus.verified
               : VerificationStatus.none,
+          viewerFollows: _store.isFollowing(username),
         );
       }
     }

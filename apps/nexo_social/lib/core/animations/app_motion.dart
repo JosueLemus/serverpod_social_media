@@ -82,33 +82,44 @@ class EnterStatic extends StatelessWidget {
   );
 }
 
-/// A one-shot pop that acknowledges a reaction.
+/// A one-shot "slap" that acknowledges a reaction: the child lands like a
+/// sticker pressed onto the sheet, a little big and tilted, then settles flat.
 ///
-/// [trigger] is the reaction's own state: it pops when that flips to true and
+/// [trigger] is the reaction's own state: it slaps when that flips to true and
 /// stays put when it flips back, which matches the asymmetry of the gesture —
 /// liking is an event, un-liking is an undo.
 ///
-/// When [trigger] is false the child is returned untouched rather than handed
-/// to `animate_do` with `animate: false`. That flag does not mean "render
-/// normally without animating": the widget keeps the child at frame zero of
-/// the animation, which for a scale-and-fade means invisible. Wiring it the
-/// obvious way made every un-liked heart in the feed disappear, leaving a bare
-/// like count with nothing to tap.
+/// When [trigger] is false the child is returned untouched. Never hand the
+/// child to an animation in a "not animating" mode: `animate_do` with
+/// `animate: false` keeps it at frame zero, which for a scale-and-fade means
+/// invisible. Wiring it that way once made every un-liked heart in the feed
+/// disappear, leaving a bare like count with nothing to tap.
 class Pop extends StatelessWidget {
   const Pop({super.key, required this.child, required this.trigger});
 
   final Widget child;
   final bool trigger;
 
+  /// The slap: lands at 135% and 7° off, settles in 280 ms with a small
+  /// overshoot. Scale and rotation only, never opacity, so the child is
+  /// visible on every frame.
+  static const duration = Duration(milliseconds: 280);
+
   @override
   Widget build(BuildContext context) {
-    if (!trigger) return child;
-    return BounceIn(
+    if (!trigger || MediaQuery.disableAnimationsOf(context)) return child;
+    return TweenAnimationBuilder<double>(
       // Re-keyed on the trigger so the animation replays on each activation
       // instead of being skipped as an already-built subtree.
       key: const ValueKey('pop-on'),
-      duration: AppMotion.feedbackDuration,
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: Curves.easeOutBack,
       child: child,
+      builder: (context, t, child) => Transform.rotate(
+        angle: (1 - t) * -.12,
+        child: Transform.scale(scale: 1.35 - .35 * t, child: child),
+      ),
     );
   }
 }

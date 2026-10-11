@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../../../../app/di/injection.dart';
 import '../../../../../../../app/theme/app_tokens.dart';
 import '../../../../../../../core/animations/app_motion.dart';
+import '../../../../../../../core/widgets/nexo_icon.dart';
 import '../../../../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/schedule_show_cubit.dart';
 import '../utils/schedule_show_copy.dart';
@@ -165,7 +166,7 @@ class _ScheduleShowViewState extends State<_ScheduleShowView> {
             key: const Key('schedule-back'),
             tooltip: 'Volver',
             onPressed: context.pop,
-            icon: const Icon(Icons.arrow_back_rounded),
+            icon: const NexoIcon(NexoGlyph.back),
           ),
           titleSpacing: 0,
           centerTitle: false,
@@ -173,14 +174,13 @@ class _ScheduleShowViewState extends State<_ScheduleShowView> {
           actions: [
             Padding(
               padding: const EdgeInsets.only(right: AppSpacing.xs),
-              child: TextButton.icon(
+              // Sólo la palabra: la "×" le quitaba al título el ancho que
+              // necesita a 320.
+              child: TextButton(
                 key: const Key('schedule-discard'),
                 onPressed: state.status == ScheduleShowStatus.editing
                     ? () => _discard(state.hasChanges)
                     : null,
-                iconAlignment: IconAlignment.end,
-                icon: const Icon(Icons.close_rounded, size: 18),
-                label: const Text('Descartar'),
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.textSecondary,
                   visualDensity: VisualDensity.compact,
@@ -188,6 +188,7 @@ class _ScheduleShowViewState extends State<_ScheduleShowView> {
                     horizontal: AppSpacing.xs,
                   ),
                 ),
+                child: const Text('Descartar'),
               ),
             ),
           ],
@@ -216,38 +217,47 @@ class _TitleBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final saved = state.draftSaved;
-    final (icon, label) = switch (state) {
-      _ when saved => (Icons.check_circle_outline_rounded, 'Borrador guardado'),
-      _ when state.hasChanges => (Icons.sync_rounded, 'Guardando…'),
-      _ => (Icons.edit_outlined, 'Nuevo borrador'),
+    final label = switch (state) {
+      _ when saved => 'Borrador guardado',
+      _ when state.hasChanges => 'Guardando…',
+      _ => 'Nuevo borrador',
     };
+    // Verde sólo cuando de verdad quedó guardado; mientras tanto, gris.
     final color = saved ? AppColors.tertiary : AppColors.textSecondary;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          'Programar Show',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).appBarTheme.titleTextStyle,
+        // Se achica en vez de cortarse: a 320, "Programar Sh…" junto a
+        // "Descartar" no nombra la pantalla.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Programar Show',
+            maxLines: 1,
+            style: Theme.of(context).appBarTheme.titleTextStyle,
+          ),
         ),
         const SizedBox(height: 2),
         Row(
           children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: AppSpacing.xxs),
+            AnimatedContainer(
+              duration: AppMotion.feedbackDuration,
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
             Flexible(
               child: Text(
                 label,
                 key: const Key('schedule-draft-status'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontSize: 11.5,
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(color: color),
               ),
             ),
           ],
@@ -280,7 +290,7 @@ class _Form extends StatelessWidget {
     final draft = state.draft!;
     final now = DateTime.now();
     final auth = context.watch<AuthCubit>().state;
-    final username = auth is AuthAuthenticated ? auth.user.username : '';
+    final user = auth is AuthAuthenticated ? auth.user : null;
     final sections = <Widget>[
       const AudienceNoticeCard(),
       ShowTitleField(
@@ -315,7 +325,12 @@ class _Form extends StatelessWidget {
         onAllowQuestions: (value) => cubit.setAllowQuestions(value: value),
         onRecordReplay: (value) => cubit.setRecordReplay(value: value),
       ),
-      FeedPreviewCard(draft: draft, now: now, hostUsername: username),
+      FeedPreviewCard(
+        draft: draft,
+        hostName: user?.name ?? '',
+        hostUsername: user?.username ?? '',
+        hostAvatarUrl: user?.avatarUrl,
+      ),
     ];
     return SafeArea(
       bottom: false,
@@ -330,7 +345,7 @@ class _Form extends StatelessWidget {
               AppSpacing.xl,
             ),
             itemCount: sections.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.lg),
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.xl),
             itemBuilder: (context, index) =>
                 EnterStatic(index: index, child: sections[index]),
           ),
@@ -351,10 +366,13 @@ class _SubmitBar extends StatelessWidget {
     final pending = state.draft == null || state.draftIssues.isEmpty
         ? null
         : state.draftIssues.first;
-    return Material(
-      color: AppColors.surface,
-      elevation: 8,
-      shadowColor: AppColors.shadow,
+    // La misma tira que la barra inferior: liner con un filete arriba, sin
+    // sombra. El CTA es el sticker blanco del tema.
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.background,
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -382,12 +400,12 @@ class _SubmitBar extends StatelessWidget {
                             dimension: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: AppColors.textSecondary,
                             ),
                           )
-                        : const Icon(Icons.event_available_rounded, size: 20),
+                        : const NexoIcon(NexoGlyph.calendar, size: 20),
                     label: Text(
-                      submitting ? 'Agendando…' : 'Confirmar y Agendar Show',
+                      submitting ? 'Programando…' : 'Programar show',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -399,9 +417,7 @@ class _SubmitBar extends StatelessWidget {
                             'confirmes.',
                     key: const Key('schedule-submit-hint'),
                     textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(fontSize: 11.5),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),

@@ -9,7 +9,9 @@ import '../../../../core/animations/app_motion.dart';
 import '../../../../core/constants/environment.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/demo_accounts.dart';
+import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_logo.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../widgets/demo_account_picker.dart';
 import '../bloc/auth_cubit.dart';
@@ -35,13 +37,19 @@ class SplashPage extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           ZoomIn(
-            duration: const Duration(milliseconds: 650),
-            child: const NexoLogo(size: 86),
+            duration: const Duration(milliseconds: 420),
+            child: const NexoLogo(size: 112),
           ),
           const SizedBox(height: AppSpacing.lg),
-          FadeInUp(
+          FadeIn(
             delay: const Duration(milliseconds: 260),
-            child: const CircularProgressIndicator(),
+            child: const SizedBox(
+              width: 72,
+              child: LinearProgressIndicator(
+                minHeight: 4,
+                borderRadius: AppRadii.pill,
+              ),
+            ),
           ),
         ],
       ),
@@ -103,18 +111,13 @@ class _WelcomePage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              FadeInDown(
-                duration: AppMotion.enterDuration,
-                child: const Center(child: NexoLogo(size: 116)),
-              ),
-              const SizedBox(height: AppSpacing.lg),
+              const _StickerSheetHero(),
+              const SizedBox(height: AppSpacing.md),
               Enter(
                 index: 1,
                 child: Text(
                   'Encuentra tu comunidad.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.displaySmall?.copyWith(fontSize: 32),
+                  style: Theme.of(context).textTheme.displayMedium,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -143,7 +146,7 @@ class _WelcomePage extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () => context.go(AppRoutes.signUp),
                   iconAlignment: IconAlignment.end,
-                  icon: const Icon(Icons.arrow_forward_rounded),
+                  icon: const NexoIcon(NexoGlyph.forward, size: 18),
                   label: const Text('Crear cuenta'),
                 ),
               ),
@@ -159,7 +162,30 @@ class _WelcomePage extends StatelessWidget {
               // teléfono, y quien no lo veía entraba por "Iniciar sesión" con
               // su correo — que en el mock es siempre Elena. Todas las cuentas
               // parecían la misma porque eran la misma.
-              const EnterStatic(index: 6, child: DemoAccountButton()),
+              // El acceso demo es un atajo, no la acción principal: con el
+              // estilo del CTA quedaban dos stickers blancos compitiendo. El
+              // tema local lo baja a una pastilla gris sin tocar el widget.
+              EnterStatic(
+                index: 6,
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    filledButtonTheme: FilledButtonThemeData(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.linerHigh,
+                        foregroundColor: AppColors.textPrimary,
+                        minimumSize: const Size.fromHeight(
+                          AppSizes.buttonHeightDense,
+                        ),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: AppRadii.pill,
+                        ),
+                        textStyle: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                  ),
+                  child: const DemoAccountButton(),
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
               const _ContinueWith(),
               const SizedBox(height: AppSpacing.md),
@@ -192,14 +218,10 @@ class _WelcomePage extends StatelessWidget {
               ),
 
               const SizedBox(height: AppSpacing.sm),
-              const Text(
+              Text(
                 'Al continuar, confirmas que aceptas nuestros Términos de Servicio y nuestra Política de Privacidad.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  height: 1.35,
-                  fontSize: 12,
-                ),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
@@ -231,7 +253,9 @@ Future<void> _exploreAsGuest(BuildContext context) async {
 ///
 /// Es lo único de esta pantalla que dice que del otro lado hay gente. Un muro
 /// de acceso sin nadie detrás pide crear una cuenta para entrar a un lugar
-/// vacío, y esa es la razón más común para no crearla.
+/// vacío, y esa es la razón más común para no crearla. Nombra a las personas
+/// que de verdad están en la demo: una cifra de "miles de creadores" sería
+/// inventada.
 class _SocialProof extends StatelessWidget {
   const _SocialProof();
 
@@ -239,30 +263,36 @@ class _SocialProof extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.sm),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: AppRadii.medium,
-      border: Border.all(color: AppColors.border),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.sm,
+      AppSpacing.sm,
+      AppSpacing.md,
+      AppSpacing.sm,
+    ),
+    decoration: const BoxDecoration(
+      color: AppColors.linerHigh,
+      borderRadius: AppRadii.pill,
     ),
     child: Row(
       children: [
+        // Cada sticker lleva un aro del color de la píldora: así se montan
+        // como stickers pegados uno encima del otro y las iniciales no se
+        // pisan.
         SizedBox(
-          width: 28 + 17.0 * (_names.length - 1),
-          height: 30,
+          width: 36 + 28.0 * (_names.length - 1),
+          height: 36,
           child: Stack(
             children: [
               for (final (index, name) in _names.indexed)
                 Positioned(
-                  left: index * 17,
+                  left: index * 28,
                   child: Container(
+                    padding: const EdgeInsets.all(2),
                     decoration: const BoxDecoration(
+                      color: AppColors.linerHigh,
                       shape: BoxShape.circle,
-                      border: Border.fromBorderSide(
-                        BorderSide(color: AppColors.surface, width: 2),
-                      ),
                     ),
-                    child: UserAvatar(name: name, size: 26),
+                    child: UserAvatar(name: name, size: 32),
                   ),
                 ),
             ],
@@ -274,23 +304,117 @@ class _SocialProof extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Más de 24,000 creadores',
-                style: Theme.of(context).textTheme.titleMedium,
+                'Elena, Carlos y Lucía ya están creando',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleSmall,
               ),
               Text(
-                'Compartiendo transmisiones hoy',
+                'Únete y sigue sus vivos',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
           ),
         ),
-        const Icon(
-          Icons.trending_up_rounded,
-          size: 19,
-          color: AppColors.tertiary,
-        ),
       ],
     ),
+  );
+}
+
+/// La plancha de bienvenida: el gato del logo al centro y stickers pegados
+/// alrededor, que caen uno por uno como si alguien los fuera pegando.
+///
+/// Nada de esto se toca, así que puede moverse y rotar: no hay hit test que
+/// se corra.
+class _StickerSheetHero extends StatelessWidget {
+  const _StickerSheetHero();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 220,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final cx = w / 2;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _slap(
+              index: 1,
+              left: cx - 150,
+              top: 22,
+              angle: -.22,
+              child: const _HeroSticker('assets/stickers/heart.webp', 58),
+            ),
+            _slap(
+              index: 2,
+              left: cx + 92,
+              top: 8,
+              angle: .2,
+              child: const _HeroSticker('assets/stickers/star.webp', 54),
+            ),
+            _slap(
+              index: 3,
+              left: cx + 100,
+              top: 128,
+              angle: -.12,
+              child: const _HeroSticker('assets/stickers/fire.webp', 60),
+            ),
+            _slap(
+              index: 4,
+              left: cx - 156,
+              top: 120,
+              angle: .14,
+              child: const MascotIllustration(NexoMascot.mic, size: 76),
+            ),
+            Positioned(
+              left: cx - 90,
+              top: 10,
+              child: ZoomIn(
+                duration: const Duration(milliseconds: 380),
+                child: const NexoLogo(size: 180),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  static Widget _slap({
+    required int index,
+    required double left,
+    required double top,
+    required double angle,
+    required Widget child,
+  }) => Positioned(
+    left: left,
+    top: top,
+    child: Transform.rotate(
+      angle: angle,
+      child: ZoomIn(
+        duration: const Duration(milliseconds: 260),
+        delay: Duration(milliseconds: 260 + 90 * index),
+        child: child,
+      ),
+    ),
+  );
+}
+
+class _HeroSticker extends StatelessWidget {
+  const _HeroSticker(this.asset, this.size);
+
+  final String asset;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Image.asset(
+    asset,
+    width: size,
+    height: size,
+    cacheWidth: (size * (MediaQuery.maybeDevicePixelRatioOf(context) ?? 3))
+        .round(),
+    excludeFromSemantics: true,
   );
 }
 
@@ -321,7 +445,7 @@ class _LanguageToggleState extends State<_LanguageToggle> {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(3),
     decoration: const BoxDecoration(
-      color: AppColors.primarySurface,
+      color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
     child: Row(
@@ -340,7 +464,7 @@ class _LanguageToggleState extends State<_LanguageToggle> {
               ),
               decoration: BoxDecoration(
                 color: code == _language
-                    ? AppColors.surface
+                    ? AppColors.sticker
                     : Colors.transparent,
                 borderRadius: AppRadii.pill,
               ),
@@ -351,7 +475,7 @@ class _LanguageToggleState extends State<_LanguageToggle> {
                   fontWeight: FontWeight.w800,
                   letterSpacing: .4,
                   color: code == _language
-                      ? AppColors.textOnBrandSurface
+                      ? AppColors.ink
                       : AppColors.textSecondary,
                 ),
               ),
@@ -372,8 +496,8 @@ class _CommunityBadge extends StatelessWidget {
       vertical: AppSpacing.xs,
     ),
     decoration: const BoxDecoration(
-      color: AppColors.primarySurface,
-      borderRadius: AppRadii.large,
+      color: AppColors.successSurface,
+      borderRadius: AppRadii.pill,
     ),
     child: const Row(
       mainAxisSize: MainAxisSize.min,
@@ -382,14 +506,13 @@ class _CommunityBadge extends StatelessWidget {
         SizedBox(width: 6),
         Flexible(
           child: Text(
-            'COMUNIDAD ACTIVA',
+            'Comunidad activa',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppColors.tertiary,
-              fontSize: 11,
+              fontSize: 12.5,
               fontWeight: FontWeight.w800,
-              letterSpacing: 1,
             ),
           ),
         ),
@@ -408,60 +531,66 @@ class _Highlights extends StatelessWidget {
     runSpacing: AppSpacing.xs,
     children: [
       _Highlight(
-        icon: Icons.verified_rounded,
-        color: AppColors.primary,
+        glyph: NexoGlyph.verified,
+        color: AppColors.vinylCyan,
         label: 'Creadores verificados',
       ),
       _Highlight(
-        icon: Icons.bolt_rounded,
-        color: AppColors.warning,
+        glyph: NexoGlyph.live,
+        color: AppColors.vinylMagenta,
         label: 'En vivos interactivos',
       ),
       _Highlight(
-        icon: Icons.diamond_outlined,
-        color: AppColors.tertiary,
+        glyph: NexoGlyph.crown,
+        color: AppColors.vinylLime,
         label: 'Membresías',
       ),
     ],
   );
 }
 
+/// Un sticker chico de vinilo: color, tinta y su troquel blanco.
 class _Highlight extends StatelessWidget {
   const _Highlight({
-    required this.icon,
+    required this.glyph,
     required this.label,
-    this.color = AppColors.primary,
+    required this.color,
   });
 
-  final IconData icon;
+  final NexoGlyph glyph;
   final String label;
   final Color color;
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.sm,
-      vertical: AppSpacing.xs,
-    ),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
+    padding: const EdgeInsets.all(2),
+    decoration: const BoxDecoration(
+      color: AppColors.sticker,
       borderRadius: AppRadii.pill,
-      border: Border.all(color: AppColors.border),
     ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(width: 5),
-        Flexible(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(color: color, borderRadius: AppRadii.pill),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NexoIcon(glyph, filled: true, color: AppColors.ink, size: 15),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: AppColors.ink),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }
@@ -480,7 +609,7 @@ class _ContinueWith extends StatelessWidget {
           style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w800,
-            color: AppColors.textSecondary,
+            color: AppColors.textTertiary,
             letterSpacing: .8,
           ),
         ),
@@ -510,7 +639,7 @@ class _SocialButton extends StatelessWidget {
     child: OutlinedButton.icon(
       onPressed: null,
       icon: isApple
-          ? const Icon(Icons.apple, color: AppColors.textPrimary)
+          ? const Icon(Icons.apple, color: AppColors.textTertiary)
           : Text(
               icon,
               style: const TextStyle(
@@ -589,6 +718,9 @@ void _showSignInSheet(BuildContext context) {
                   const SizedBox(height: AppSpacing.sm),
                 ],
                 FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(AppSizes.buttonHeight),
+                  ),
                   onPressed: busy
                       ? null
                       : () => auth.signIn(email.text, password.text),
@@ -706,10 +838,11 @@ class _AuthFormState extends State<AuthForm> {
                 shrinkWrap: true,
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 children: [
-                  const Icon(
-                    Icons.hub_outlined,
-                    color: AppColors.primary,
-                    size: 52,
+                  Center(
+                    child: MascotIllustration(
+                      isReset ? NexoMascot.lock : NexoMascot.wave,
+                      size: 132,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Text(
@@ -824,7 +957,19 @@ class _AuthError extends StatelessWidget {
   final AuthFailureReason reason;
 
   @override
-  Widget build(BuildContext context) => Text(switch (reason) {
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md,
+      vertical: AppSpacing.sm,
+    ),
+    decoration: BoxDecoration(
+      color: AppColors.error.withValues(alpha: .16),
+      borderRadius: AppRadii.medium,
+    ),
+    child: Text(_message, style: Theme.of(context).textTheme.bodyMedium),
+  );
+
+  String get _message => switch (reason) {
     AuthFailureReason.invalidCredentials =>
       'El correo o la contraseña no son correctos.',
     AuthFailureReason.invalidCode =>
@@ -840,5 +985,5 @@ class _AuthError extends StatelessWidget {
       'No pudimos conectar. Revisa tu conexión y reintenta.',
     AuthFailureReason.unavailable =>
       'No pudimos completar la operación. Inténtalo nuevamente.',
-  }, style: const TextStyle(color: AppColors.error));
+  };
 }

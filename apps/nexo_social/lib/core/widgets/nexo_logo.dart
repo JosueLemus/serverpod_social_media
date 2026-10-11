@@ -1,91 +1,37 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_tokens.dart';
 
-/// La marca sobre su disco claro, con la insignia de verificado.
+const _logoAsset = 'assets/branding/nexo_logo.webp';
+
+/// El logo: el gato sticker con su borde holográfico.
 ///
-/// Es la forma "de presentación": onboarding, splash y muros de acceso.
-/// Para el header usá [NexoWordmark], que es la marca chica junto al nombre.
+/// Es la forma de presentación (onboarding, splash, muros de acceso). Para el
+/// header usá [NexoWordmark], que es la marca chica junto al nombre.
 class NexoLogo extends StatelessWidget {
-  const NexoLogo({super.key, this.size = 92, this.showBadge = true});
+  const NexoLogo({super.key, this.size = 92});
 
   final double size;
-  final bool showBadge;
 
   @override
-  Widget build(BuildContext context) => SizedBox.square(
-    dimension: size,
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        DecoratedBox(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadow,
-                blurRadius: 18,
-                offset: Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(size * .08),
-            child: SvgPicture.asset('assets/branding/nexo_mark.svg'),
-          ),
-        ),
-        if (showBadge)
-          Positioned(
-            right: -size * .04,
-            bottom: -size * .02,
-            child: Container(
-              width: size * .31,
-              height: size * .31,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryDeep,
-                shape: BoxShape.circle,
-                border: Border.fromBorderSide(
-                  BorderSide(color: AppColors.surface, width: 2),
-                ),
-              ),
-              child: Icon(
-                Icons.check_rounded,
-                color: Colors.white,
-                size: size * .21,
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => _LogoImage(size: size);
 }
 
-/// La marca sola, sin disco ni insignia.
-///
-/// El asset trae su propio círculo de fondo, así que se recorta a un círculo
-/// en vez de dibujarse suelto: sin el recorte el disco claro del SVG aparece
-/// como un cuadrado detrás de la marca.
+/// La marca sola, a tamaño de header.
 class NexoMark extends StatelessWidget {
-  const NexoMark({super.key, this.size = 26});
+  const NexoMark({super.key, this.size = 28});
 
   final double size;
 
   @override
-  Widget build(BuildContext context) => ClipOval(
-    child: SvgPicture.asset(
-      'assets/branding/nexo_mark.svg',
-      width: size,
-      height: size,
-    ),
-  );
+  Widget build(BuildContext context) => _LogoImage(size: size);
 }
 
 /// Marca + nombre, tal como aparece arriba a la izquierda en todas las
-/// pantallas del diseño.
+/// pantallas.
 class NexoWordmark extends StatelessWidget {
-  const NexoWordmark({super.key, this.markSize = 26});
+  const NexoWordmark({super.key, this.markSize = 30});
 
   final double markSize;
 
@@ -95,11 +41,50 @@ class NexoWordmark extends StatelessWidget {
     children: [
       NexoMark(size: markSize),
       const SizedBox(width: AppSpacing.xs),
-      Text(
-        // Nombre propio: no se traduce y no se acorta.
-        'Nexo',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
+      // Flexible: a 320 la barra de marca lleva además la sección, sus
+      // acciones y el avatar, y un nombre de ancho fijo la desbordaba.
+      const Flexible(
+        child: Text(
+          // Nombre propio: no se traduce y no se acorta.
+          'nexo',
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
+          style: TextStyle(
+            fontFamily: AppFonts.display,
+            fontSize: 20,
+            height: 1,
+            letterSpacing: -.4,
+            color: AppColors.textPrimary,
+          ),
+        ),
       ),
     ],
   );
+}
+
+class _LogoImage extends StatelessWidget {
+  const _LogoImage({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 3;
+    return Semantics(
+      label: 'Nexo',
+      image: true,
+      child: Image.asset(
+        _logoAsset,
+        width: size,
+        height: size,
+        fit: BoxFit.contain,
+        // Se decodifica al tamaño en que se dibuja: el asset es de 512 px y
+        // en el header ocupa 30.
+        cacheWidth: (size * dpr).round(),
+        filterQuality: FilterQuality.medium,
+        excludeFromSemantics: true,
+      ),
+    );
+  }
 }

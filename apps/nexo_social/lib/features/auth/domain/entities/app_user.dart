@@ -26,6 +26,7 @@ class AppUser extends Equatable {
     this.isCreator = false,
     this.verification = VerificationStatus.none,
     this.status = AccountStatus.active,
+    this.avatarUrl,
   });
 
   final String id;
@@ -36,6 +37,9 @@ class AppUser extends Equatable {
   final bool isCreator;
   final VerificationStatus verification;
   final AccountStatus status;
+
+  /// La foto de perfil. Null: se dibuja la inicial.
+  final String? avatarUrl;
 
   bool get isVerified => verification == VerificationStatus.verified;
   bool get isActive => status == AccountStatus.active;
@@ -53,5 +57,6 @@ class AppUser extends Equatable {
     isCreator,
     verification,
     status,
+    avatarUrl,
   ];
 }

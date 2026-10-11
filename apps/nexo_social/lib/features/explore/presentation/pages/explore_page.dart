@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/layout/nexo_page.dart';
 import '../../../../core/widgets/app_state_views.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/search_field.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/widgets/live_card.dart';
 import '../bloc/explore_cubit.dart';
 import '../widgets/discovery_sections.dart';
+import '../../../live/presentation/utils/live_navigation.dart';
 
 /// Descubrimiento: vivos, temas y creadores.
 ///
@@ -44,10 +44,7 @@ class _ExploreView extends StatelessWidget {
         children: [
           const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
           if (state.isLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: AppSpacing.md),
-              child: FeedSkeleton(count: 2),
-            )
+            const _ExploreSkeleton()
           else if (state.hasFailed)
             AppErrorView(onRetry: cubit.load)
           else ...[
@@ -73,14 +70,16 @@ class _ExploreView extends StatelessWidget {
     // Un índice corrido entre secciones, para que el escalonado se lea como
     // una sola secuencia y no como tres que arrancan de nuevo.
     var index = 0;
+    // Sólo aparecen: la tarjeta entera se toca, y una traslación dejaría el
+    // hit test corrido mientras dura.
     Widget card(LiveSession session) => Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Enter(
+      child: EnterStatic(
         key: ValueKey(session.id),
         index: index++,
         child: LiveCard(
           session: session,
-          onTap: () => context.go(AppRoutes.liveRoom(session.id)),
+          onTap: () => openLive(context, session),
         ),
       ),
     );
@@ -90,7 +89,7 @@ class _ExploreView extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(top: AppSpacing.md),
           child: AppEmptyView(
-            icon: Icons.sensors_outlined,
+            mascot: NexoMascot.mic,
             title: 'Todavía no hay vivos',
             message:
                 'Cuando alguien que sigues empiece a transmitir aparecerá aquí.',
@@ -101,25 +100,62 @@ class _ExploreView extends StatelessWidget {
       ];
     }
 
+    // Sin ícono delante del título: el borde de cada tarjeta (holo, punteado,
+    // troquel) ya dice en qué estado está cada vivo, y un ícono de Material
+    // al lado de la tipografía de display es otro trazo y otra mano.
     return [
       if (state.onAir.isNotEmpty) ...[
-        const SectionHeader(
-          title: 'En vivo ahora',
-          icon: Icons.sensors_rounded,
-        ),
+        const SectionHeader(title: 'En vivo ahora'),
         ...state.onAir.map(card),
       ],
       if (state.upcoming.isNotEmpty) ...[
-        const SectionHeader(title: 'Próximos', icon: Icons.schedule_rounded),
+        const SectionHeader(title: 'Próximos'),
         ...state.upcoming.map(card),
       ],
       if (state.replays.isNotEmpty) ...[
-        const SectionHeader(
-          title: 'Replays',
-          icon: Icons.play_circle_outline_rounded,
-        ),
+        const SectionHeader(title: 'Replays'),
         ...state.replays.map(card),
       ],
     ];
   }
+}
+
+/// La carga con la forma de Explorar: dos medias de vivo y una plancha de
+/// temas. Un esqueleto de post le prometería a la pantalla un contenido que
+/// no va a tener.
+class _ExploreSkeleton extends StatelessWidget {
+  const _ExploreSkeleton();
+
+  @override
+  Widget build(BuildContext context) => PulsingSkeleton(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.xl),
+        const AppSkeleton(width: 150, height: 20),
+        const SizedBox(height: AppSpacing.sm),
+        for (var index = 0; index < 2; index++) ...[
+          const ClipRRect(
+            borderRadius: AppRadii.medium,
+            child: AppSkeleton(height: 190),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        const SizedBox(height: AppSpacing.md),
+        const AppSkeleton(width: 180, height: 20),
+        const SizedBox(height: AppSpacing.sm),
+        Wrap(
+          spacing: AppSpacing.xs,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final width in [96.0, 120.0, 84.0, 132.0, 104.0])
+              ClipRRect(
+                borderRadius: AppRadii.pill,
+                child: AppSkeleton(width: width, height: 44),
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
 }

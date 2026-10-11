@@ -6,9 +6,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
+import '../../../profile/domain/entities/follow.dart';
+import '../../../profile/domain/repositories/follow_repository.dart';
 import '../../domain/entities/feed_filter.dart';
+import '../../domain/entities/home_feed.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_extras.dart';
+import '../../domain/repositories/home_feed_repository.dart';
 import '../../domain/repositories/post_repository.dart';
 
 sealed class FeedState extends Equatable {
@@ -34,6 +38,8 @@ enum FeedNotice {
   likeFailed,
   actionFailed,
   forbidden,
+  followFailed,
+  signInToFollow,
 }
 
 class FeedLoaded extends FeedState {
@@ -44,12 +50,20 @@ class FeedLoaded extends FeedState {
     this.isLoadingMore = false,
     this.notice,
     this.noticeSerial = 0,
+    this.suggestions = const [],
   });
 
   /// Everything the feed holds, unfiltered. The filter is applied on read so
   /// switching tabs never drops a post from memory and never needs a refetch.
+  ///
+  /// Con el inicio por secciones, los de cuentas que seguís llevan
+  /// `isFollowed`: así una sola lista alimenta la sección "seguidos", la de
+  /// "descubrir" y el chip "Siguiendo", sin tres copias del mismo post.
   final List<Post> posts;
   final FeedFilter filter;
+
+  /// "A quién seguir", de la primera página del inicio.
+  final List<ProfileSummary> suggestions;
 
   /// Null cuando no hay más páginas.
   final String? nextCursor;
@@ -61,6 +75,12 @@ class FeedLoaded extends FeedState {
   final int noticeSerial;
 
   bool get hasMore => nextCursor != null;
+
+  List<Post> get followingPosts =>
+      posts.where((post) => post.isFollowed).toList();
+
+  List<Post> get discoverPosts =>
+      posts.where((post) => !post.isFollowed).toList();
 
   List<Post> get visible => switch (filter) {
     FeedFilter.forYou => posts,
@@ -77,6 +97,7 @@ class FeedLoaded extends FeedState {
     bool? isLoadingMore,
     FeedNotice? notice,
     int? noticeSerial,
+    List<ProfileSummary>? suggestions,
   }) => FeedLoaded(
     posts ?? this.posts,
     filter: filter ?? this.filter,
@@ -84,6 +105,7 @@ class FeedLoaded extends FeedState {
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     notice: notice ?? this.notice,
     noticeSerial: noticeSerial ?? this.noticeSerial,
+    suggestions: suggestions ?? this.suggestions,
   );
 
   // Equatable on every field. A missing entry here is a silent no-rebuild:
@@ -96,6 +118,7 @@ class FeedLoaded extends FeedState {
     isLoadingMore,
     notice,
     noticeSerial,
+    suggestions,
   ];
 }
 
@@ -111,7 +134,11 @@ class FeedFailure extends FeedState {
 }
 
 class FeedCubit extends Cubit<FeedState> {
-  FeedCubit(this._posts) : super(const FeedInitial()) {
+  /// [_posts] escribe (likes, editar, borrar, reportar) y avisa cambios;
+  /// [_home] lee el inicio por secciones; [_follows] sigue desde la fila de
+  /// sugeridos.
+  FeedCubit(this._posts, this._home, [this._follows])
+    : super(const FeedInitial()) {
     // The feed is not rebuilt when the user returns from the composer: the
     // shell keeps one navigator per tab, so this cubit and its list survive.
     // Without this subscription a published post only showed up after a
@@ -120,6 +147,8 @@ class FeedCubit extends Cubit<FeedState> {
   }
 
   final PostRepository _posts;
+  final HomeFeedRepository _home;
+  final FollowRepository? _follows;
   late final StreamSubscription<void> _changes;
 
   @override
@@ -142,8 +171,9 @@ class FeedCubit extends Cubit<FeedState> {
       _ => FeedFilter.forYou,
     };
     try {
-      final page = await _posts.feed();
+      final home = await _home.home();
       if (isClosed) return;
+      final page = PostPage(_postsOf(home), nextCursor: home.nextCursor);
       final current = state;
       final merged = current is FeedLoaded
           ? mergeFirstPage(current, page)
@@ -155,6 +185,9 @@ class FeedCubit extends Cubit<FeedState> {
           nextCursor: merged.nextCursor,
           notice: current is FeedLoaded ? current.notice : null,
           noticeSerial: current is FeedLoaded ? current.noticeSerial : 0,
+          suggestions:
+              home.section(FeedSectionKind.suggestedAccounts)?.accounts ??
+              const [],
         ),
       );
     } on Failure catch (failure) {
@@ -175,6 +208,10 @@ class FeedCubit extends Cubit<FeedState> {
   /// que antes **reemplazaba** la lista: quien había bajado tres páginas
   /// volvía a la primera y perdía los guardados. Los guardados son locales
   /// (no hay backend), así que se copian por id.
+  ///
+  /// Con el inicio por secciones, "seguidos" y "descubrir" paginan cada una
+  /// por su lado, así que lo ya bajado se conserva sección por sección: cada
+  /// una contra el último post de la suya en la página nueva.
   @visibleForTesting
   static ({List<Post> posts, String? nextCursor}) mergeFirstPage(
     FeedLoaded current,
@@ -193,17 +230,44 @@ class FeedCubit extends Cubit<FeedState> {
       return (posts: fresh, nextCursor: page.nextCursor);
     }
     final ids = {for (final post in fresh) post.id};
-    final boundary = fresh.last.createdAt;
-    final older = [
-      for (final post in current.posts)
-        if (!ids.contains(post.id) && !post.createdAt.isAfter(boundary)) post,
+    List<Post> section(List<Post> source, {required bool followed}) => [
+      for (final post in source)
+        if (post.isFollowed == followed) post,
     ];
+    List<Post> olderOf({required bool followed}) {
+      final freshSection = section(fresh, followed: followed);
+      if (freshSection.isEmpty) return const [];
+      final boundary = freshSection.last.createdAt;
+      return [
+        for (final post in section(current.posts, followed: followed))
+          if (!ids.contains(post.id) && !post.createdAt.isAfter(boundary)) post,
+      ];
+    }
+
+    final olderFollowing = olderOf(followed: true);
+    final olderDiscover = olderOf(followed: false);
+    final kept = olderFollowing.isNotEmpty || olderDiscover.isNotEmpty;
     return (
-      posts: [...fresh, ...older],
+      posts: [
+        ...section(fresh, followed: true),
+        ...olderFollowing,
+        ...section(fresh, followed: false),
+        ...olderDiscover,
+      ],
       // Si se conservaron páginas, el cursor sigue siendo el de la última.
-      nextCursor: older.isEmpty ? page.nextCursor : current.nextCursor,
+      nextCursor: kept ? current.nextCursor : page.nextCursor,
     );
   }
+
+  /// Las publicaciones de una página del inicio, en el orden de sus
+  /// secciones. Los vivos no entran: el rail de vivos los lee en tiempo real
+  /// de su propio cubit.
+  static List<Post> _postsOf(HomeFeedPage page) => [
+    for (final section in page.sections)
+      if (section.kind == FeedSectionKind.following ||
+          section.kind == FeedSectionKind.discover)
+        ...section.posts,
+  ];
 
   Future<void> loadMore() async {
     final current = state;
@@ -212,8 +276,9 @@ class FeedCubit extends Cubit<FeedState> {
     }
     emit(current.copyWith(isLoadingMore: true));
     try {
-      final page = await _posts.feed(cursor: current.nextCursor);
+      final home = await _home.home(cursor: current.nextCursor);
       if (isClosed) return;
+      final page = PostPage(_postsOf(home), nextCursor: home.nextCursor);
       // Sobre el estado de ahora, no sobre `current`: emitir el de antes del
       // await revertía un like hecho mientras cargaba la página.
       final latest = state;
@@ -263,6 +328,48 @@ class FeedCubit extends Cubit<FeedState> {
       _replace(post);
       _notify(FeedNotice.likeFailed);
     }
+  }
+
+  /// Seguir desde "A quién seguir". Optimista, con vuelta atrás si el
+  /// servidor lo rechaza.
+  Future<void> toggleFollow(ProfileSummary account) async {
+    final follows = _follows;
+    if (follows == null) return;
+    final following = !account.viewerFollows;
+    _replaceSuggestion(account.copyWith(viewerFollows: following));
+    try {
+      final result = following
+          ? await follows.follow(account.id)
+          : await follows.unfollow(account.id);
+      _replaceSuggestion(
+        account.copyWith(
+          viewerFollows: result.viewerFollows,
+          followerCount: result.followerCount == null
+              ? null
+              : () => result.followerCount,
+        ),
+      );
+    } on Failure catch (failure) {
+      _replaceSuggestion(account);
+      _notify(
+        failure is ForbiddenFailure
+            ? FeedNotice.signInToFollow
+            : FeedNotice.followFailed,
+      );
+    }
+  }
+
+  void _replaceSuggestion(ProfileSummary account) {
+    final current = state;
+    if (isClosed || current is! FeedLoaded) return;
+    emit(
+      current.copyWith(
+        suggestions: [
+          for (final item in current.suggestions)
+            item.id == account.id ? account : item,
+        ],
+      ),
+    );
   }
 
   /// Guardar todavía no tiene backend: es local.

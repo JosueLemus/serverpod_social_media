@@ -56,6 +56,10 @@ abstract final class AppRoutes {
   static const premium = '/premium';
   static const settings = '/settings';
 
+  /// Editar el perfil propio. Una tarea: se empuja sobre el shell, como el
+  /// compositor, para que la barra no invite a dejarla a medias.
+  static const editProfile = '/edit-profile';
+
   /// Segmentos de sub-ruta. Relativos, porque go_router resuelve el `path` de
   /// un hijo contra su padre — una barra al principio lo volvería una ruta de
   /// nivel superior en silencio y rompería el branch en el que debía vivir.
@@ -82,6 +86,7 @@ abstract final class AppRoutes {
     moderation,
     admin,
     premium,
+    editProfile,
   };
 
   /// Rutas que exigen el scope `moderator` o `admin`.

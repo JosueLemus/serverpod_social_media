@@ -1,62 +1,105 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart';
 
 import 'app_tokens.dart';
 
-/// El único `ThemeData` de la app.
+/// Las dos familias, empaquetadas en `assets/fonts` (ver pubspec).
+abstract final class AppFonts {
+  /// Titulares. Una gótica japonesa de trazo grueso: la voz de un sticker.
+  static const display = 'DelaGothicOne';
+
+  /// Cuerpo, etiquetas y datos. Terminaciones redondeadas, como el contorno
+  /// del gato.
+  static const text = 'MPlusRounded';
+}
+
+/// El único `ThemeData` de la app: la plancha de stickers.
 ///
-/// Las dos tipografías salen del design system: **Bricolage Grotesque** para
-/// titulares y **Hanken Grotesk** para cuerpo y etiquetas.
+/// Es oscuro por el lugar donde se usa (alguien en la cama a medianoche, con
+/// el brillo bajo, saltando del feed a un vivo) y por el material: el borde
+/// troquelado blanco de un sticker sólo se lee sobre un liner negro.
 abstract final class AppTheme {
-  static ThemeData get light {
-    final body = GoogleFonts.hankenGroteskTextTheme();
-    TextStyle headline(double size, {FontWeight weight = FontWeight.w700}) =>
-        GoogleFonts.bricolageGrotesque(
-          color: AppColors.textPrimary,
-          fontWeight: weight,
-          fontSize: size,
-          height: 1.15,
-        );
+  static ThemeData get nexo {
+    TextStyle display(double size, {double tracking = -.2}) => TextStyle(
+      fontFamily: AppFonts.display,
+      color: AppColors.textPrimary,
+      fontSize: size,
+      height: 1.12,
+      letterSpacing: tracking,
+    );
+    TextStyle text(
+      double size, {
+      FontWeight weight = FontWeight.w500,
+      Color color = AppColors.textPrimary,
+      double height = 1.4,
+    }) => TextStyle(
+      fontFamily: AppFonts.text,
+      color: color,
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
+    );
+
+    final textTheme = TextTheme(
+      displayLarge: display(34, tracking: -.6),
+      displayMedium: display(30, tracking: -.5),
+      displaySmall: display(26, tracking: -.4),
+      headlineLarge: display(24),
+      headlineMedium: display(22),
+      headlineSmall: display(20),
+      titleLarge: display(18, tracking: 0),
+      titleMedium: text(15.5, weight: FontWeight.w800, height: 1.3),
+      titleSmall: text(14, weight: FontWeight.w800, height: 1.3),
+      bodyLarge: text(16),
+      bodyMedium: text(14.5),
+      bodySmall: text(12.5, color: AppColors.textSecondary),
+      labelLarge: text(15, weight: FontWeight.w800, height: 1.2),
+      labelMedium: text(13, weight: FontWeight.w700, height: 1.2),
+      labelSmall: text(11, weight: FontWeight.w700, height: 1.2),
+    );
+
+    const pill = RoundedRectangleBorder(borderRadius: AppRadii.pill);
+    final buttonText = textTheme.labelLarge;
 
     return ThemeData(
       useMaterial3: true,
-      colorScheme: const ColorScheme.light(
+      brightness: Brightness.dark,
+      fontFamily: AppFonts.text,
+      // Densidad estándar también en escritorio y web: la adaptativa achica
+      // 8 px cada control en macOS y Chrome, y deja los botones por debajo
+      // de los 44 pt de toque que pide iOS, que es donde se muestra la demo.
+      visualDensity: VisualDensity.standard,
+      colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
-        onPrimary: Colors.white,
+        onPrimary: AppColors.ink,
         primaryContainer: AppColors.primarySurface,
-        onPrimaryContainer: AppColors.primaryDeep,
+        onPrimaryContainer: AppColors.textOnBrandSurface,
         // Material saca el tinte de "seleccionado" del contenedor secundario.
-        // Con el verde ahí, el indicador del rail salía verde y la selección
-        // se leía como confirmación en vez de como marca.
-        secondary: AppColors.primaryDeep,
-        onSecondary: Colors.white,
-        secondaryContainer: AppColors.primarySurface,
-        onSecondaryContainer: AppColors.primaryDeep,
+        // Seleccionar es despegar un sticker: blanco con tinta.
+        secondary: AppColors.sticker,
+        onSecondary: AppColors.ink,
+        secondaryContainer: AppColors.sticker,
+        onSecondaryContainer: AppColors.ink,
         tertiary: AppColors.tertiary,
-        onTertiary: Colors.white,
+        onTertiary: AppColors.ink,
         surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
+        onSurfaceVariant: AppColors.textSecondary,
+        surfaceContainerHighest: AppColors.linerHigh,
         error: AppColors.error,
-        onError: Colors.white,
+        onError: AppColors.sticker,
         outline: AppColors.border,
+        outlineVariant: AppColors.border,
+        shadow: AppColors.shadow,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      textTheme: body.copyWith(
-        displayLarge: headline(34),
-        displayMedium: headline(30),
-        displaySmall: headline(27),
-        headlineMedium: headline(24),
-        headlineSmall: headline(21),
-        titleLarge: headline(19),
-        titleMedium: body.titleMedium?.copyWith(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
-        ),
-        bodyLarge: body.bodyLarge?.copyWith(color: AppColors.textPrimary),
-        bodyMedium: body.bodyMedium?.copyWith(color: AppColors.textPrimary),
-        bodySmall: body.bodySmall?.copyWith(color: AppColors.textSecondary),
-        labelLarge: body.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+      canvasColor: AppColors.background,
+      textTheme: textTheme,
+      iconTheme: const IconThemeData(color: AppColors.textPrimary, size: 24),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: AppColors.primary,
+        selectionColor: AppColors.primary.withValues(alpha: .35),
+        selectionHandleColor: AppColors.primary,
       ),
       cardTheme: const CardThemeData(
         color: AppColors.surface,
@@ -70,13 +113,22 @@ abstract final class AppTheme {
           side: BorderSide(color: AppColors.border),
         ),
       ),
-      // Campo con forma de pill, como el buscador del design system. El borde
-      // desaparece en reposo y aparece en foco: en una pantalla llena de
-      // tarjetas, un campo con marco compite con ellas.
+      // Campo con forma de pastilla. El borde aparece sólo en foco: en una
+      // pantalla llena de stickers, un campo con marco compite con ellos.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.primarySurface,
-        hintStyle: body.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        fillColor: AppColors.linerHigh,
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+        ),
+        floatingLabelStyle: textTheme.labelMedium?.copyWith(
+          color: AppColors.primary,
+        ),
+        prefixIconColor: AppColors.textSecondary,
+        suffixIconColor: AppColors.textSecondary,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.sm,
@@ -93,113 +145,222 @@ abstract final class AppTheme {
           borderRadius: AppRadii.pill,
           borderSide: BorderSide(color: AppColors.primary, width: 1.6),
         ),
+        errorBorder: const OutlineInputBorder(
+          borderRadius: AppRadii.pill,
+          borderSide: BorderSide(color: AppColors.error, width: 1.6),
+        ),
+        focusedErrorBorder: const OutlineInputBorder(
+          borderRadius: AppRadii.pill,
+          borderSide: BorderSide(color: AppColors.error, width: 1.6),
+        ),
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.surface,
+        backgroundColor: AppColors.background,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: true,
-        titleTextStyle: headline(18),
+        titleTextStyle: textTheme.titleLarge,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
       ),
       dividerTheme: const DividerThemeData(color: AppColors.border, space: 1),
-      // Pill en los cuatro botones. Es la forma por defecto del design system,
-      // no una variante: un rectángulo redondeado aquí se lee como otra app.
+      // El CTA es un sticker blanco con tinta encima: la forma más clara que
+      // hay sobre el liner, y la misma que el gato del logo.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primaryDeep,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.sticker,
+          foregroundColor: AppColors.ink,
+          disabledBackgroundColor: AppColors.linerHigh,
+          disabledForegroundColor: AppColors.textTertiary,
           minimumSize: const Size(0, AppSizes.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
-          textStyle: body.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
-          ),
+          shape: pill,
+          textStyle: buttonText,
+          overlayColor: AppColors.ink,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primaryDeep,
-          backgroundColor: AppColors.surface,
+          foregroundColor: AppColors.textPrimary,
+          backgroundColor: Colors.transparent,
+          disabledForegroundColor: AppColors.textTertiary,
           minimumSize: const Size(0, AppSizes.buttonHeight),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          side: const BorderSide(color: AppColors.border),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
-          textStyle: body.labelLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
+          side: BorderSide(
+            color: AppColors.textPrimary.withValues(alpha: .38),
+            width: 1.6,
           ),
+          shape: pill,
+          textStyle: buttonText,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primaryDeep,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
-          textStyle: body.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+          foregroundColor: AppColors.primary,
+          shape: pill,
+          textStyle: textTheme.labelLarge,
+        ),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          disabledForegroundColor: AppColors.textTertiary,
+          minimumSize: const Size(44, 44),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.primarySurface,
+        backgroundColor: AppColors.linerHigh,
+        selectedColor: AppColors.sticker,
         side: BorderSide.none,
-        shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
-        labelStyle: body.labelMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: AppColors.textOnBrandSurface,
+        shape: pill,
+        labelStyle: textTheme.labelMedium,
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: AppColors.ink,
         ),
+        checkmarkColor: AppColors.ink,
       ),
       navigationRailTheme: NavigationRailThemeData(
-        backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primarySurface,
-        indicatorShape: const RoundedRectangleBorder(
-          borderRadius: AppRadii.pill,
-        ),
-        selectedIconTheme: const IconThemeData(color: AppColors.primaryDeep),
+        backgroundColor: AppColors.background,
+        indicatorColor: AppColors.sticker,
+        indicatorShape: pill,
+        selectedIconTheme: const IconThemeData(color: AppColors.ink),
         unselectedIconTheme: const IconThemeData(
           color: AppColors.textSecondary,
         ),
-        selectedLabelTextStyle: body.labelLarge?.copyWith(
-          color: AppColors.primaryDeep,
-          fontWeight: FontWeight.w700,
+        selectedLabelTextStyle: textTheme.labelLarge?.copyWith(
+          color: AppColors.textPrimary,
         ),
-        unselectedLabelTextStyle: body.labelLarge?.copyWith(
+        unselectedLabelTextStyle: textTheme.labelLarge?.copyWith(
           color: AppColors.textSecondary,
+          fontWeight: FontWeight.w600,
         ),
       ),
+      // La snackbar es un sticker que se pega abajo: blanco, tinta, pastilla.
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.neutral,
-        contentTextStyle: body.bodyMedium?.copyWith(color: Colors.white),
-        shape: const RoundedRectangleBorder(borderRadius: AppRadii.pill),
+        backgroundColor: AppColors.sticker,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: AppColors.ink,
+          fontWeight: FontWeight.w700,
+        ),
+        actionTextColor: AppColors.primaryDeep,
+        shape: pill,
+        elevation: 0,
       ),
-      listTileTheme: const ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+      tooltipTheme: TooltipThemeData(
+        decoration: const BoxDecoration(
+          color: AppColors.sticker,
+          borderRadius: AppRadii.pill,
+        ),
+        textStyle: textTheme.labelMedium?.copyWith(color: AppColors.ink),
+      ),
+      listTileTheme: ListTileThemeData(
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.medium),
+        iconColor: AppColors.textSecondary,
+        textColor: AppColors.textPrimary,
+        titleTextStyle: textTheme.titleSmall,
+        subtitleTextStyle: textTheme.bodySmall,
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
+        dragHandleColor: AppColors.border,
+        showDragHandle: false,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.large),
+        titleTextStyle: textTheme.headlineSmall,
+        contentTextStyle: textTheme.bodyMedium,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: AppColors.linerHigh,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.medium),
+        textStyle: textTheme.bodyMedium,
+      ),
+      // El toggle es un sticker redondo que se corre sobre una pista de
+      // vinilo: lima encendido, liner apagado. No el verde de stock.
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) => Colors.white),
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.sticker
+              : AppColors.textSecondary,
+        ),
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryDeep
-              : AppColors.border,
+              ? AppColors.vinylLime
+              : AppColors.linerHigh,
         ),
-        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.ink
+              : Colors.transparent,
+        ),
+        trackOutlineWidth: const WidgetStatePropertyAll(AppStroke.ink),
+        thumbIcon: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? const Icon(Icons.circle, size: 10, color: AppColors.ink)
+              : null,
+        ),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.sticker
+              : Colors.transparent,
+        ),
+        checkColor: const WidgetStatePropertyAll(AppColors.ink),
+        side: const BorderSide(color: AppColors.textSecondary, width: 1.6),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.small),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? AppColors.sticker
+              : AppColors.textSecondary,
+        ),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: AppColors.primary,
+        linearTrackColor: AppColors.linerHigh,
+        circularTrackColor: Colors.transparent,
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(
+          AppColors.textSecondary.withValues(alpha: .4),
+        ),
+        radius: const Radius.circular(999),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          backgroundColor: AppColors.linerHigh,
+          foregroundColor: AppColors.textSecondary,
+          selectedBackgroundColor: AppColors.sticker,
+          selectedForegroundColor: AppColors.ink,
+          side: BorderSide.none,
+          shape: pill,
+          textStyle: textTheme.labelMedium,
+        ),
       ),
       tabBarTheme: TabBarThemeData(
-        labelColor: AppColors.primaryDeep,
+        labelColor: AppColors.textPrimary,
         unselectedLabelColor: AppColors.textSecondary,
-        indicatorColor: AppColors.primaryDeep,
+        indicator: const UnderlineTabIndicator(
+          borderSide: BorderSide(color: AppColors.sticker, width: 3),
+          borderRadius: BorderRadius.all(Radius.circular(3)),
+        ),
         indicatorSize: TabBarIndicatorSize.label,
         dividerColor: AppColors.border,
-        labelStyle: body.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-        unselectedLabelStyle: body.labelLarge,
+        labelStyle: textTheme.labelLarge,
+        unselectedLabelStyle: textTheme.labelLarge?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }

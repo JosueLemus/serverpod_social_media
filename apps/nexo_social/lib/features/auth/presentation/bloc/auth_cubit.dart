@@ -109,6 +109,25 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Vuelve a leer la cuenta de la sesión. Lo llama quien cambió algo de
+  /// ella (editar el perfil, el avatar, volverse creador) para que la barra,
+  /// el perfil y la guarda vean lo nuevo sin cerrar sesión.
+  Future<void> reload() async {
+    final current = state;
+    if (current is! AuthAuthenticated ||
+        current.user.role == UserRole.visitor) {
+      return;
+    }
+    try {
+      final user = await _repository.currentUser();
+      if (user != null && user.id == current.user.id && state == current) {
+        _emit(AuthAuthenticated(user));
+      }
+    } on Failure {
+      // Lo que se mostraba sigue valiendo; la próxima lectura lo corrige.
+    }
+  }
+
   Future<void> signIn(String email, String password) async {
     final version = ++_operationVersion;
     _emit(const AuthUnauthenticated(operation: AuthOperation.signingIn));

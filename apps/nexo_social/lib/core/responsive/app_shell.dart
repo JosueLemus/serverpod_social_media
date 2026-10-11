@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,6 +14,7 @@ import '../../features/explore/presentation/bloc/explore_cubit.dart';
 import '../../features/explore/presentation/widgets/discovery_sections.dart';
 import 'package:nexo_social/core/widgets/create_sheet_widget.dart';
 import '../animations/app_motion.dart';
+import '../widgets/nexo_icon.dart';
 import '../widgets/nexo_logo.dart';
 import '../widgets/section_header.dart';
 import 'breakpoints.dart';
@@ -26,9 +28,17 @@ import 'shell_destinations.dart';
 /// opening a live room and returning to Inicio put the feed back at the top,
 /// and there was no per-tab back stack at all.
 class AppShell extends StatelessWidget {
-  const AppShell({super.key, required this.navigationShell});
+  const AppShell({
+    super.key,
+    required this.navigationShell,
+    this.unreadActivity = 0,
+  });
 
   final StatefulNavigationShell navigationShell;
+
+  /// Notificaciones sin leer. Con 0 la campana va sola; con más, lleva el
+  /// contador. Lo calcula quien construye el shell: el shell sólo lo dibuja.
+  final int unreadActivity;
 
   /// Switches branch, and taps on the branch you are already in pop that
   /// branch back to its root — the standard tab-bar gesture, and the only way
@@ -71,27 +81,32 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final form = AppBreakpoints.of(context);
-    return Scaffold(
-      body: Row(
-        children: [
-          if (form.hasRail)
-            _ShellRail(
-              form: form,
-              currentBranch: navigationShell.currentIndex,
-              onSelected: _select,
-              onCompose: () => unawaited(_openCreate(context)),
-            ),
-          Expanded(child: SafeArea(bottom: false, child: navigationShell)),
-          if (form.isExpanded) const _SidePanel(),
-        ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        body: Row(
+          children: [
+            if (form.hasRail)
+              _ShellRail(
+                form: form,
+                currentBranch: navigationShell.currentIndex,
+                unreadActivity: unreadActivity,
+                onSelected: _select,
+                onCompose: () => unawaited(_openCreate(context)),
+              ),
+            Expanded(child: SafeArea(bottom: false, child: navigationShell)),
+            if (form.isExpanded) const _SidePanel(),
+          ],
+        ),
+        bottomNavigationBar: form.isCompact
+            ? _ShellBottomBar(
+                currentBranch: navigationShell.currentIndex,
+                unreadActivity: unreadActivity,
+                onSelected: _select,
+                onCompose: () => unawaited(_openCreate(context)),
+              )
+            : null,
       ),
-      bottomNavigationBar: form.isCompact
-          ? _ShellBottomBar(
-              currentBranch: navigationShell.currentIndex,
-              onSelected: _select,
-              onCompose: () => unawaited(_openCreate(context)),
-            )
-          : null,
     );
   }
 }
@@ -99,11 +114,13 @@ class AppShell extends StatelessWidget {
 class _ShellBottomBar extends StatelessWidget {
   const _ShellBottomBar({
     required this.currentBranch,
+    required this.unreadActivity,
     required this.onSelected,
     required this.onCompose,
   });
 
   final int currentBranch;
+  final int unreadActivity;
   final ValueChanged<int> onSelected;
   final VoidCallback onCompose;
 
@@ -116,40 +133,39 @@ class _ShellBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final destinations = ShellDestinations.compact;
-    // The material includes the home-indicator inset and owns all tap ink.
+    // La barra es una tira del mismo liner, separada por un filete: sobre un
+    // fondo negro una sombra no se ve, y un color distinto la despegaría del
+    // contenido que pasa por debajo.
     return Material(
-      color: AppColors.surface,
-      elevation: 8,
-      shadowColor: AppColors.shadow,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xs,
-            vertical: AppSpacing.xs,
-          ),
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                for (var slot = 0; slot < destinations.length + 1; slot++)
-                  Expanded(
-                    child: slot == _composeSlot
-                        ? _ComposeButton(onPressed: onCompose)
-                        : _BottomBarItem(
-                            destination:
-                                destinations[slot < _composeSlot
-                                    ? slot
-                                    : slot - 1],
-                            currentBranch: currentBranch,
-                            onSelected: onSelected,
-                          ),
-                  ),
-              ],
+      color: AppColors.background,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+            child: SizedBox(
+              height: 62,
+              child: Row(
+                children: [
+                  for (var slot = 0; slot < destinations.length + 1; slot++)
+                    Expanded(
+                      child: slot == _composeSlot
+                          ? _ComposeButton(onPressed: onCompose)
+                          : _BottomBarItem(
+                              destination:
+                                  destinations[slot < _composeSlot
+                                      ? slot
+                                      : slot - 1],
+                              currentBranch: currentBranch,
+                              unreadActivity: unreadActivity,
+                              onSelected: onSelected,
+                            ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -162,56 +178,60 @@ class _BottomBarItem extends StatelessWidget {
   const _BottomBarItem({
     required this.destination,
     required this.currentBranch,
+    required this.unreadActivity,
     required this.onSelected,
   });
 
   final ShellDestination destination;
   final int currentBranch;
+  final int unreadActivity;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final selected = destination.branch == currentBranch;
-    final color = selected ? AppColors.primaryDeep : AppColors.textSecondary;
+    final color = selected ? AppColors.textPrimary : AppColors.textSecondary;
+    final unread = destination.path == AppRoutes.activity ? unreadActivity : 0;
     return Semantics(
       selected: selected,
       button: true,
-      label: destination.label,
+      label: unread > 0
+          ? '${destination.label}, $unread sin leer'
+          : destination.label,
       child: InkWell(
+        key: Key('tab-${destination.path}'),
         onTap: () => onSelected(destination.branch),
         borderRadius: AppRadii.medium,
         splashFactory: NoSplash.splashFactory,
-        highlightColor: AppColors.primary.withValues(alpha: 0.06),
+        highlightColor: AppColors.textPrimary.withValues(alpha: .04),
         excludeFromSemantics: true,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            AnimatedContainer(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : AppMotion.feedbackDuration,
-              curve: Curves.easeOutCubic,
-              width: 52,
-              height: 32,
-              decoration: BoxDecoration(
-                color: selected
-                    ? AppColors.primarySurface
-                    : AppColors.primarySurface.withValues(alpha: 0),
-                borderRadius: AppRadii.pill,
-              ),
-              child: Icon(
-                selected ? destination.selectedIcon : destination.icon,
-                size: 23,
-                color: color,
+            _WithCount(
+              count: unread,
+              child: AnimatedScale(
+                scale: selected ? 1.06 : 1,
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppMotion.feedbackDuration,
+                curve: Curves.easeOutBack,
+                child: NexoIcon(
+                  destination.glyph,
+                  filled: selected,
+                  size: 26,
+                  color: color,
+                ),
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
               destination.label,
+              maxLines: 1,
+              overflow: TextOverflow.clip,
               style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                fontSize: 11,
-                height: 1.2,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 color: color,
               ),
             ),
@@ -222,36 +242,107 @@ class _BottomBarItem extends StatelessWidget {
   }
 }
 
-/// Primary action, with feedback clipped to its own rounded surface.
-class _ComposeButton extends StatelessWidget {
+/// El contador sobre un ícono: un sticker rojo con su troquel del color del
+/// liner, para que se despegue del ícono que tapa.
+class _WithCount extends StatelessWidget {
+  const _WithCount({required this.count, required this.child});
+
+  final int count;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          top: -5,
+          right: -9,
+          child: Container(
+            key: const Key('tab-unread-count'),
+            constraints: const BoxConstraints(minWidth: 19),
+            height: 19,
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            decoration: BoxDecoration(
+              color: AppColors.secondary,
+              borderRadius: AppRadii.pill,
+              border: Border.all(color: AppColors.background, width: 2),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              count > 9 ? '9+' : '$count',
+              style: const TextStyle(
+                color: AppColors.sticker,
+                fontSize: 9.5,
+                height: 1,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// La acción principal, como un sticker blanco: se hunde al presionarlo, como
+/// cuando se aprieta un sticker contra la plancha.
+class _ComposeButton extends StatefulWidget {
   const _ComposeButton({required this.onPressed});
 
   final VoidCallback onPressed;
 
   @override
+  State<_ComposeButton> createState() => _ComposeButtonState();
+}
+
+class _ComposeButtonState extends State<_ComposeButton> {
+  bool _down = false;
+
+  void _press(bool down) {
+    if (_down == down) return;
+    setState(() => _down = down);
+  }
+
+  @override
   Widget build(BuildContext context) => Center(
     child: Tooltip(
       message: 'Crear publicación',
-      child: SizedBox.square(
-        dimension: 50,
-        child: Material(
-          color: AppColors.primaryDeep,
-          elevation: 3,
-          shadowColor: AppColors.brandShadow,
-          borderRadius: AppRadii.pill,
-          clipBehavior: Clip.antiAlias,
-          child: Semantics(
-            button: true,
-            label: 'Crear publicación',
-            child: InkWell(
-              onTap: onPressed,
-              excludeFromSemantics: true,
-              splashFactory: NoSplash.splashFactory,
-              highlightColor: Colors.white.withValues(alpha: 0.16),
-              child: const Icon(
-                Icons.add_rounded,
-                color: Colors.white,
-                size: 27,
+      child: Semantics(
+        button: true,
+        label: 'Crear publicación',
+        child: GestureDetector(
+          onTapDown: (_) => _press(true),
+          onTapCancel: () => _press(false),
+          onTapUp: (_) => _press(false),
+          onTap: widget.onPressed,
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          child: AnimatedScale(
+            scale: _down ? .9 : 1,
+            duration: const Duration(milliseconds: 120),
+            curve: Curves.easeOut,
+            child: Container(
+              width: 52,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.sticker,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: const [
+                  BoxShadow(
+                    color: AppColors.brandShadow,
+                    blurRadius: 16,
+                    offset: Offset(0, 6),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: const NexoIcon(
+                NexoGlyph.add,
+                color: AppColors.ink,
+                size: 22,
               ),
             ),
           ),
@@ -265,12 +356,14 @@ class _ShellRail extends StatelessWidget {
   const _ShellRail({
     required this.form,
     required this.currentBranch,
+    required this.unreadActivity,
     required this.onSelected,
     required this.onCompose,
   });
 
   final FormFactor form;
   final int currentBranch;
+  final int unreadActivity;
   final ValueChanged<int> onSelected;
 
   /// La misma hoja que el + de la barra inferior. El rail empujaba el
@@ -295,25 +388,36 @@ class _ShellRail extends StatelessWidget {
       (destination) => destination.branch == currentBranch,
     );
 
-    return NavigationRail(
-      extended: extended,
-      labelType: extended ? null : NavigationRailLabelType.all,
-      backgroundColor: AppColors.surface,
-      // A branch with no rail entry (a pushed detail, or Studio on tablet)
-      // leaves nothing selected. NavigationRail rejects a negative index, so
-      // it gets null — no highlight, rather than a wrong one. The old shell
-      // clamped -1 to 0 and lit up "Inicio" while the user was elsewhere.
-      selectedIndex: selectedIndex >= 0 ? selectedIndex : null,
-      onDestinationSelected: (index) => onSelected(destinations[index].branch),
-      leading: _RailLeading(extended: extended, onCompose: onCompose),
-      destinations: [
-        for (final destination in destinations)
-          NavigationRailDestination(
-            icon: Icon(destination.icon),
-            selectedIcon: Icon(destination.selectedIcon),
-            label: Text(destination.label),
-          ),
-      ],
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        border: Border(right: BorderSide(color: AppColors.border)),
+      ),
+      child: NavigationRail(
+        extended: extended,
+        labelType: extended ? null : NavigationRailLabelType.all,
+        backgroundColor: AppColors.background,
+        // A branch with no rail entry (a pushed detail, or Studio on tablet)
+        // leaves nothing selected. NavigationRail rejects a negative index, so
+        // it gets null — no highlight, rather than a wrong one. The old shell
+        // clamped -1 to 0 and lit up "Inicio" while the user was elsewhere.
+        selectedIndex: selectedIndex >= 0 ? selectedIndex : null,
+        onDestinationSelected: (index) =>
+            onSelected(destinations[index].branch),
+        leading: _RailLeading(extended: extended, onCompose: onCompose),
+        destinations: [
+          for (final destination in destinations)
+            NavigationRailDestination(
+              icon: _WithCount(
+                count: destination.path == AppRoutes.activity
+                    ? unreadActivity
+                    : 0,
+                child: NexoIcon(destination.glyph),
+              ),
+              selectedIcon: NexoIcon(destination.glyph, filled: true),
+              label: Text(destination.label),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -329,15 +433,18 @@ class _RailLeading extends StatelessWidget {
     padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
     child: Column(
       children: [
-        const NexoLogo(size: 40, showBadge: false),
-        const SizedBox(height: AppSpacing.md),
+        if (extended)
+          const NexoWordmark(markSize: 40)
+        else
+          const NexoLogo(size: 44),
+        const SizedBox(height: AppSpacing.lg),
         if (extended)
           SizedBox(
             width: 168,
             child: FilledButton.icon(
               key: const Key('rail-create'),
               onPressed: onCompose,
-              icon: const Icon(Icons.add_rounded),
+              icon: const NexoIcon(NexoGlyph.add, size: 18),
               label: const Text('Crear'),
             ),
           )
@@ -346,7 +453,11 @@ class _RailLeading extends StatelessWidget {
             key: const Key('rail-create'),
             tooltip: 'Crear',
             onPressed: onCompose,
-            icon: const Icon(Icons.add_rounded),
+            style: IconButton.styleFrom(
+              backgroundColor: AppColors.sticker,
+              foregroundColor: AppColors.ink,
+            ),
+            icon: const NexoIcon(NexoGlyph.add, size: 20),
           ),
       ],
     ),
@@ -364,7 +475,7 @@ class _SidePanel extends StatelessWidget {
     width: 320,
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
     decoration: const BoxDecoration(
-      color: AppColors.surface,
+      color: AppColors.background,
       border: Border(left: BorderSide(color: AppColors.border)),
     ),
     // Reusa las mismas secciones que Explorar y el feed vacío, con su propio
@@ -389,18 +500,15 @@ class _SidePanel extends StatelessWidget {
                   onToggle: cubit.toggleCreator,
                   title: 'A quién seguir',
                 ),
-                const SectionHeader(
-                  title: 'Herramientas',
-                  icon: Icons.tune_rounded,
-                ),
+                const SectionHeader(title: 'Herramientas'),
                 TextButton.icon(
                   onPressed: () => context.push(AppRoutes.premium),
-                  icon: const Icon(Icons.workspace_premium_outlined, size: 18),
+                  icon: const NexoIcon(NexoGlyph.crown, size: 18),
                   label: const Text('Membresías'),
                 ),
                 TextButton.icon(
                   onPressed: () => context.push(AppRoutes.settings),
-                  icon: const Icon(Icons.settings_outlined, size: 18),
+                  icon: const NexoIcon(NexoGlyph.settings, size: 18),
                   label: const Text('Ajustes'),
                 ),
                 const SizedBox(height: AppSpacing.lg),

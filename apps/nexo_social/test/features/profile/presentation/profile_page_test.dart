@@ -98,4 +98,32 @@ void main() {
 
     expect(find.text('Esta cuenta no existe'), findsOneWidget);
   });
+
+  /// Seguir pasa por el repositorio de seguir (el mock en los tests, el
+  /// servidor con cuentas reales), no por un booleano local de la pantalla.
+  testWidgets('following someone flips the button to "Siguiendo"', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      AppHarness.wrap(const ProfilePage(username: 'carlos_mendez')),
+    );
+    await AppHarness.settle(tester);
+    final button = find.byKey(const Key('profile-follow'));
+    expect(
+      find.descendant(of: button, matching: find.text('Seguir')),
+      findsOneWidget,
+    );
+
+    await tester.tap(button);
+    await AppHarness.settle(tester);
+
+    expect(
+      find.descendant(of: button, matching: find.text('Siguiendo')),
+      findsOneWidget,
+    );
+  });
 }
