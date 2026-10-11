@@ -5,6 +5,9 @@ import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/entities/live_session.dart';
 import 'live_card.dart';
+import '../../../../core/share/share_sheet.dart';
+import '../utils/live_share_text.dart';
+import 'dart:async';
 
 /// La tarjeta destacada que abre el feed cuando alguien está transmitiendo.
 ///
@@ -93,10 +96,15 @@ class FeaturedLiveCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
-            IconButton(
-              tooltip: 'Compartir',
-              onPressed: () {},
-              icon: const NexoIcon(NexoGlyph.share, size: 22),
+            Builder(
+              builder: (buttonContext) => IconButton(
+                key: Key('share-live-${session.id}'),
+                tooltip: 'Compartir',
+                onPressed: () => unawaited(
+                  openShareSheet(buttonContext, text: liveShareText(session)),
+                ),
+                icon: const NexoIcon(NexoGlyph.share, size: 22),
+              ),
             ),
           ],
         ),

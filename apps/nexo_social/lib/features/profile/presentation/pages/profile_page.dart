@@ -27,6 +27,8 @@ import '../bloc/public_profile_cubit.dart';
 import '../utils/profile_notice_ui.dart';
 import '../widgets/follow_list_sheet.dart';
 import '../../../live/presentation/utils/live_navigation.dart';
+import '../../../../core/share/share_sheet.dart';
+import '../utils/profile_share_text.dart';
 
 part 'account_profile_view.dart';
 
@@ -371,7 +373,10 @@ class _ProfileHeader extends StatelessWidget {
                       tilt: -.06,
                     ),
                   ),
-                SafeArea(bottom: false, child: _CoverToolbar(isOwn: isOwn)),
+                SafeArea(
+                  bottom: false,
+                  child: _CoverToolbar(isOwn: isOwn, profile: profile),
+                ),
               ],
             ),
           ),
@@ -465,9 +470,10 @@ class _BackGlyphButton extends StatelessWidget {
 /// Sin título: el `@usuario` ya está en el resumen, justo debajo, y repetirlo
 /// sobre la portada tapaba la plancha.
 class _CoverToolbar extends StatelessWidget {
-  const _CoverToolbar({required this.isOwn});
+  const _CoverToolbar({required this.isOwn, required this.profile});
 
   final bool isOwn;
+  final PublicProfile profile;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -485,13 +491,17 @@ class _CoverToolbar extends StatelessWidget {
         if (Navigator.of(context).canPop())
           const _BackGlyphButton(color: AppColors.ink),
         const Spacer(),
-        // Deshabilitado y no escondido: el diseño lo tiene, y un botón activo
-        // que no responde se lee como una app rota (SDD 0007, F11).
-        IconButton(
-          tooltip: 'Compartir perfil: muy pronto',
-          disabledColor: AppColors.ink.withValues(alpha: .38),
-          onPressed: null,
-          icon: const NexoIcon(NexoGlyph.share, size: 22),
+        Builder(
+          builder: (buttonContext) => IconButton(
+            key: const Key('share-profile'),
+            tooltip: 'Compartir perfil',
+            // Tinta sobre la portada, igual que volver y las opciones.
+            color: AppColors.ink,
+            onPressed: () => unawaited(
+              openShareSheet(buttonContext, text: profileShareText(profile)),
+            ),
+            icon: const NexoIcon(NexoGlyph.share, size: 22),
+          ),
         ),
         // Las opciones son de la cuenta en sesión: en un perfil ajeno ofrecían
         // Creator Studio y "Cerrar sesión", como si fuera el propio.

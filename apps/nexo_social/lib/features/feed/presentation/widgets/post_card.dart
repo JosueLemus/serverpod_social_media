@@ -14,6 +14,9 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/post.dart';
+import '../../../../core/share/share_sheet.dart';
+import '../utils/post_share_text.dart';
+import 'dart:async';
 
 /// Una publicación, pegada directo sobre el liner.
 ///
@@ -445,17 +448,20 @@ class _PostActions extends StatelessWidget {
         tooltip: 'Comentar',
         onTap: onComment,
       ),
-      // Deshabilitado y no un tap que no hace nada: un botón que no responde
-      // se lee como un bug. Gris de deshabilitado para que no lo parezca.
-      _ActionButton(
-        buttonKey: Key('share-${post.id}'),
-        icon: const NexoIcon(
-          NexoGlyph.share,
-          size: _iconSize,
-          color: AppColors.textTertiary,
+      // La hoja de compartir del sistema: WhatsApp, Instagram, copiar.
+      Builder(
+        builder: (buttonContext) => _ActionButton(
+          buttonKey: Key('share-${post.id}'),
+          icon: const NexoIcon(
+            NexoGlyph.share,
+            size: _iconSize,
+            color: AppColors.textSecondary,
+          ),
+          tooltip: 'Compartir',
+          onTap: () => unawaited(
+            openShareSheet(buttonContext, text: postShareText(post)),
+          ),
         ),
-        tooltip: 'Compartir (próximamente)',
-        onTap: null,
       ),
       const Spacer(),
       // Guardado = despegado: relleno y blanco, como todo lo seleccionado.
