@@ -161,6 +161,7 @@ class ServerpodLiveRepository implements LiveRepository {
     allowQuestions: view.allowQuestions,
     recordReplay: view.recordReplay,
     startedAt: view.startedAt?.toLocal(),
+    endedAt: view.endedAt?.toLocal(),
   );
 
   static LiveComment toComment(

@@ -37,8 +37,8 @@ class LiveRoomState extends Equatable {
     this.audit = const [],
     this.isLoading = true,
     this.notFound = false,
-    this.newSubscribers = 0,
-    this.donationsUsd = 0,
+    this.newSubscribers,
+    this.donationsUsd,
     this.elapsed = Duration.zero,
     this.issue,
     this.issueSerial = 0,
@@ -70,11 +70,11 @@ class LiveRoomState extends Equatable {
   final bool isLoading;
   final bool notFound;
 
-  // Métricas de sesión del panel de host. Mock hasta que exista el módulo de
-  // billing — el Notion lo marca P1 con gateway falso, así que estos números
-  // son de demo y no salen de ningún cobro real.
-  final int newSubscribers;
-  final int donationsUsd;
+  // Métricas de sesión del panel de host. Sin módulo de billing no hay de
+  // dónde sacarlas, así que son null y el Studio dibuja "—": un número
+  // inventado en un panel de host se lee como un dato.
+  final int? newSubscribers;
+  final int? donationsUsd;
 
   /// Cuánto lleva al aire. La cuenta la lleva el estado y no un timer en el
   /// widget: la pantalla del host se reconstruye con cada aprobación de cohost
@@ -174,12 +174,6 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
     Duration(seconds: 5),
   ];
 
-  static const _seedPinned = LiveComment(
-    id: 'pinned',
-    author: 'Sofía Streamer',
-    body: '¡Bienvenidos al directo! Descarguen el repo del enlace fijado.',
-  );
-
   /// Abre la sala y se queda escuchándola. Termina cuando llega la primera
   /// foto (o cuando queda claro que la sala no existe).
   Future<void> load(String id) async {
@@ -261,12 +255,6 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
             isLoading: false,
             notFound: false,
             reconnecting: false,
-            pinnedComment: state.pinnedComment ?? _seedPinned,
-            pendingGuests: state.session == null
-                ? const ['Marcos Dev', 'Lucía Torres']
-                : null,
-            newSubscribers: 14,
-            donationsUsd: 185,
           ),
         );
       case LiveSessionChanged(:final session):

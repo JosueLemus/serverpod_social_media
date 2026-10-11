@@ -153,3 +153,136 @@ class LiveChatLine extends StatelessWidget {
     ),
   );
 }
+
+/// El campo para comentar sobre el video. Lo usan la audiencia y el host: el
+/// host también contesta en su propio chat, como en cualquier vivo.
+///
+/// [trailing] son los controles al lado del campo (regalo, amor) que sólo
+/// tiene la audiencia.
+class LiveChatComposer extends StatelessWidget {
+  const LiveChatComposer({
+    super.key,
+    required this.controller,
+    required this.onSend,
+    this.trailing = const [],
+    this.fieldKey = const Key('live-comment-field'),
+    this.sendKey = const Key('live-send'),
+    this.liftAboveKeyboard = true,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final List<Widget> trailing;
+  final Key fieldKey;
+  final Key sendKey;
+
+  /// En la sala el Scaffold no se redimensiona con el teclado, así que el
+  /// campo se sube solo. En el Studio la página sí se acomoda, y subirlo de
+  /// nuevo lo dejaría flotando a media pantalla.
+  final bool liftAboveKeyboard;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(
+      AppSpacing.sm,
+      AppSpacing.xs,
+      AppSpacing.sm,
+      (liftAboveKeyboard ? MediaQuery.viewInsetsOf(context).bottom : 0) +
+          AppSpacing.sm,
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: AppSizes.searchHeight,
+            padding: const EdgeInsets.only(left: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.neutral.withValues(alpha: .55),
+              borderRadius: AppRadii.pill,
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    key: fieldKey,
+                    controller: controller,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    cursorColor: Colors.white,
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => onSend(),
+                    decoration: const InputDecoration(
+                      hintText: 'Escribe un comentario',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: sendKey,
+                  tooltip: 'Enviar',
+                  onPressed: onSend,
+                  icon: const Icon(
+                    Icons.send_rounded,
+                    size: 19,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        for (final control in trailing) ...[const SizedBox(width: 6), control],
+      ],
+    ),
+  );
+}
+
+/// Botón circular translúcido, el lenguaje de todo control sobre video.
+class LiveGlassButton extends StatelessWidget {
+  const LiveGlassButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.background,
+    this.child,
+  });
+
+  final IconData icon;
+  final String tooltip;
+
+  /// Null lo deja apagado: un control sin acción no se finge activo.
+  final VoidCallback? onTap;
+  final Color? background;
+
+  /// Reemplaza al ícono cuando el control necesita animarse.
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkResponse(
+      onTap: onTap,
+      radius: 26,
+      child: Opacity(
+        opacity: onTap == null ? .5 : 1,
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: background ?? AppColors.neutral.withValues(alpha: .55),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white24),
+          ),
+          child: child ?? Icon(icon, size: 20, color: Colors.white),
+        ),
+      ),
+    ),
+  );
+}

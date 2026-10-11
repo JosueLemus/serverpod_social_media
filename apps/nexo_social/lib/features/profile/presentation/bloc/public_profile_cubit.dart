@@ -159,11 +159,18 @@ class PublicProfileCubit extends Cubit<PublicProfileState> {
   ///
   /// Por nombre visible porque `LiveSession` todavía no trae el usuario del
   /// host; el SDD 0006 lo suma (`hostUsername`) y esto pasa a compararlo.
+  /// Por username, que es único; el nombre visible no lo es. El mock no
+  /// conoce el username del host, y ahí se cae al nombre.
+  static bool _hostedBy(LiveSession live, PublicProfile profile) =>
+      live.hostUsername.isEmpty
+      ? live.hostName == profile.name
+      : live.hostUsername == profile.username;
+
   Future<List<LiveSession>> _livesOf(PublicProfile profile) async {
     try {
       return [
         for (final live in await _lives.list())
-          if (live.hostName == profile.name) live,
+          if (_hostedBy(live, profile)) live,
       ];
     } on Failure {
       return const [];

@@ -22,10 +22,8 @@ class _FakeLiveRepository implements LiveRepository {
   var seeded = <LiveComment>[];
   final _rooms = <String, StreamController<LiveRoomEvent>>{};
 
-  StreamController<LiveRoomEvent> room(String id) => _rooms.putIfAbsent(
-    id,
-    StreamController<LiveRoomEvent>.broadcast,
-  );
+  StreamController<LiveRoomEvent> room(String id) =>
+      _rooms.putIfAbsent(id, StreamController<LiveRoomEvent>.broadcast);
 
   @override
   Future<List<LiveSession>> mine() async => List.of(shows);
@@ -270,7 +268,10 @@ void main() {
       ];
     await pumpStudio(tester);
 
-    expect(find.textContaining('spam spam', findRichText: true), findsOneWidget);
+    expect(
+      find.textContaining('spam spam', findRichText: true),
+      findsOneWidget,
+    );
 
     await tester.longPress(find.byKey(const Key('chat-c1')));
     await AppHarness.settle(tester);
@@ -319,5 +320,60 @@ void main() {
       'goLive Charla de prueba',
     ]);
     expect(find.byKey(const Key('studio-end')), findsOneWidget);
+  });
+
+  testWidgets('sin billing ni solicitudes reales no hay datos inventados', (
+    tester,
+  ) async {
+    repository.shows.add(scheduled.copyWith(status: LiveStatus.live));
+    await pumpStudio(tester);
+
+    // Las métricas sin fuente dicen "—" y avisan que son mock.
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('studio-subs')),
+        matching: find.text('—'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('studio-donations')),
+        matching: find.text('—'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Nuevos subs (mock)'), findsOneWidget);
+    expect(find.text('+14'), findsNothing);
+    expect(find.text(r'$185'), findsNothing);
+    // Nadie inventado esperando para unirse.
+    expect(find.text('Marcos Dev'), findsNothing);
+    expect(find.text('Nadie está esperando aprobación.'), findsOneWidget);
+  });
+
+  testWidgets('al aire el host comenta en su propio chat', (tester) async {
+    repository.shows.add(scheduled.copyWith(status: LiveStatus.live));
+    await pumpStudio(tester);
+
+    await tester.enterText(
+      find.byKey(const Key('studio-comment-field')),
+      'gracias por venir',
+    );
+    await tester.tap(find.byKey(const Key('studio-send')));
+    await AppHarness.settle(tester);
+
+    expect(
+      find.textContaining('gracias por venir', findRichText: true),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('antes de salir al aire no hay campo para comentar', (
+    tester,
+  ) async {
+    repository.shows.add(scheduled);
+    await pumpStudio(tester);
+
+    expect(find.byKey(const Key('studio-comment-field')), findsNothing);
   });
 }

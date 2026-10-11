@@ -62,8 +62,9 @@ class DemoAccountButton extends StatelessWidget {
                 style: Theme.of(sheetContext).textTheme.titleLarge,
               ),
               Text(
-                'Datos simulados. Cada cuenta tiene el rol que tendría en '
-                'el backend.',
+                // Vale para los dos modos: con Serverpod son cuentas reales
+                // sembradas por el servidor, y con el mock, sus gemelas.
+                'Cuentas de prueba sembradas. Cada una tiene su rol.',
                 style: Theme.of(sheetContext).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.sm),

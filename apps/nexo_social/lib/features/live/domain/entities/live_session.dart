@@ -32,6 +32,7 @@ class LiveSession extends Equatable {
     this.allowQuestions = true,
     this.recordReplay = true,
     this.startedAt,
+    this.endedAt,
   });
   final String id;
   final String title;
@@ -63,6 +64,10 @@ class LiveSession extends Equatable {
   /// Cuándo salió al aire. De acá sale el reloj del Studio.
   final DateTime? startedAt;
 
+  /// Cuándo terminó. Con [startedAt], la duración que ve quien se quedó
+  /// mirando hasta el final.
+  final DateTime? endedAt;
+
   LiveSession copyWith({
     LiveStatus? status,
     int? viewers,
@@ -84,6 +89,7 @@ class LiveSession extends Equatable {
     allowQuestions: allowQuestions,
     recordReplay: recordReplay,
     startedAt: startedAt,
+    endedAt: endedAt,
   );
   @override
   List<Object?> get props => [
@@ -103,5 +109,6 @@ class LiveSession extends Equatable {
     allowQuestions,
     recordReplay,
     startedAt,
+    endedAt,
   ];
 }

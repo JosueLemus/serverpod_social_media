@@ -71,6 +71,10 @@ class _RoomViewState extends State<_RoomView> {
 
   void _leave() => context.go(AppRoutes.explore);
 
+  /// Atrás de verdad cuando se llegó empujando (desde el feed o un perfil);
+  /// si la sala se abrió directo, Explorar es el único "atrás" que existe.
+  void _back() => context.canPop() ? context.pop() : _leave();
+
   @override
   Widget build(
     BuildContext context,
@@ -119,6 +123,7 @@ class _RoomViewState extends State<_RoomView> {
           );
         }
 
+        final ending = _RoomEnding.of(session.status);
         return Scaffold(
           backgroundColor: AppColors.stageDark,
           // El teclado no debe redimensionar el video: con resize, escribir
@@ -132,13 +137,19 @@ class _RoomViewState extends State<_RoomView> {
                 fallback: _Stage(),
               ),
               const _StageScrim(),
+              // Terminado: un velo parejo sobre el último cuadro. La sala no
+              // se queda congelada como si siguiera al aire.
+              if (ending != null)
+                const IgnorePointer(
+                  child: ColoredBox(color: AppColors.stageScrim),
+                ),
               SafeArea(
                 child: Column(
                   children: [
                     _RoomTopBar(session: session, onLeave: _leave),
                     // Se cortó el tiempo real: decirlo, en vez de dejar un
                     // chat que parece vivo y no recibe nada.
-                    if (state.reconnecting)
+                    if (state.reconnecting && ending == null)
                       const Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: AppSpacing.sm,
@@ -154,15 +165,35 @@ class _RoomViewState extends State<_RoomView> {
                         ),
                       ),
                     const Spacer(),
-                    if (state.pinnedComment != null)
-                      _PinnedComment(comment: state.pinnedComment!),
-                    LiveChatOverlay(comments: state.comments),
-                    _Composer(
-                      controller: _composer,
-                      loved: state.loved,
-                      onSend: _send,
-                      onLove: context.read<LiveRoomCubit>().toggleLove,
-                    ),
+                    if (ending != null) ...[
+                      _EndedPanel(
+                        session: session,
+                        ending: ending,
+                        onBack: _back,
+                        onMore: _leave,
+                      ),
+                      const Spacer(),
+                    ] else ...[
+                      if (state.pinnedComment != null)
+                        _PinnedComment(comment: state.pinnedComment!),
+                      LiveChatOverlay(comments: state.comments),
+                      LiveChatComposer(
+                        controller: _composer,
+                        onSend: _send,
+                        trailing: [
+                          // Sin regalos todavía: apagado, no escondido.
+                          const LiveGlassButton(
+                            icon: Icons.card_giftcard_rounded,
+                            tooltip: 'Regalos: muy pronto',
+                            onTap: null,
+                          ),
+                          _LoveButton(
+                            loved: state.loved,
+                            onTap: context.read<LiveRoomCubit>().toggleLove,
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -254,7 +285,7 @@ class _RoomTopBar extends StatelessWidget {
         const SizedBox(width: AppSpacing.xs),
         ViewerPill(viewers: session.viewers, isOnAir: session.status.isOnAir),
         const SizedBox(width: AppSpacing.xs),
-        _GlassIconButton(
+        LiveGlassButton(
           icon: Icons.close_rounded,
           tooltip: 'Salir del vivo',
           onTap: onLeave,
@@ -385,138 +416,145 @@ class _PinnedComment extends StatelessWidget {
   );
 }
 
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.controller,
-    required this.loved,
-    required this.onSend,
-    required this.onLove,
-  });
+class _LoveButton extends StatelessWidget {
+  const _LoveButton({required this.loved, required this.onTap});
 
-  final TextEditingController controller;
   final bool loved;
-  final VoidCallback onSend;
-  final VoidCallback onLove;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      AppSpacing.sm,
-      AppSpacing.xs,
-      AppSpacing.sm,
-      // Sube el campo por encima del teclado. El Scaffold no redimensiona, así
-      // que el inset se aplica acá y sólo acá.
-      MediaQuery.viewInsetsOf(context).bottom + AppSpacing.sm,
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: AppSizes.searchHeight,
-            padding: const EdgeInsets.only(left: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.neutral.withValues(alpha: .55),
-              borderRadius: AppRadii.pill,
-              border: Border.all(color: Colors.white24),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('live-comment-field'),
-                    controller: controller,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    cursorColor: Colors.white,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe un comentario',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  key: const Key('live-send'),
-                  tooltip: 'Enviar',
-                  onPressed: onSend,
-                  icon: const Icon(
-                    Icons.send_rounded,
-                    size: 19,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-        _GlassIconButton(
-          icon: Icons.card_giftcard_rounded,
-          tooltip: 'Enviar un regalo',
-          onTap: () {},
-        ),
-        const SizedBox(width: 6),
-        _GlassIconButton(
-          key: const Key('live-love'),
-          icon: loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          tooltip: 'Dar amor',
-          onTap: onLove,
-          background: loved ? AppColors.secondary : null,
-          child: Pop(
-            trigger: loved,
-            child: Icon(
-              loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              size: 20,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
+  Widget build(BuildContext context) => LiveGlassButton(
+    key: const Key('live-love'),
+    icon: loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+    tooltip: 'Dar amor',
+    onTap: onTap,
+    background: loved ? AppColors.secondary : null,
+    child: Pop(
+      trigger: loved,
+      child: Icon(
+        loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        size: 20,
+        color: Colors.white,
+      ),
     ),
   );
 }
 
-/// Botón circular translúcido, el lenguaje de todo control sobre video.
-class _GlassIconButton extends StatelessWidget {
-  const _GlassIconButton({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-    this.background,
-    this.child,
+/// Por qué la sala ya no está al aire. La copy la elige la View; el estado
+/// sólo dice qué pasó.
+enum _RoomEnding {
+  finished,
+  cancelled,
+  failed,
+  removed;
+
+  /// Null mientras el vivo no terminó: programado (la sala de espera) o al
+  /// aire.
+  static _RoomEnding? of(LiveStatus status) => switch (status) {
+    LiveStatus.recorded || LiveStatus.published => finished,
+    LiveStatus.cancelled => cancelled,
+    LiveStatus.failed => failed,
+    LiveStatus.removed => removed,
+    LiveStatus.draft ||
+    LiveStatus.scheduled ||
+    LiveStatus.live ||
+    LiveStatus.ending => null,
+  };
+
+  String get title => switch (this) {
+    finished => 'El vivo terminó',
+    cancelled => 'Este vivo se canceló',
+    failed => 'El vivo se cortó',
+    removed => 'Este vivo ya no está disponible',
+  };
+}
+
+/// Lo que ve quien se quedó mirando hasta el final: quién era, cuánto duró y
+/// a dónde ir. Como en cualquier red social, el final se dice; una sala que
+/// sólo deja de moverse se lee como que se colgó la app.
+class _EndedPanel extends StatelessWidget {
+  const _EndedPanel({
+    required this.session,
+    required this.ending,
+    required this.onBack,
+    required this.onMore,
   });
 
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  final Color? background;
-
-  /// Reemplaza al ícono cuando el control necesita animarse.
-  final Widget? child;
+  final LiveSession session;
+  final _RoomEnding ending;
+  final VoidCallback onBack;
+  final VoidCallback onMore;
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: InkResponse(
-      onTap: onTap,
-      radius: 26,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: background ?? AppColors.neutral.withValues(alpha: .55),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white24),
+  Widget build(BuildContext context) {
+    final host = session.hostUsername.isEmpty
+        ? session.hostName
+        : '@${session.hostUsername}';
+    final lasted = _lasted(session);
+    return EnterStatic(
+      child: Padding(
+        key: const Key('live-ended'),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            UserAvatar(name: session.hostName, size: 64),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              ending.title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: Colors.white),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              [host, ?lasted].join(' · '),
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                OutlinedButton(
+                  key: const Key('live-ended-back'),
+                  onPressed: onBack,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                  ),
+                  child: const Text('Volver'),
+                ),
+                FilledButton(
+                  key: const Key('live-ended-more'),
+                  onPressed: onMore,
+                  child: const Text('Ver más vivos'),
+                ),
+              ],
+            ),
+          ],
         ),
-        child: child ?? Icon(icon, size: 20, color: Colors.white),
       ),
-    ),
-  );
+    );
+  }
+
+  /// "Duró 12 min", o null cuando el servidor no dice cuándo empezó o
+  /// terminó (un vivo cancelado antes de salir al aire, el mock).
+  static String? _lasted(LiveSession session) {
+    final startedAt = session.startedAt;
+    final endedAt = session.endedAt;
+    if (startedAt == null || endedAt == null) return null;
+    final minutes = endedAt.difference(startedAt).inMinutes;
+    if (minutes < 1) return 'Duró menos de un minuto';
+    if (minutes < 60) return 'Duró $minutes min';
+    final rest = minutes.remainder(60);
+    return rest == 0
+        ? 'Duró ${minutes ~/ 60} h'
+        : 'Duró ${minutes ~/ 60} h ${rest.toString().padLeft(2, '0')} min';
+  }
 }

@@ -35,7 +35,7 @@ abstract final class DemoAccounts {
     email: 'carlos@nexo.demo',
     username: 'carlos_mendez',
     name: 'Carlos Méndez',
-    description: 'Creador · tiene un vivo al aire',
+    description: 'Creador verificado · transmite en vivo',
   );
   static const operator = DemoAccount(
     id: 'op-1',

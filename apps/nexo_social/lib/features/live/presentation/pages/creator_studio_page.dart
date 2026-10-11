@@ -392,31 +392,38 @@ class _StudioMetrics extends StatelessWidget {
         ),
       ),
       const SizedBox(width: AppSpacing.xs),
+      // Sin módulo de billing no hay dato: "—" y "(mock)" en la etiqueta. Un
+      // número inventado en el panel del host se lee como una métrica real.
       Expanded(
         child: _Metric(
+          key: const Key('studio-subs'),
           icon: Icons.person_add_alt_1_outlined,
-          value: '+${state.newSubscribers}',
-          label: 'Nuevos subs',
+          value: _orDash(state.newSubscribers, (value) => '+$value'),
+          label: 'Nuevos subs (mock)',
           color: AppColors.tertiary,
         ),
       ),
       const SizedBox(width: AppSpacing.xs),
       Expanded(
         child: _Metric(
+          key: const Key('studio-donations'),
           icon: Icons.volunteer_activism_outlined,
-          // Simulado y dicho en la pantalla: una demo de pagos que parece un
-          // cobro real es lo único que un mock de pagos no puede hacer.
-          value: '\$${state.donationsUsd}',
+          value: _orDash(state.donationsUsd, (value) => '\$$value'),
           label: 'Donaciones (mock)',
-          color: AppColors.primaryDeep,
+          color: AppColors.primary,
         ),
       ),
     ],
   );
 }
 
+/// El valor de una métrica, o "—" cuando no hay de dónde sacarlo.
+String _orDash(int? value, String Function(int value) format) =>
+    value == null ? '—' : format(value);
+
 class _Metric extends StatelessWidget {
   const _Metric({
+    super.key,
     required this.icon,
     required this.value,
     required this.label,
@@ -526,17 +533,74 @@ class _StagePreview extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              bottom: AppSpacing.xs,
-              child: LiveChatOverlay(
+              bottom: 0,
+              child: _StudioChat(
                 comments: comments,
-                emptyLabel: 'Todavía no hay comentarios',
-                maxHeight: constraints.maxHeight * .5,
+                canWrite: session.status.isOnAir,
+                maxHeight: constraints.maxHeight * .45,
               ),
             ),
           ],
         ),
       ),
     ),
+  );
+}
+
+/// El chat sobre el escenario y, al aire, el campo para que el host conteste.
+///
+/// Es dueño de su controller: construirlo en `build` lo recrearía con cada
+/// comentario que llega y el cursor saltaría al principio a mitad de frase.
+class _StudioChat extends StatefulWidget {
+  const _StudioChat({
+    required this.comments,
+    required this.canWrite,
+    required this.maxHeight,
+  });
+
+  final List<LiveComment> comments;
+  final bool canWrite;
+  final double maxHeight;
+
+  @override
+  State<_StudioChat> createState() => _StudioChatState();
+}
+
+class _StudioChatState extends State<_StudioChat> {
+  final _composer = TextEditingController();
+
+  @override
+  void dispose() {
+    _composer.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    unawaited(context.read<LiveRoomCubit>().sendComment(_composer.text));
+    _composer.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      LiveChatOverlay(
+        comments: widget.comments,
+        emptyLabel: 'Todavía no hay comentarios',
+        maxHeight: widget.maxHeight,
+      ),
+      if (widget.canWrite)
+        LiveChatComposer(
+          controller: _composer,
+          onSend: _send,
+          fieldKey: const Key('studio-comment-field'),
+          sendKey: const Key('studio-send'),
+          // La página del Studio sí se acomoda al teclado.
+          liftAboveKeyboard: false,
+        )
+      else
+        const SizedBox(height: AppSpacing.xs),
+    ],
   );
 }
 
