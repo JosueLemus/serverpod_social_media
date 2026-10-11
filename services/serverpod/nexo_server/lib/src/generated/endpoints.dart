@@ -10,12 +10,15 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:nexo_server/src/generated/future_calls.dart' as _ioktuqdc;
 import 'package:nexo_server/src/generated/modules/content/models/post_draft.dart'
     as _icfvomj1;
 import 'package:nexo_server/src/generated/modules/content/models/post_edit.dart'
     as _i79bwqkw;
 import 'package:nexo_server/src/generated/modules/content/models/post_media_kind.dart'
     as _iwuw8bb0;
+import 'package:nexo_server/src/generated/modules/feed/models/home_feed_cursor.dart'
+    as _i678tz4r;
 import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.dart'
     as _iu4itgek;
 import 'package:nexo_server/src/generated/modules/live/models/live_show_draft.dart'
@@ -36,12 +39,17 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../modules/content/endpoints/posts_endpoint.dart' as _i14rwr4t;
+import '../modules/feed/endpoints/feed_endpoint.dart' as _ioxv0ue4;
 import '../modules/identity/endpoints/profiles_endpoint.dart' as _ijchdihn;
 import '../modules/live/endpoints/live_endpoint.dart' as _i440evyb;
 import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
+import '../modules/notifications/endpoints/notifications_endpoint.dart'
+    as _it1fxm15;
 import '../modules/social/endpoints/comments_endpoint.dart' as _iiig3ywm;
+import '../modules/social/endpoints/follows_endpoint.dart' as _ihvtp8yg;
 import '../modules/social/endpoints/likes_endpoint.dart' as _ippoapkl;
 import '../shared/health/health_endpoint.dart' as _ill7uqua;
+export 'future_calls.dart' show ServerpodFutureCallsGetter;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -65,6 +73,12 @@ class Endpoints extends _is.EndpointDispatch {
           'posts',
           null,
         ),
+      'feed': _ioxv0ue4.FeedEndpoint()
+        ..initialize(
+          server,
+          'feed',
+          null,
+        ),
       'profiles': _ijchdihn.ProfilesEndpoint()
         ..initialize(
           server,
@@ -83,10 +97,22 @@ class Endpoints extends _is.EndpointDispatch {
           'moderation',
           null,
         ),
+      'notifications': _it1fxm15.NotificationsEndpoint()
+        ..initialize(
+          server,
+          'notifications',
+          null,
+        ),
       'comments': _iiig3ywm.CommentsEndpoint()
         ..initialize(
           server,
           'comments',
+          null,
+        ),
+      'follows': _ihvtp8yg.FollowsEndpoint()
+        ..initialize(
+          server,
+          'follows',
           null,
         ),
       'likes': _ippoapkl.LikesEndpoint()
@@ -478,6 +504,30 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['feed'] = _is.EndpointConnector(
+      name: 'feed',
+      endpoint: endpoints['feed']!,
+      methodConnectors: {
+        'home': _is.MethodConnector(
+          name: 'home',
+          params: {
+            'cursor': _is.ParameterDescription(
+              name: 'cursor',
+              type: _is.getType<_i678tz4r.HomeFeedCursor?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['feed'] as _ioxv0ue4.FeedEndpoint).home(
+                session,
+                cursor: params['cursor'],
+              ),
+        ),
+      },
+    );
     connectors['profiles'] = _is.EndpointConnector(
       name: 'profiles',
       endpoint: endpoints['profiles']!,
@@ -509,6 +559,50 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint).update(
                     session,
                     params['edit'],
+                  ),
+        ),
+        'requestAvatarUpload': _is.MethodConnector(
+          name: 'requestAvatarUpload',
+          params: {
+            'contentType': _is.ParameterDescription(
+              name: 'contentType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'sizeBytes': _is.ParameterDescription(
+              name: 'sizeBytes',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .requestAvatarUpload(
+                    session,
+                    contentType: params['contentType'],
+                    sizeBytes: params['sizeBytes'],
+                  ),
+        ),
+        'setAvatar': _is.MethodConnector(
+          name: 'setAvatar',
+          params: {
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .setAvatar(
+                    session,
+                    params['key'],
                   ),
         ),
         'becomeCreator': _is.MethodConnector(
@@ -923,6 +1017,99 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['notifications'] = _is.EndpointConnector(
+      name: 'notifications',
+      endpoint: endpoints['notifications']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['notifications']
+                          as _it1fxm15.NotificationsEndpoint)
+                      .list(
+                        session,
+                        after: params['after'],
+                        limit: params['limit'],
+                      ),
+        ),
+        'unreadCount': _is.MethodConnector(
+          name: 'unreadCount',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['notifications']
+                          as _it1fxm15.NotificationsEndpoint)
+                      .unreadCount(session),
+        ),
+        'markRead': _is.MethodConnector(
+          name: 'markRead',
+          params: {
+            'ids': _is.ParameterDescription(
+              name: 'ids',
+              type: _is.getType<List<int>>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['notifications']
+                          as _it1fxm15.NotificationsEndpoint)
+                      .markRead(
+                        session,
+                        params['ids'],
+                      ),
+        ),
+        'markAllRead': _is.MethodConnector(
+          name: 'markAllRead',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['notifications']
+                          as _it1fxm15.NotificationsEndpoint)
+                      .markAllRead(session),
+        ),
+        'watch': _is.MethodStreamConnector(
+          name: 'watch',
+          params: {},
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) =>
+                  (endpoints['notifications']
+                          as _it1fxm15.NotificationsEndpoint)
+                      .watch(session),
+        ),
+      },
+    );
     connectors['comments'] = _is.EndpointConnector(
       name: 'comments',
       endpoint: endpoints['comments']!,
@@ -1000,6 +1187,131 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['comments'] as _iiig3ywm.CommentsEndpoint).delete(
                     session,
                     params['commentId'],
+                  ),
+        ),
+      },
+    );
+    connectors['follows'] = _is.EndpointConnector(
+      name: 'follows',
+      endpoint: endpoints['follows']!,
+      methodConnectors: {
+        'follow': _is.MethodConnector(
+          name: 'follow',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['follows'] as _ihvtp8yg.FollowsEndpoint).follow(
+                    session,
+                    params['userId'],
+                  ),
+        ),
+        'unfollow': _is.MethodConnector(
+          name: 'unfollow',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['follows'] as _ihvtp8yg.FollowsEndpoint).unfollow(
+                    session,
+                    params['userId'],
+                  ),
+        ),
+        'followers': _is.MethodConnector(
+          name: 'followers',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['follows'] as _ihvtp8yg.FollowsEndpoint).followers(
+                    session,
+                    params['userId'],
+                    after: params['after'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'following': _is.MethodConnector(
+          name: 'following',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['follows'] as _ihvtp8yg.FollowsEndpoint).following(
+                    session,
+                    params['userId'],
+                    after: params['after'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'suggestions': _is.MethodConnector(
+          name: 'suggestions',
+          params: {
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['follows'] as _ihvtp8yg.FollowsEndpoint)
+                  .suggestions(
+                    session,
+                    limit: params['limit'],
                   ),
         ),
       },
@@ -1097,5 +1409,10 @@ class Endpoints extends _is.EndpointDispatch {
       ..initializeEndpoints(server);
     modules['serverpod_auth_core'] = _iacs.Endpoints()
       ..initializeEndpoints(server);
+  }
+
+  @override
+  _is.FutureCallDispatch? get futureCalls {
+    return _ioktuqdc.FutureCalls();
   }
 }

@@ -21,6 +21,7 @@ abstract class LiveChatMessageView
     required this.authorId,
     this.authorUsername,
     this.authorName,
+    this.authorAvatarUrl,
     required this.body,
     required this.createdAt,
   });
@@ -31,6 +32,7 @@ abstract class LiveChatMessageView
     required _is.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required DateTime createdAt,
   }) = _LiveChatMessageViewImpl;
@@ -44,6 +46,7 @@ abstract class LiveChatMessageView
       ),
       authorUsername: jsonSerialization['authorUsername'] as String?,
       authorName: jsonSerialization['authorName'] as String?,
+      authorAvatarUrl: jsonSerialization['authorAvatarUrl'] as String?,
       body: jsonSerialization['body'] as String,
       createdAt: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -61,6 +64,8 @@ abstract class LiveChatMessageView
 
   String? authorName;
 
+  String? authorAvatarUrl;
+
   String body;
 
   DateTime createdAt;
@@ -74,6 +79,7 @@ abstract class LiveChatMessageView
     _is.UuidValue? authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     String? body,
     DateTime? createdAt,
   });
@@ -86,6 +92,7 @@ abstract class LiveChatMessageView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'createdAt': createdAt.toJson(),
     };
@@ -100,6 +107,7 @@ abstract class LiveChatMessageView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'createdAt': createdAt.toJson(),
     };
@@ -120,6 +128,7 @@ class _LiveChatMessageViewImpl extends LiveChatMessageView {
     required _is.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required DateTime createdAt,
   }) : super._(
@@ -128,6 +137,7 @@ class _LiveChatMessageViewImpl extends LiveChatMessageView {
          authorId: authorId,
          authorUsername: authorUsername,
          authorName: authorName,
+         authorAvatarUrl: authorAvatarUrl,
          body: body,
          createdAt: createdAt,
        );
@@ -142,6 +152,7 @@ class _LiveChatMessageViewImpl extends LiveChatMessageView {
     _is.UuidValue? authorId,
     Object? authorUsername = _Undefined,
     Object? authorName = _Undefined,
+    Object? authorAvatarUrl = _Undefined,
     String? body,
     DateTime? createdAt,
   }) {
@@ -153,6 +164,9 @@ class _LiveChatMessageViewImpl extends LiveChatMessageView {
           ? authorUsername
           : this.authorUsername,
       authorName: authorName is String? ? authorName : this.authorName,
+      authorAvatarUrl: authorAvatarUrl is String?
+          ? authorAvatarUrl
+          : this.authorAvatarUrl,
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
     );

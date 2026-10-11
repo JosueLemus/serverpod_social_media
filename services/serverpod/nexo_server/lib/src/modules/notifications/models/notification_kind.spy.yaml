@@ -1,0 +1,11 @@
+### Qué pasó. La app decide el ícono y el texto; el servidor nunca manda
+### copy armada.
+enum: NotificationKind
+serialized: byName
+values:
+  - newFollower
+  - postLiked
+  - postCommented
+  - liveStarted
+  - showStartingSoon
+  - reportResolved

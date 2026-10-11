@@ -1,0 +1,8 @@
+### Dónde sigue el feed de inicio: primero se agota `following` y después
+### `discover`, cada una con su propio keyset.
+class: HomeFeedCursor
+fields:
+  followingAfter: PageCursor?
+  followingDone: bool
+  discoverAfter: PageCursor?
+  discoverDone: bool

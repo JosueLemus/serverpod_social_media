@@ -18,6 +18,24 @@ class ProfilesEndpoint extends Endpoint {
   Future<AccountView> update(Session session, ProfileEdit edit) =>
       _identity.update(session, edit);
 
+  /// El permiso para subir un avatar: JPEG, PNG o WebP de hasta 5 MB. Se
+  /// sube con `FileUploader(ticket.uploadDescription)` y se confirma con
+  /// [setAvatar]. Exige sesión.
+  Future<MediaUploadTicket> requestAvatarUpload(
+    Session session, {
+    required String contentType,
+    required int sizeBytes,
+  }) => _identity.requestAvatarUpload(
+    session,
+    contentType: contentType,
+    sizeBytes: sizeBytes,
+  );
+
+  /// Confirma el avatar subido con [key], o lo quita con `null`. La clave
+  /// tiene que ser de esta cuenta. Exige sesión.
+  Future<AccountView> setAvatar(Session session, String? key) =>
+      _identity.setAvatar(session, key);
+
   /// Declara la cuenta como creadora. La verificación la da un operador.
   Future<AccountView> becomeCreator(Session session) =>
       _identity.becomeCreator(session);

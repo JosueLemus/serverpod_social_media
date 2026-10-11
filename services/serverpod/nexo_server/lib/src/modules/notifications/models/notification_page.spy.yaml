@@ -1,0 +1,6 @@
+### Avisos de la más nueva a la más vieja. [nextCursor] es `null` cuando no
+### hay más.
+class: NotificationPage
+fields:
+  items: List<NotificationView>
+  nextCursor: PageCursor?

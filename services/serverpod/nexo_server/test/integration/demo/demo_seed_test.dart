@@ -82,5 +82,19 @@ void main() {
       );
       expect(comments.items.single.body, contains('ándate de aquí'));
     });
+
+    test('then the demo graph is seeded once with matching counters', () async {
+      await seed.run(fixtures.session);
+      await seed.run(fixtures.session);
+
+      expect(await Follow.db.count(fixtures.session), 4);
+      final elena = await endpoints.profiles.byUsername(
+        fixtures.signedIn(await idOf('tomas')),
+        'elena_ux',
+      );
+      expect(elena.followerCount, 3);
+      expect(elena.followingCount, 1);
+      expect(elena.viewerFollows, isTrue);
+    });
   });
 }

@@ -1,0 +1,7 @@
+### Cómo quedó el seguimiento tras seguir o dejar de seguir: el contador ya
+### incluye el cambio.
+class: FollowState
+fields:
+  userId: UuidValue
+  viewerFollows: bool
+  followerCount: int

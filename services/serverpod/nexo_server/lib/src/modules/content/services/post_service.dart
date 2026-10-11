@@ -5,6 +5,7 @@ import '../../../shared/audit/audit_service.dart';
 import '../../../shared/auth/auth_context.dart';
 import '../../../shared/gateways/media_storage_gateway.dart';
 import '../../../shared/gateways/serverpod_media_storage_gateway.dart';
+import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import 'post_rules.dart';
 
@@ -32,6 +33,117 @@ class PostService {
 
   Future<PostView> get(Session session, int postId) async =>
       _toView(session, await loadVisible(session, postId));
+
+  /// Los posts visibles de [authors], del más nuevo al más viejo: la sección
+  /// `following` del feed de inicio.
+  Future<PostPage> byAuthors(
+    Session session,
+    Set<UuidValue> authors, {
+    PageCursor? after,
+    int? limit,
+  }) async {
+    if (authors.isEmpty) return PostPage(items: const []);
+    return _page(session, authors: authors, after: after, limit: limit);
+  }
+
+  /// Posts públicos de cuentas fuera de [excludeAuthors], del más nuevo al
+  /// más viejo. Con [preferredTags], sólo los que comparten alguna etiqueta,
+  /// siempre que exista al menos uno; si no, todos (S7 del SDD 0008).
+  ///
+  /// `tags` se guarda como JSON y la superposición no se expresa en el ORM,
+  /// así que el filtro corre en Dart sobre lotes acotados. El cursor sigue
+  /// siendo el keyset de siempre: una página no repite ni saltea.
+  Future<PostPage> discover(
+    Session session, {
+    required Set<UuidValue> excludeAuthors,
+    Set<String> preferredTags = const {},
+    PageCursor? after,
+    int? limit,
+  }) async {
+    final size = PostRules.pageSize(limit);
+    final tags = {for (final tag in preferredTags) tag.toLowerCase()};
+    bool matches(Post post) =>
+        post.tags.any((tag) => tags.contains(tag.toLowerCase()));
+
+    Future<List<Post>> batch(PageCursor? from, int count) => Post.db.find(
+      session,
+      where: (t) {
+        var where =
+            t.deletedAt.equals(null) &
+            t.visibility.equals(PostVisibility.public);
+        if (excludeAuthors.isNotEmpty) {
+          where = where & t.authorId.notInSet(excludeAuthors);
+        }
+        if (from != null) {
+          where =
+              where &
+              ((t.createdAt < from.createdAt) |
+                  (t.createdAt.equals(from.createdAt) & (t.id < from.id)));
+        }
+        return where;
+      },
+      orderByList: (t) => [t.createdAt.desc(), t.id.desc()],
+      limit: count,
+      include: _withMedia,
+    );
+
+    final filtered =
+        tags.isNotEmpty && (await batch(null, _discoverProbe)).any(matches);
+
+    final picked = <Post>[];
+    var cursor = after;
+    var exhausted = false;
+    for (var round = 0; round < _discoverRounds; round++) {
+      final rows = await batch(cursor, _discoverBatch);
+      for (final post in rows) {
+        if (!filtered || matches(post)) picked.add(post);
+        if (picked.length > size) break;
+      }
+      if (rows.length < _discoverBatch) exhausted = true;
+      if (picked.length > size || exhausted || rows.isEmpty) break;
+      cursor = PageCursor(createdAt: rows.last.createdAt, id: rows.last.id!);
+    }
+
+    final hasMore = picked.length > size;
+    final items = hasMore ? picked.sublist(0, size) : picked;
+    // Si se cortó por el tope de rondas sin agotar la tabla, la próxima
+    // página sigue escaneando desde donde quedó.
+    final resumeAt = hasMore
+        ? PageCursor(createdAt: items.last.createdAt, id: items.last.id!)
+        : (!exhausted && cursor != null && cursor != after ? cursor : null);
+    return PostPage(
+      items: await _toViews(session, items),
+      nextCursor: resumeAt,
+    );
+  }
+
+  /// Las etiquetas de los posts que [userId] likeó en los últimos [days]
+  /// días, para `discover`.
+  Future<Set<String>> likedTags(
+    Session session,
+    UuidValue userId, {
+    int days = 30,
+  }) async {
+    final since = DateTime.now().toUtc().subtract(Duration(days: days));
+    final likes = await PostLike.db.find(
+      session,
+      where: (t) => t.userId.equals(userId) & (t.createdAt > since),
+      limit: 200,
+    );
+    if (likes.isEmpty) return const {};
+    final posts = await Post.db.find(
+      session,
+      where: (t) => t.id.inSet(<int>{for (final like in likes) like.postId}),
+    );
+    return {
+      for (final post in posts)
+        for (final tag in post.tags) tag.toLowerCase(),
+    };
+  }
+
+  static const _discoverBatch = 50;
+  static const _discoverRounds = 6;
+  static const _discoverProbe = 300;
 
   // --- Escritura -----------------------------------------------------------
 
@@ -228,7 +340,9 @@ class PostService {
       transaction: transaction,
       lockMode: transaction == null ? null : LockMode.forUpdate,
     );
-    if (post == null || post.deletedAt != null || !_canSee(session, post)) {
+    if (post == null ||
+        post.deletedAt != null ||
+        !await _canSee(session, post, transaction: transaction)) {
       throw _error(NexoErrorCode.notFound, 'La publicación no existe.');
     }
     return post;
@@ -272,19 +386,64 @@ class PostService {
 
   // --- Internos ------------------------------------------------------------
 
-  bool _canSee(Session session, Post post) =>
-      post.visibility == PostVisibility.public ||
-      post.authorId == session.userIdOrNull ||
-      session.isStaff;
+  /// Público para todos; `followers` para quien sigue al autor; `members`
+  /// sólo el autor hasta que exista billing. El autor y el staff ven todo.
+  Future<bool> _canSee(
+    Session session,
+    Post post, {
+    Transaction? transaction,
+  }) async {
+    final viewer = session.userIdOrNull;
+    if (post.visibility == PostVisibility.public ||
+        post.authorId == viewer ||
+        session.isStaff) {
+      return true;
+    }
+    if (post.visibility != PostVisibility.followers || viewer == null) {
+      return false;
+    }
+    return await Follow.db.count(
+          session,
+          where: (t) =>
+              t.followerId.equals(viewer) & t.followeeId.equals(post.authorId),
+          transaction: transaction,
+        ) >
+        0;
+  }
 
-  /// La condición de [_canSee] como filtro de consulta.
-  Expression _visibleWhere(PostTable t, Session session) {
+  /// Las cuentas que sigue la sesión, para la visibilidad `followers`. El
+  /// staff y los invitados no la necesitan.
+  Future<Set<UuidValue>> _followeesOf(Session session) async {
+    final viewer = session.userIdOrNull;
+    if (viewer == null || session.isStaff) return const {};
+    return {
+      for (final row in await Follow.db.find(
+        session,
+        where: (t) => t.followerId.equals(viewer),
+      ))
+        row.followeeId,
+    };
+  }
+
+  /// La condición de [_canSee] como filtro de consulta. [followees] sale de
+  /// [_followeesOf].
+  Expression _visibleWhere(
+    PostTable t,
+    Session session,
+    Set<UuidValue> followees,
+  ) {
     final viewer = session.userIdOrNull;
     final visible = t.deletedAt.equals(null);
     if (session.isStaff) return visible;
-    final public = t.visibility.equals(PostVisibility.public);
-    return visible &
-        (viewer == null ? public : public | t.authorId.equals(viewer));
+    Expression allowed = t.visibility.equals(PostVisibility.public);
+    if (viewer != null) allowed = allowed | t.authorId.equals(viewer);
+    if (followees.isNotEmpty) {
+      allowed =
+          allowed |
+          (t.visibility.equals(PostVisibility.followers) &
+              t.authorId.inSet(followees));
+    }
+    return visible & allowed;
   }
 
   /// Keyset sobre `(createdAt, id)` descendente: una página no repite ni
@@ -292,15 +451,18 @@ class PostService {
   Future<PostPage> _page(
     Session session, {
     UuidValue? authorId,
+    Set<UuidValue>? authors,
     PageCursor? after,
     int? limit,
   }) async {
     final size = PostRules.pageSize(limit);
+    final followees = await _followeesOf(session);
     final rows = await Post.db.find(
       session,
       where: (t) {
-        var where = _visibleWhere(t, session);
+        var where = _visibleWhere(t, session, followees);
         if (authorId != null) where = where & t.authorId.equals(authorId);
+        if (authors != null) where = where & t.authorId.inSet(authors);
         if (after != null) {
           where =
               where &
@@ -385,6 +547,11 @@ class PostService {
     if (posts.isEmpty) return const [];
 
     final profiles = await profilesOf(session, posts.map((p) => p.authorId));
+    final avatars = await avatarsOf(
+      session,
+      posts.map((p) => p.authorId),
+      storage: _storage,
+    );
     final viewer = session.userIdOrNull;
     final isStaff = session.isStaff;
 
@@ -411,6 +578,7 @@ class PostService {
           authorId: post.authorId,
           authorUsername: profile?.userName,
           authorName: profile?.fullName,
+          authorAvatarUrl: avatars[post.authorId],
           body: post.body,
           tags: post.tags,
           visibility: post.visibility,

@@ -108,6 +108,7 @@ class DemoSeed {
     }
     await _seedContent(session, ids);
     await _seedLive(session, ids);
+    await _seedFollows(session, ids);
     return created;
   }
 
@@ -292,6 +293,111 @@ class DemoSeed {
           createdAt: startedAt.add(const Duration(minutes: 31)),
         ),
       ], transaction: tx);
+    });
+  }
+
+  /// El grafo de la demo: Tomás y Troll siguen a Elena, y Elena y Carlos se
+  /// siguen entre sí. Guarda propia, como [_seedLive]: si Tomás ya sigue a
+  /// Elena, no hace nada.
+  Future<void> _seedFollows(Session session, Map<String, UuidValue> ids) async {
+    final elena = ids['elena_ux']!;
+    final carlos = ids['carlos_mendez']!;
+    final tomas = ids['tomas']!;
+    final troll = ids['troll_99']!;
+
+    final seeded = await Follow.db.count(
+      session,
+      where: (t) => t.followerId.equals(tomas) & t.followeeId.equals(elena),
+    );
+    if (seeded > 0) return;
+
+    const pairs = <(String, String)>[
+      ('tomas', 'elena_ux'),
+      ('troll_99', 'elena_ux'),
+      ('elena_ux', 'carlos_mendez'),
+      ('carlos_mendez', 'elena_ux'),
+    ];
+    await session.db.transaction((tx) async {
+      await Follow.db.insert(session, [
+        for (final (follower, followee) in pairs)
+          Follow(followerId: ids[follower]!, followeeId: ids[followee]!),
+      ], transaction: tx);
+      // Los contadores se recalculan desde las filas: la semilla no tiene
+      // que saber cuántos había antes.
+      for (final id in {elena, carlos, tomas, troll}) {
+        final account = (await AccountProfile.db.findFirstRow(
+          session,
+          where: (t) => t.authUserId.equals(id),
+          transaction: tx,
+        ))!;
+        await AccountProfile.db.updateRow(
+          session,
+          account.copyWith(
+            followerCount: await Follow.db.count(
+              session,
+              where: (t) => t.followeeId.equals(id),
+              transaction: tx,
+            ),
+            followingCount: await Follow.db.count(
+              session,
+              where: (t) => t.followerId.equals(id),
+              transaction: tx,
+            ),
+          ),
+          columns: (t) => [t.followerCount, t.followingCount],
+          transaction: tx,
+        );
+      }
+
+      // La bandeja de Elena no arranca vacía: sus dos seguidores nuevos y un
+      // like real (con su fila y su contador) a su último post.
+      final notices = [
+        UserNotification(
+          userId: elena,
+          kind: NotificationKind.newFollower,
+          actorId: tomas,
+        ),
+        UserNotification(
+          userId: elena,
+          kind: NotificationKind.newFollower,
+          actorId: troll,
+        ),
+      ];
+      final latest = await Post.db.findFirstRow(
+        session,
+        where: (t) => t.authorId.equals(elena) & t.deletedAt.equals(null),
+        orderByList: (t) => [t.createdAt.desc()],
+        transaction: tx,
+      );
+      if (latest != null) {
+        final liked = await PostLike.db.count(
+          session,
+          where: (t) => t.postId.equals(latest.id!) & t.userId.equals(tomas),
+          transaction: tx,
+        );
+        if (liked == 0) {
+          await PostLike.db.insertRow(
+            session,
+            PostLike(postId: latest.id!, userId: tomas),
+            transaction: tx,
+          );
+          await Post.db.updateRow(
+            session,
+            latest.copyWith(likeCount: latest.likeCount + 1),
+            columns: (t) => [t.likeCount],
+            transaction: tx,
+          );
+        }
+        notices.add(
+          UserNotification(
+            userId: elena,
+            kind: NotificationKind.postLiked,
+            actorId: tomas,
+            postId: latest.id,
+          ),
+        );
+      }
+      await UserNotification.db.insert(session, notices, transaction: tx);
     });
   }
 }

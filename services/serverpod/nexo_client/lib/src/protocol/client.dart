@@ -24,6 +24,10 @@ import 'package:nexo_client/src/protocol/modules/content/models/post_page.dart'
     as _i9cr6dtc;
 import 'package:nexo_client/src/protocol/modules/content/models/post_view.dart'
     as _ibqqifwv;
+import 'package:nexo_client/src/protocol/modules/feed/models/home_feed_cursor.dart'
+    as _iujuwyaw;
+import 'package:nexo_client/src/protocol/modules/feed/models/home_feed_page.dart'
+    as _igm2dp4q;
 import 'package:nexo_client/src/protocol/modules/identity/models/account_view.dart'
     as _i0b9qmvw;
 import 'package:nexo_client/src/protocol/modules/identity/models/profile_edit.dart'
@@ -50,6 +54,14 @@ import 'package:nexo_client/src/protocol/modules/moderation/models/report_queue_
     as _ij26twz2;
 import 'package:nexo_client/src/protocol/modules/moderation/models/report_target_type.dart'
     as _iajbeibr;
+import 'package:nexo_client/src/protocol/modules/notifications/models/notification_page.dart'
+    as _iu8vyvf0;
+import 'package:nexo_client/src/protocol/modules/notifications/models/notification_view.dart'
+    as _iloot1zz;
+import 'package:nexo_client/src/protocol/modules/social/models/follow_page.dart'
+    as _ie4jjjxk;
+import 'package:nexo_client/src/protocol/modules/social/models/follow_state.dart'
+    as _iecu8iqi;
 import 'package:nexo_client/src/protocol/modules/social/models/like_state.dart'
     as _ijckcjl1;
 import 'package:nexo_client/src/protocol/modules/social/models/post_comment_page.dart'
@@ -389,6 +401,27 @@ class EndpointPosts extends _isc.EndpointRef {
   );
 }
 
+/// El feed de inicio por secciones. Desde Flutter: `client.feed`.
+/// {@category Endpoint}
+class EndpointFeed extends _isc.EndpointRef {
+  EndpointFeed(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'feed';
+
+  /// La primera página (sin [cursor]) trae las secciones con contenido:
+  /// `liveNow`, `following`, `suggestedAccounts` y `discover`. Las
+  /// siguientes, `following` hasta agotarse y después `discover`. Sin
+  /// sesión, `following` no viene.
+  _ida.Future<_igm2dp4q.HomeFeedPage> home({
+    _iujuwyaw.HomeFeedCursor? cursor,
+  }) => caller.callServerEndpoint<_igm2dp4q.HomeFeedPage>(
+    'feed',
+    'home',
+    {'cursor': cursor},
+  );
+}
+
 /// Perfiles de Nexo. Desde Flutter: `client.profiles`.
 ///
 /// La primera llamada a [me] de una cuenta nueva le crea su perfil con un
@@ -415,6 +448,30 @@ class EndpointProfiles extends _isc.EndpointRef {
         'profiles',
         'update',
         {'edit': edit},
+      );
+
+  /// El permiso para subir un avatar: JPEG, PNG o WebP de hasta 5 MB. Se
+  /// sube con `FileUploader(ticket.uploadDescription)` y se confirma con
+  /// [setAvatar]. Exige sesión.
+  _ida.Future<_ifucagw2.MediaUploadTicket> requestAvatarUpload({
+    required String contentType,
+    required int sizeBytes,
+  }) => caller.callServerEndpoint<_ifucagw2.MediaUploadTicket>(
+    'profiles',
+    'requestAvatarUpload',
+    {
+      'contentType': contentType,
+      'sizeBytes': sizeBytes,
+    },
+  );
+
+  /// Confirma el avatar subido con [key], o lo quita con `null`. La clave
+  /// tiene que ser de esta cuenta. Exige sesión.
+  _ida.Future<_i0b9qmvw.AccountView> setAvatar(String? key) =>
+      caller.callServerEndpoint<_i0b9qmvw.AccountView>(
+        'profiles',
+        'setAvatar',
+        {'key': key},
       );
 
   /// Declara la cuenta como creadora. La verificación la da un operador.
@@ -655,6 +712,62 @@ class EndpointModeration extends _isc.EndpointRef {
   );
 }
 
+/// Los avisos de la cuenta de la sesión. Desde Flutter:
+/// `client.notifications`. Todo exige sesión.
+/// {@category Endpoint}
+class EndpointNotifications extends _isc.EndpointRef {
+  EndpointNotifications(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'notifications';
+
+  /// De la más nueva a la más vieja.
+  _ida.Future<_iu8vyvf0.NotificationPage> list({
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_iu8vyvf0.NotificationPage>(
+    'notifications',
+    'list',
+    {
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  _ida.Future<int> unreadCount() => caller.callServerEndpoint<int>(
+    'notifications',
+    'unreadCount',
+    {},
+  );
+
+  /// Marca [ids] como leídos (sólo los propios). Devuelve los que quedan.
+  _ida.Future<int> markRead(List<int> ids) => caller.callServerEndpoint<int>(
+    'notifications',
+    'markRead',
+    {'ids': ids},
+  );
+
+  /// Marca todos como leídos. Devuelve 0.
+  _ida.Future<int> markAllRead() => caller.callServerEndpoint<int>(
+    'notifications',
+    'markAllRead',
+    {},
+  );
+
+  /// Cada aviso nuevo, en el momento: el badge de Actividad cambia sin
+  /// recargar.
+  _ida.Stream<_iloot1zz.NotificationView> watch() =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_iloot1zz.NotificationView>,
+        _iloot1zz.NotificationView
+      >(
+        'notifications',
+        'watch',
+        {},
+        {},
+      );
+}
+
 /// Comentarios de posts. Desde Flutter: `client.comments`.
 /// {@category Endpoint}
 class EndpointComments extends _isc.EndpointRef {
@@ -700,6 +813,74 @@ class EndpointComments extends _isc.EndpointRef {
     'delete',
     {'commentId': commentId},
   );
+}
+
+/// Seguir cuentas. Desde Flutter: `client.follows`.
+///
+/// Seguir y dejar de seguir exigen sesión y son idempotentes. Las listas y
+/// las sugerencias son públicas.
+/// {@category Endpoint}
+class EndpointFollows extends _isc.EndpointRef {
+  EndpointFollows(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'follows';
+
+  /// Sigue a [userId]. No se puede seguir a uno mismo; la cuenta tiene que
+  /// estar activa.
+  _ida.Future<_iecu8iqi.FollowState> follow(_isc.UuidValue userId) =>
+      caller.callServerEndpoint<_iecu8iqi.FollowState>(
+        'follows',
+        'follow',
+        {'userId': userId},
+      );
+
+  /// Deja de seguir a [userId]. Sin efecto si no lo seguía.
+  _ida.Future<_iecu8iqi.FollowState> unfollow(_isc.UuidValue userId) =>
+      caller.callServerEndpoint<_iecu8iqi.FollowState>(
+        'follows',
+        'unfollow',
+        {'userId': userId},
+      );
+
+  /// Quién sigue a [userId], del más reciente al más viejo.
+  _ida.Future<_ie4jjjxk.FollowPage> followers(
+    _isc.UuidValue userId, {
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_ie4jjjxk.FollowPage>(
+    'follows',
+    'followers',
+    {
+      'userId': userId,
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// A quién sigue [userId], del más reciente al más viejo.
+  _ida.Future<_ie4jjjxk.FollowPage> following(
+    _isc.UuidValue userId, {
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_ie4jjjxk.FollowPage>(
+    'follows',
+    'following',
+    {
+      'userId': userId,
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// Creadores verificados que la sesión todavía no sigue, por seguidores
+  /// (hasta 20; 10 por defecto). Sin sesión, los más seguidos.
+  _ida.Future<List<_iaqpe3js.ProfileView>> suggestions({int? limit}) =>
+      caller.callServerEndpoint<List<_iaqpe3js.ProfileView>>(
+        'follows',
+        'suggestions',
+        {'limit': limit},
+      );
 }
 
 /// Likes de posts. Desde Flutter: `client.likes`.
@@ -803,10 +984,13 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     posts = EndpointPosts(this);
+    feed = EndpointFeed(this);
     profiles = EndpointProfiles(this);
     live = EndpointLive(this);
     moderation = EndpointModeration(this);
+    notifications = EndpointNotifications(this);
     comments = EndpointComments(this);
+    follows = EndpointFollows(this);
     likes = EndpointLikes(this);
     health = EndpointHealth(this);
     modules = Modules(this);
@@ -818,13 +1002,19 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointPosts posts;
 
+  late final EndpointFeed feed;
+
   late final EndpointProfiles profiles;
 
   late final EndpointLive live;
 
   late final EndpointModeration moderation;
 
+  late final EndpointNotifications notifications;
+
   late final EndpointComments comments;
+
+  late final EndpointFollows follows;
 
   late final EndpointLikes likes;
 
@@ -837,10 +1027,13 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'posts': posts,
+    'feed': feed,
     'profiles': profiles,
     'live': live,
     'moderation': moderation,
+    'notifications': notifications,
     'comments': comments,
+    'follows': follows,
     'likes': likes,
     'health': health,
   };

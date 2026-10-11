@@ -22,6 +22,7 @@ abstract class PostCommentView
     required this.authorId,
     this.authorUsername,
     this.authorName,
+    this.authorAvatarUrl,
     required this.body,
     required this.createdAt,
     required this.canDelete,
@@ -33,6 +34,7 @@ abstract class PostCommentView
     required _is.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required DateTime createdAt,
     required bool canDelete,
@@ -47,6 +49,7 @@ abstract class PostCommentView
       ),
       authorUsername: jsonSerialization['authorUsername'] as String?,
       authorName: jsonSerialization['authorName'] as String?,
+      authorAvatarUrl: jsonSerialization['authorAvatarUrl'] as String?,
       body: jsonSerialization['body'] as String,
       createdAt: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -65,6 +68,8 @@ abstract class PostCommentView
 
   String? authorName;
 
+  String? authorAvatarUrl;
+
   String body;
 
   DateTime createdAt;
@@ -80,6 +85,7 @@ abstract class PostCommentView
     _is.UuidValue? authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     String? body,
     DateTime? createdAt,
     bool? canDelete,
@@ -93,6 +99,7 @@ abstract class PostCommentView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'createdAt': createdAt.toJson(),
       'canDelete': canDelete,
@@ -108,6 +115,7 @@ abstract class PostCommentView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'createdAt': createdAt.toJson(),
       'canDelete': canDelete,
@@ -129,6 +137,7 @@ class _PostCommentViewImpl extends PostCommentView {
     required _is.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required DateTime createdAt,
     required bool canDelete,
@@ -138,6 +147,7 @@ class _PostCommentViewImpl extends PostCommentView {
          authorId: authorId,
          authorUsername: authorUsername,
          authorName: authorName,
+         authorAvatarUrl: authorAvatarUrl,
          body: body,
          createdAt: createdAt,
          canDelete: canDelete,
@@ -153,6 +163,7 @@ class _PostCommentViewImpl extends PostCommentView {
     _is.UuidValue? authorId,
     Object? authorUsername = _Undefined,
     Object? authorName = _Undefined,
+    Object? authorAvatarUrl = _Undefined,
     String? body,
     DateTime? createdAt,
     bool? canDelete,
@@ -165,6 +176,9 @@ class _PostCommentViewImpl extends PostCommentView {
           ? authorUsername
           : this.authorUsername,
       authorName: authorName is String? ? authorName : this.authorName,
+      authorAvatarUrl: authorAvatarUrl is String?
+          ? authorAvatarUrl
+          : this.authorAvatarUrl,
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       canDelete: canDelete ?? this.canDelete,

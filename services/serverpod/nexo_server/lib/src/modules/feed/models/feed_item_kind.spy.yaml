@@ -1,0 +1,10 @@
+### Qué es cada elemento del feed: decide cómo se dibuja.
+enum: FeedItemKind
+serialized: byName
+values:
+  - textPost
+  - imagePost
+  - videoPost
+  - scheduledShow
+  - liveShow
+  - recordedShow

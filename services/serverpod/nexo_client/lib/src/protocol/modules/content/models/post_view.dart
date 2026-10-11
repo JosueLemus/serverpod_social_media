@@ -24,6 +24,7 @@ abstract class PostView
     required this.authorId,
     this.authorUsername,
     this.authorName,
+    this.authorAvatarUrl,
     required this.body,
     required this.tags,
     required this.visibility,
@@ -43,6 +44,7 @@ abstract class PostView
     required _isc.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required List<String> tags,
     required _i6lvj3eo.PostVisibility visibility,
@@ -65,6 +67,7 @@ abstract class PostView
       ),
       authorUsername: jsonSerialization['authorUsername'] as String?,
       authorName: jsonSerialization['authorName'] as String?,
+      authorAvatarUrl: jsonSerialization['authorAvatarUrl'] as String?,
       body: jsonSerialization['body'] as String,
       tags: _il0t1g31.Protocol().deserialize<List<String>>(
         jsonSerialization['tags'],
@@ -104,6 +107,8 @@ abstract class PostView
 
   String? authorName;
 
+  String? authorAvatarUrl;
+
   String body;
 
   List<String> tags;
@@ -137,6 +142,7 @@ abstract class PostView
     _isc.UuidValue? authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     String? body,
     List<String>? tags,
     _i6lvj3eo.PostVisibility? visibility,
@@ -158,6 +164,7 @@ abstract class PostView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'tags': tags.toJson(),
       'visibility': visibility.toJson(),
@@ -181,6 +188,7 @@ abstract class PostView
       'authorId': authorId.toJson(),
       if (authorUsername != null) 'authorUsername': authorUsername,
       if (authorName != null) 'authorName': authorName,
+      if (authorAvatarUrl != null) 'authorAvatarUrl': authorAvatarUrl,
       'body': body,
       'tags': tags.toJson(),
       'visibility': visibility.toJson(),
@@ -210,6 +218,7 @@ class _PostViewImpl extends PostView {
     required _isc.UuidValue authorId,
     String? authorUsername,
     String? authorName,
+    String? authorAvatarUrl,
     required String body,
     required List<String> tags,
     required _i6lvj3eo.PostVisibility visibility,
@@ -227,6 +236,7 @@ class _PostViewImpl extends PostView {
          authorId: authorId,
          authorUsername: authorUsername,
          authorName: authorName,
+         authorAvatarUrl: authorAvatarUrl,
          body: body,
          tags: tags,
          visibility: visibility,
@@ -250,6 +260,7 @@ class _PostViewImpl extends PostView {
     _isc.UuidValue? authorId,
     Object? authorUsername = _Undefined,
     Object? authorName = _Undefined,
+    Object? authorAvatarUrl = _Undefined,
     String? body,
     List<String>? tags,
     _i6lvj3eo.PostVisibility? visibility,
@@ -270,6 +281,9 @@ class _PostViewImpl extends PostView {
           ? authorUsername
           : this.authorUsername,
       authorName: authorName is String? ? authorName : this.authorName,
+      authorAvatarUrl: authorAvatarUrl is String?
+          ? authorAvatarUrl
+          : this.authorAvatarUrl,
       body: body ?? this.body,
       tags: tags ?? this.tags.map((e0) => e0).toList(),
       visibility: visibility ?? this.visibility,

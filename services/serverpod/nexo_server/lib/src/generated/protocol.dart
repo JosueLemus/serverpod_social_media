@@ -11,6 +11,8 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:nexo_server/src/generated/modules/identity/models/profile_view.dart'
+    as _i43ck6sm;
 import 'package:nexo_server/src/generated/modules/live/models/live_chat_message_view.dart'
     as _i22oo2zh;
 import 'package:nexo_server/src/generated/modules/live/models/live_show_view.dart'
@@ -23,6 +25,12 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
+import 'future_calls_generated_models/live_show_future_call_expire_model.dart'
+    as _ie5d2xvy;
+import 'future_calls_generated_models/live_show_future_call_publish_replay_model.dart'
+    as _iy3z9iri;
+import 'future_calls_generated_models/live_show_future_call_remind_model.dart'
+    as _iqr7hhpp;
 import 'modules/content/models/media_upload_ticket.dart' as _i4efb2h6;
 import 'modules/content/models/post.dart' as _i99cc7k2;
 import 'modules/content/models/post_draft.dart' as _i71ym97j;
@@ -33,6 +41,12 @@ import 'modules/content/models/post_media_view.dart' as _ibyq15o7;
 import 'modules/content/models/post_page.dart' as _idjwmytq;
 import 'modules/content/models/post_view.dart' as _ixt78pt4;
 import 'modules/content/models/post_visibility.dart' as _iu5xfvn4;
+import 'modules/feed/models/feed_item.dart' as _ipgmhy3o;
+import 'modules/feed/models/feed_item_kind.dart' as _ibecfnye;
+import 'modules/feed/models/feed_section.dart' as _it29bb7l;
+import 'modules/feed/models/feed_section_kind.dart' as _iebgsa3d;
+import 'modules/feed/models/home_feed_cursor.dart' as _in19kjfm;
+import 'modules/feed/models/home_feed_page.dart' as _ihgqdd8m;
 import 'modules/identity/models/account_profile.dart' as _i85zfh3f;
 import 'modules/identity/models/account_status.dart' as _i96mabue;
 import 'modules/identity/models/account_view.dart' as _ig9ziu3q;
@@ -59,6 +73,13 @@ import 'modules/moderation/models/report_decision.dart' as _ib61hwyt;
 import 'modules/moderation/models/report_queue_item.dart' as _itr0x2qd;
 import 'modules/moderation/models/report_severity.dart' as _id3n49vv;
 import 'modules/moderation/models/report_target_type.dart' as _i5s3tooi;
+import 'modules/notifications/models/notification_kind.dart' as _iuphy7om;
+import 'modules/notifications/models/notification_page.dart' as _ipp18xpo;
+import 'modules/notifications/models/notification_view.dart' as _imgpiqz3;
+import 'modules/notifications/models/user_notification.dart' as _idxf743i;
+import 'modules/social/models/follow.dart' as _i9ykk824;
+import 'modules/social/models/follow_page.dart' as _i6r55qgl;
+import 'modules/social/models/follow_state.dart' as _ihy6a719;
 import 'modules/social/models/like_state.dart' as _i0kd3w76;
 import 'modules/social/models/post_comment.dart' as _ir2psgaa;
 import 'modules/social/models/post_comment_page.dart' as _iov9osdu;
@@ -80,6 +101,12 @@ export 'modules/content/models/post_media_view.dart';
 export 'modules/content/models/post_page.dart';
 export 'modules/content/models/post_view.dart';
 export 'modules/content/models/post_visibility.dart';
+export 'modules/feed/models/feed_item.dart';
+export 'modules/feed/models/feed_item_kind.dart';
+export 'modules/feed/models/feed_section.dart';
+export 'modules/feed/models/feed_section_kind.dart';
+export 'modules/feed/models/home_feed_cursor.dart';
+export 'modules/feed/models/home_feed_page.dart';
 export 'modules/identity/models/account_profile.dart';
 export 'modules/identity/models/account_status.dart';
 export 'modules/identity/models/account_view.dart';
@@ -106,6 +133,13 @@ export 'modules/moderation/models/report_decision.dart';
 export 'modules/moderation/models/report_queue_item.dart';
 export 'modules/moderation/models/report_severity.dart';
 export 'modules/moderation/models/report_target_type.dart';
+export 'modules/notifications/models/notification_kind.dart';
+export 'modules/notifications/models/notification_page.dart';
+export 'modules/notifications/models/notification_view.dart';
+export 'modules/notifications/models/user_notification.dart';
+export 'modules/social/models/follow.dart';
+export 'modules/social/models/follow_page.dart';
+export 'modules/social/models/follow_state.dart';
 export 'modules/social/models/like_state.dart';
 export 'modules/social/models/post_comment.dart';
 export 'modules/social/models/post_comment_page.dart';
@@ -158,6 +192,12 @@ class Protocol extends _is.DatabaseSerializationManager {
           dartType: 'String?',
         ),
         _isp.ColumnDefinition(
+          name: 'avatarKey',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
           name: 'isCreator',
           columnType: _isp.ColumnType.boolean,
           isNullable: false,
@@ -177,6 +217,20 @@ class Protocol extends _is.DatabaseSerializationManager {
           isNullable: false,
           dartType: 'protocol:AccountStatus',
           columnDefault: '\'active\'',
+        ),
+        _isp.ColumnDefinition(
+          name: 'followerCount',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isp.ColumnDefinition(
+          name: 'followingCount',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
         ),
         _isp.ColumnDefinition(
           name: 'createdAt',
@@ -420,6 +474,95 @@ class Protocol extends _is.DatabaseSerializationManager {
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
               definition: 'severity',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'follow',
+      dartName: 'Follow',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'followerId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'followeeId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'follow_pair_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'followerId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'followeeId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'follow_followee_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'followeeId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'createdAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'follow_follower_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'followerId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'createdAt',
             ),
           ],
           type: 'btree',
@@ -1119,6 +1262,102 @@ class Protocol extends _is.DatabaseSerializationManager {
       ],
       managed: true,
     ),
+    _isp.TableDefinition(
+      name: 'user_notification',
+      dartName: 'UserNotification',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'kind',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:NotificationKind',
+        ),
+        _isp.ColumnDefinition(
+          name: 'actorId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'postId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'showId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'readAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'user_notification_feed_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'createdAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'user_notification_unread_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'readAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     ..._iais.Protocol.targetTableDefinitions,
     ..._iacs.Protocol.targetTableDefinitions,
     ..._isp.Protocol.targetTableDefinitions,
@@ -1151,6 +1390,15 @@ class Protocol extends _is.DatabaseSerializationManager {
       }
     }
 
+    if (t == _ie5d2xvy.LiveShowFutureCallExpireModel) {
+      return _ie5d2xvy.LiveShowFutureCallExpireModel.fromJson(data) as T;
+    }
+    if (t == _iy3z9iri.LiveShowFutureCallPublishReplayModel) {
+      return _iy3z9iri.LiveShowFutureCallPublishReplayModel.fromJson(data) as T;
+    }
+    if (t == _iqr7hhpp.LiveShowFutureCallRemindModel) {
+      return _iqr7hhpp.LiveShowFutureCallRemindModel.fromJson(data) as T;
+    }
     if (t == _i4efb2h6.MediaUploadTicket) {
       return _i4efb2h6.MediaUploadTicket.fromJson(data) as T;
     }
@@ -1180,6 +1428,24 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _iu5xfvn4.PostVisibility) {
       return _iu5xfvn4.PostVisibility.fromJson(data) as T;
+    }
+    if (t == _ipgmhy3o.FeedItem) {
+      return _ipgmhy3o.FeedItem.fromJson(data) as T;
+    }
+    if (t == _ibecfnye.FeedItemKind) {
+      return _ibecfnye.FeedItemKind.fromJson(data) as T;
+    }
+    if (t == _it29bb7l.FeedSection) {
+      return _it29bb7l.FeedSection.fromJson(data) as T;
+    }
+    if (t == _iebgsa3d.FeedSectionKind) {
+      return _iebgsa3d.FeedSectionKind.fromJson(data) as T;
+    }
+    if (t == _in19kjfm.HomeFeedCursor) {
+      return _in19kjfm.HomeFeedCursor.fromJson(data) as T;
+    }
+    if (t == _ihgqdd8m.HomeFeedPage) {
+      return _ihgqdd8m.HomeFeedPage.fromJson(data) as T;
     }
     if (t == _i85zfh3f.AccountProfile) {
       return _i85zfh3f.AccountProfile.fromJson(data) as T;
@@ -1259,6 +1525,27 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _i5s3tooi.ReportTargetType) {
       return _i5s3tooi.ReportTargetType.fromJson(data) as T;
     }
+    if (t == _iuphy7om.NotificationKind) {
+      return _iuphy7om.NotificationKind.fromJson(data) as T;
+    }
+    if (t == _ipp18xpo.NotificationPage) {
+      return _ipp18xpo.NotificationPage.fromJson(data) as T;
+    }
+    if (t == _imgpiqz3.NotificationView) {
+      return _imgpiqz3.NotificationView.fromJson(data) as T;
+    }
+    if (t == _idxf743i.UserNotification) {
+      return _idxf743i.UserNotification.fromJson(data) as T;
+    }
+    if (t == _i9ykk824.Follow) {
+      return _i9ykk824.Follow.fromJson(data) as T;
+    }
+    if (t == _i6r55qgl.FollowPage) {
+      return _i6r55qgl.FollowPage.fromJson(data) as T;
+    }
+    if (t == _ihy6a719.FollowState) {
+      return _ihy6a719.FollowState.fromJson(data) as T;
+    }
     if (t == _i0kd3w76.LikeState) {
       return _i0kd3w76.LikeState.fromJson(data) as T;
     }
@@ -1291,6 +1578,24 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _ihkyxh72.PageCursor) {
       return _ihkyxh72.PageCursor.fromJson(data) as T;
+    }
+    if (t == _is.getType<_ie5d2xvy.LiveShowFutureCallExpireModel?>()) {
+      return (data != null
+              ? _ie5d2xvy.LiveShowFutureCallExpireModel.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_iy3z9iri.LiveShowFutureCallPublishReplayModel?>()) {
+      return (data != null
+              ? _iy3z9iri.LiveShowFutureCallPublishReplayModel.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_iqr7hhpp.LiveShowFutureCallRemindModel?>()) {
+      return (data != null
+              ? _iqr7hhpp.LiveShowFutureCallRemindModel.fromJson(data)
+              : null)
+          as T;
     }
     if (t == _is.getType<_i4efb2h6.MediaUploadTicket?>()) {
       return (data != null ? _i4efb2h6.MediaUploadTicket.fromJson(data) : null)
@@ -1325,6 +1630,26 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_iu5xfvn4.PostVisibility?>()) {
       return (data != null ? _iu5xfvn4.PostVisibility.fromJson(data) : null)
           as T;
+    }
+    if (t == _is.getType<_ipgmhy3o.FeedItem?>()) {
+      return (data != null ? _ipgmhy3o.FeedItem.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ibecfnye.FeedItemKind?>()) {
+      return (data != null ? _ibecfnye.FeedItemKind.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_it29bb7l.FeedSection?>()) {
+      return (data != null ? _it29bb7l.FeedSection.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iebgsa3d.FeedSectionKind?>()) {
+      return (data != null ? _iebgsa3d.FeedSectionKind.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_in19kjfm.HomeFeedCursor?>()) {
+      return (data != null ? _in19kjfm.HomeFeedCursor.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ihgqdd8m.HomeFeedPage?>()) {
+      return (data != null ? _ihgqdd8m.HomeFeedPage.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_i85zfh3f.AccountProfile?>()) {
       return (data != null ? _i85zfh3f.AccountProfile.fromJson(data) : null)
@@ -1427,6 +1752,31 @@ class Protocol extends _is.DatabaseSerializationManager {
       return (data != null ? _i5s3tooi.ReportTargetType.fromJson(data) : null)
           as T;
     }
+    if (t == _is.getType<_iuphy7om.NotificationKind?>()) {
+      return (data != null ? _iuphy7om.NotificationKind.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ipp18xpo.NotificationPage?>()) {
+      return (data != null ? _ipp18xpo.NotificationPage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_imgpiqz3.NotificationView?>()) {
+      return (data != null ? _imgpiqz3.NotificationView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_idxf743i.UserNotification?>()) {
+      return (data != null ? _idxf743i.UserNotification.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i9ykk824.Follow?>()) {
+      return (data != null ? _i9ykk824.Follow.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i6r55qgl.FollowPage?>()) {
+      return (data != null ? _i6r55qgl.FollowPage.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ihy6a719.FollowState?>()) {
+      return (data != null ? _ihy6a719.FollowState.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_i0kd3w76.LikeState?>()) {
       return (data != null ? _i0kd3w76.LikeState.fromJson(data) : null) as T;
     }
@@ -1500,6 +1850,24 @@ class Protocol extends _is.DatabaseSerializationManager {
               .toList()
           as T;
     }
+    if (t == List<_ipgmhy3o.FeedItem>) {
+      return (data as List)
+              .map((e) => deserialize<_ipgmhy3o.FeedItem>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i8sfv82t.ProfileView>) {
+      return (data as List)
+              .map((e) => deserialize<_i8sfv82t.ProfileView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_it29bb7l.FeedSection>) {
+      return (data as List)
+              .map((e) => deserialize<_it29bb7l.FeedSection>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_il6n38yd.LiveChatMessageView>) {
       return (data as List)
               .map((e) => deserialize<_il6n38yd.LiveChatMessageView>(e))
@@ -1516,6 +1884,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == List<_is.UuidValue>) {
       return (data as List).map((e) => deserialize<_is.UuidValue>(e)).toList()
+          as T;
+    }
+    if (t == List<_imgpiqz3.NotificationView>) {
+      return (data as List)
+              .map((e) => deserialize<_imgpiqz3.NotificationView>(e))
+              .toList()
           as T;
     }
     if (t == List<_i5ho22g4.PostCommentView>) {
@@ -1548,6 +1922,15 @@ class Protocol extends _is.DatabaseSerializationManager {
               .toList()
           as T;
     }
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
+    }
+    if (t == List<_i43ck6sm.ProfileView>) {
+      return (data as List)
+              .map((e) => deserialize<_i43ck6sm.ProfileView>(e))
+              .toList()
+          as T;
+    }
     try {
       return _iais.Protocol().deserialize<T>(data, t);
     } on _is.DeserializationTypeNotFoundException catch (_) {}
@@ -1562,6 +1945,12 @@ class Protocol extends _is.DatabaseSerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _ie5d2xvy.LiveShowFutureCallExpireModel =>
+        'LiveShowFutureCallExpireModel',
+      _iy3z9iri.LiveShowFutureCallPublishReplayModel =>
+        'LiveShowFutureCallPublishReplayModel',
+      _iqr7hhpp.LiveShowFutureCallRemindModel =>
+        'LiveShowFutureCallRemindModel',
       _i4efb2h6.MediaUploadTicket => 'MediaUploadTicket',
       _i99cc7k2.Post => 'Post',
       _i71ym97j.PostDraft => 'PostDraft',
@@ -1572,6 +1961,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       _idjwmytq.PostPage => 'PostPage',
       _ixt78pt4.PostView => 'PostView',
       _iu5xfvn4.PostVisibility => 'PostVisibility',
+      _ipgmhy3o.FeedItem => 'FeedItem',
+      _ibecfnye.FeedItemKind => 'FeedItemKind',
+      _it29bb7l.FeedSection => 'FeedSection',
+      _iebgsa3d.FeedSectionKind => 'FeedSectionKind',
+      _in19kjfm.HomeFeedCursor => 'HomeFeedCursor',
+      _ihgqdd8m.HomeFeedPage => 'HomeFeedPage',
       _i85zfh3f.AccountProfile => 'AccountProfile',
       _i96mabue.AccountStatus => 'AccountStatus',
       _ig9ziu3q.AccountView => 'AccountView',
@@ -1598,6 +1993,13 @@ class Protocol extends _is.DatabaseSerializationManager {
       _itr0x2qd.ReportQueueItem => 'ReportQueueItem',
       _id3n49vv.ReportSeverity => 'ReportSeverity',
       _i5s3tooi.ReportTargetType => 'ReportTargetType',
+      _iuphy7om.NotificationKind => 'NotificationKind',
+      _ipp18xpo.NotificationPage => 'NotificationPage',
+      _imgpiqz3.NotificationView => 'NotificationView',
+      _idxf743i.UserNotification => 'UserNotification',
+      _i9ykk824.Follow => 'Follow',
+      _i6r55qgl.FollowPage => 'FollowPage',
+      _ihy6a719.FollowState => 'FollowState',
       _i0kd3w76.LikeState => 'LikeState',
       _ir2psgaa.PostComment => 'PostComment',
       _iov9osdu.PostCommentPage => 'PostCommentPage',
@@ -1623,6 +2025,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
 
     switch (data) {
+      case _ie5d2xvy.LiveShowFutureCallExpireModel():
+        return 'LiveShowFutureCallExpireModel';
+      case _iy3z9iri.LiveShowFutureCallPublishReplayModel():
+        return 'LiveShowFutureCallPublishReplayModel';
+      case _iqr7hhpp.LiveShowFutureCallRemindModel():
+        return 'LiveShowFutureCallRemindModel';
       case _i4efb2h6.MediaUploadTicket():
         return 'MediaUploadTicket';
       case _i99cc7k2.Post():
@@ -1643,6 +2051,18 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'PostView';
       case _iu5xfvn4.PostVisibility():
         return 'PostVisibility';
+      case _ipgmhy3o.FeedItem():
+        return 'FeedItem';
+      case _ibecfnye.FeedItemKind():
+        return 'FeedItemKind';
+      case _it29bb7l.FeedSection():
+        return 'FeedSection';
+      case _iebgsa3d.FeedSectionKind():
+        return 'FeedSectionKind';
+      case _in19kjfm.HomeFeedCursor():
+        return 'HomeFeedCursor';
+      case _ihgqdd8m.HomeFeedPage():
+        return 'HomeFeedPage';
       case _i85zfh3f.AccountProfile():
         return 'AccountProfile';
       case _i96mabue.AccountStatus():
@@ -1695,6 +2115,20 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'ReportSeverity';
       case _i5s3tooi.ReportTargetType():
         return 'ReportTargetType';
+      case _iuphy7om.NotificationKind():
+        return 'NotificationKind';
+      case _ipp18xpo.NotificationPage():
+        return 'NotificationPage';
+      case _imgpiqz3.NotificationView():
+        return 'NotificationView';
+      case _idxf743i.UserNotification():
+        return 'UserNotification';
+      case _i9ykk824.Follow():
+        return 'Follow';
+      case _i6r55qgl.FollowPage():
+        return 'FollowPage';
+      case _ihy6a719.FollowState():
+        return 'FollowState';
       case _i0kd3w76.LikeState():
         return 'LikeState';
       case _ir2psgaa.PostComment():
@@ -1743,6 +2177,17 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
     }
+    if (dataClassName == 'LiveShowFutureCallExpireModel') {
+      return deserialize<_ie5d2xvy.LiveShowFutureCallExpireModel>(data['data']);
+    }
+    if (dataClassName == 'LiveShowFutureCallPublishReplayModel') {
+      return deserialize<_iy3z9iri.LiveShowFutureCallPublishReplayModel>(
+        data['data'],
+      );
+    }
+    if (dataClassName == 'LiveShowFutureCallRemindModel') {
+      return deserialize<_iqr7hhpp.LiveShowFutureCallRemindModel>(data['data']);
+    }
     if (dataClassName == 'MediaUploadTicket') {
       return deserialize<_i4efb2h6.MediaUploadTicket>(data['data']);
     }
@@ -1772,6 +2217,24 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'PostVisibility') {
       return deserialize<_iu5xfvn4.PostVisibility>(data['data']);
+    }
+    if (dataClassName == 'FeedItem') {
+      return deserialize<_ipgmhy3o.FeedItem>(data['data']);
+    }
+    if (dataClassName == 'FeedItemKind') {
+      return deserialize<_ibecfnye.FeedItemKind>(data['data']);
+    }
+    if (dataClassName == 'FeedSection') {
+      return deserialize<_it29bb7l.FeedSection>(data['data']);
+    }
+    if (dataClassName == 'FeedSectionKind') {
+      return deserialize<_iebgsa3d.FeedSectionKind>(data['data']);
+    }
+    if (dataClassName == 'HomeFeedCursor') {
+      return deserialize<_in19kjfm.HomeFeedCursor>(data['data']);
+    }
+    if (dataClassName == 'HomeFeedPage') {
+      return deserialize<_ihgqdd8m.HomeFeedPage>(data['data']);
     }
     if (dataClassName == 'AccountProfile') {
       return deserialize<_i85zfh3f.AccountProfile>(data['data']);
@@ -1850,6 +2313,27 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'ReportTargetType') {
       return deserialize<_i5s3tooi.ReportTargetType>(data['data']);
+    }
+    if (dataClassName == 'NotificationKind') {
+      return deserialize<_iuphy7om.NotificationKind>(data['data']);
+    }
+    if (dataClassName == 'NotificationPage') {
+      return deserialize<_ipp18xpo.NotificationPage>(data['data']);
+    }
+    if (dataClassName == 'NotificationView') {
+      return deserialize<_imgpiqz3.NotificationView>(data['data']);
+    }
+    if (dataClassName == 'UserNotification') {
+      return deserialize<_idxf743i.UserNotification>(data['data']);
+    }
+    if (dataClassName == 'Follow') {
+      return deserialize<_i9ykk824.Follow>(data['data']);
+    }
+    if (dataClassName == 'FollowPage') {
+      return deserialize<_i6r55qgl.FollowPage>(data['data']);
+    }
+    if (dataClassName == 'FollowState') {
+      return deserialize<_ihy6a719.FollowState>(data['data']);
     }
     if (dataClassName == 'LikeState') {
       return deserialize<_i0kd3w76.LikeState>(data['data']);
@@ -1939,6 +2423,10 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _iavthlak.LiveShowGuest.t;
       case _iwkeo1oc.ContentReport:
         return _iwkeo1oc.ContentReport.t;
+      case _idxf743i.UserNotification:
+        return _idxf743i.UserNotification.t;
+      case _i9ykk824.Follow:
+        return _i9ykk824.Follow.t;
       case _ir2psgaa.PostComment:
         return _ir2psgaa.PostComment.t;
       case _ipr9oc1t.PostLike:

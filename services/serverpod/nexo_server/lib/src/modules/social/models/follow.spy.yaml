@@ -1,0 +1,17 @@
+### Una cuenta que sigue a otra. Una fila por par: seguir dos veces no suma
+### dos. Dejar de seguir borra la fila; no es contenido que haya que conservar.
+class: Follow
+table: follow
+serverOnly: true
+fields:
+  followerId: UuidValue
+  followeeId: UuidValue
+  createdAt: DateTime, default=now
+indexes:
+  follow_pair_idx:
+    fields: followerId, followeeId
+    unique: true
+  follow_followee_idx:
+    fields: followeeId, createdAt
+  follow_follower_idx:
+    fields: followerId, createdAt

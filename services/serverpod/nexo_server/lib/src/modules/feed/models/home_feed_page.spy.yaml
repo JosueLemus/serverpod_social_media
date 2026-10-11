@@ -1,0 +1,6 @@
+### Una página del feed de inicio. La primera trae todas las secciones que
+### tengan algo; las siguientes, sólo `following` o `discover`.
+class: HomeFeedPage
+fields:
+  sections: List<FeedSection>
+  nextCursor: HomeFeedCursor?
