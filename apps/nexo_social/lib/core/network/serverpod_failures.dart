@@ -17,8 +17,13 @@ Failure failureFromServer(Object error) {
       api.NexoErrorCode.forbidden => ForbiddenFailure(message),
       api.NexoErrorCode.notFound => NotFoundFailure(message),
       api.NexoErrorCode.conflict => ConflictFailure(message),
-      api.NexoErrorCode.invalidInput ||
-      api.NexoErrorCode.rateLimited => ServerFailure(message),
+      api.NexoErrorCode.invalidInput => ServerFailure(message),
+      api.NexoErrorCode.rateLimited => RateLimitedFailure(message),
+      api.NexoErrorCode.creatorNotVerified => CreatorNotVerifiedFailure(
+        message,
+      ),
+      api.NexoErrorCode.accountSuspended => AccountSuspendedFailure(message),
+      api.NexoErrorCode.muted => MutedFailure(message),
     };
   }
   final description = '${error.runtimeType} $error'.toLowerCase();

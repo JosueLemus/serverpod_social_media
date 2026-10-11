@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../bloc/post_composer_cubit.dart';
 import '../widgets/composer_widgets.dart';
 
@@ -103,7 +105,17 @@ class _ComposerViewState extends State<_ComposerView> {
                   children: [
                     ComposerModeTabs(
                       mode: state.mode,
-                      onChanged: cubit.setMode,
+                      // "En vivo" publicaba un post común con otro
+                      // placeholder. Un vivo se programa: la pestaña lleva
+                      // ahí, reemplazando al compositor para que volver no
+                      // caiga en un borrador a medias.
+                      onChanged: (mode) {
+                        if (mode == ComposerMode.live) {
+                          context.pushReplacement(AppRoutes.scheduleShow);
+                        } else {
+                          cubit.setMode(mode);
+                        }
+                      },
                     ),
                     const SizedBox(height: AppSpacing.md),
                     _AuthorRow(visibility: state.visibility),
@@ -263,41 +275,54 @@ class _ComposerBar extends StatelessWidget {
       );
 }
 
+/// Quién publica: la cuenta en sesión. Decía "Elena Vega" verificada para
+/// cualquiera, así que se podía publicar creyendo que se hacía como otra
+/// persona.
 class _AuthorRow extends StatelessWidget {
   const _AuthorRow({required this.visibility});
 
   final PostVisibility visibility;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const UserAvatar(name: 'Elena Vega', size: 42),
-      const SizedBox(width: AppSpacing.sm),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  'Elena Vega',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.verified_rounded,
-                  size: 14,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 3),
-            VisibilityPicker(visibility: visibility),
-          ],
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthCubit>().state;
+    final user = auth is AuthAuthenticated ? auth.user : null;
+    final name = user?.name ?? '';
+    return Row(
+      children: [
+        UserAvatar(name: name, size: 42),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      name,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  if (user?.isVerified ?? false) ...[
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 14,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 3),
+              VisibilityPicker(visibility: visibility),
+            ],
+          ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 class _Editor extends StatelessWidget {
@@ -310,6 +335,23 @@ class _Editor extends StatelessWidget {
   final TextEditingController controller;
   final PostComposerIdle state;
   final ValueChanged<String> onChanged;
+
+  /// Escribe [token] donde está el cursor, separado de la palabra anterior.
+  /// Los dos botones eran `() {}`: el # importa porque las etiquetas del post
+  /// salen de los hashtags del texto.
+  void _insert(String token) {
+    final text = controller.text;
+    final selection = controller.selection;
+    final start = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    final needsSpace = start > 0 && text[start - 1].trim().isNotEmpty;
+    final inserted = '${needsSpace ? ' ' : ''}$token';
+    controller.value = TextEditingValue(
+      text: text.replaceRange(start, end, inserted),
+      selection: TextSelection.collapsed(offset: start + inserted.length),
+    );
+    onChanged(controller.text);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -342,15 +384,17 @@ class _Editor extends StatelessWidget {
         Row(
           children: [
             IconButton(
+              key: const Key('composer-insert-hashtag'),
               tooltip: 'Añadir hashtag',
               visualDensity: VisualDensity.compact,
-              onPressed: () {},
+              onPressed: () => _insert('#'),
               icon: const Icon(Icons.tag_rounded, size: 19),
             ),
             IconButton(
+              key: const Key('composer-insert-mention'),
               tooltip: 'Mencionar a alguien',
               visualDensity: VisualDensity.compact,
-              onPressed: () {},
+              onPressed: () => _insert('@'),
               icon: const Icon(Icons.alternate_email_rounded, size: 19),
             ),
             const Spacer(),

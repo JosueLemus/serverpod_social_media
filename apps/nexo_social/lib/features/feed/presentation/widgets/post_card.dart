@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:video_player/video_player.dart';
 
@@ -8,6 +9,8 @@ import '../../../../core/animations/app_motion.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../auth/domain/entities/app_user.dart';
+import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/post.dart';
 
 class PostCard extends StatelessWidget {
@@ -344,6 +347,31 @@ class _PostActions extends StatelessWidget {
   final VoidCallback? onComment;
   final VoidCallback? onShowLikers;
 
+  /// Un visitante mira; interactuar pide una cuenta. Antes el toque llegaba
+  /// al servidor, que lo rechazaba, y el aviso decía "No pudimos guardar tu
+  /// me gusta", como si fuera una falla.
+  void _like(BuildContext context) {
+    final auth = context.read<AuthCubit>().state;
+    final isMember =
+        auth is AuthAuthenticated && auth.user.role != UserRole.visitor;
+    if (isMember) {
+      onLike();
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          key: const Key('like-sign-in'),
+          content: const Text('Inicia sesión para dar me gusta.'),
+          action: SnackBarAction(
+            label: 'Iniciar sesión',
+            onPressed: () => context.go(AppRoutes.signIn),
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) => Row(
     children: [
@@ -362,7 +390,7 @@ class _PostActions extends StatelessWidget {
         ),
         label: '${post.displayLikes}',
         tooltip: post.isLiked ? 'Quitar me gusta' : 'Me gusta',
-        onTap: onLike,
+        onTap: () => _like(context),
         // Mantener apretado muestra quién dio like: el toque ya es el like.
         onLongPress: onShowLikers,
         emphasised: post.isLiked,

@@ -8,8 +8,11 @@
 #   tool/demo.sh --server-only   # sólo el servidor (para correr la app aparte)
 #
 # Variables opcionales:
-#   AGORA_APP_ID   video real en los vivos (sin ella, el video es simulado)
-#   API_HOST       IP de esta máquina, para que un teléfono llegue al servidor
+#   AGORA_APP_ID           video real en los vivos (sin ella, es simulado)
+#   AGORA_APP_CERTIFICATE  el servidor firma los tokens de video (proyecto
+#                          de Agora con certificado). También se leen de
+#                          config/passwords.yaml: agoraAppId, agoraAppCertificate
+#   API_HOST               IP de esta máquina, para que un teléfono llegue
 #
 # Cuentas: elena@nexo.demo, operador@nexo.demo, moderador@nexo.demo,
 # tomas@nexo.demo, troll@nexo.demo, carlos@nexo.demo. Contraseña:
@@ -28,7 +31,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -d|--device) device="$2"; shift 2 ;;
     --server-only) server_only=true; shift ;;
-    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "Opción desconocida: $1 (ver --help)" >&2; exit 1 ;;
   esac
 done
@@ -64,6 +67,19 @@ development:
   jwtRefreshTokenHashPepper: '$(rand 48)'
   emailSecretHashPepper: '$(rand 48)'
 YAML
+fi
+
+# --- Agora --------------------------------------------------------------------
+# El certificado firma los tokens de video en el servidor y nunca llega a la
+# app. Del entorno o de config/passwords.yaml (`agoraAppId`,
+# `agoraAppCertificate`); el App ID, que no es secreto, también va a la app.
+if [[ -n "${AGORA_APP_ID:-}" ]]; then
+  export SERVERPOD_PASSWORD_agoraAppId="$AGORA_APP_ID"
+else
+  AGORA_APP_ID="$(sed -n "s/^[[:space:]]*agoraAppId:[[:space:]]*['\"]*\([0-9a-fA-F]*\).*/\1/p" "$passwords" | head -1)"
+fi
+if [[ -n "${AGORA_APP_CERTIFICATE:-}" ]]; then
+  export SERVERPOD_PASSWORD_agoraAppCertificate="$AGORA_APP_CERTIFICATE"
 fi
 
 # --- Base de datos ------------------------------------------------------------

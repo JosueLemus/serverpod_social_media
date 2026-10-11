@@ -141,6 +141,9 @@ class AdminConsoleCubit extends Cubit<AdminConsoleState> {
     AdminNotice.liveEnded,
   );
 
+  Future<void> resetDemo() =>
+      _act(_repository.resetDemo, AdminNotice.demoReset);
+
   Future<void> _act(Future<void> Function() action, AdminNotice notice) async {
     try {
       await action();

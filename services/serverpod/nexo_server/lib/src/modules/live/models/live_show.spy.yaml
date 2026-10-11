@@ -1,0 +1,27 @@
+### Un show: programado, al aire o terminado. El estado lo cambia sólo
+### `LiveService`, que valida la transición y la deja auditada.
+class: LiveShow
+table: live_show
+serverOnly: true
+fields:
+  hostId: UuidValue
+  title: String
+  description: String, default=''
+  startsAt: DateTime
+  durationMinutes: int, default=60
+  access: LiveShowAccess
+  allowQuestions: bool, default=true
+  recordReplay: bool, default=true
+  status: LiveShowStatus
+  startedAt: DateTime?
+  endedAt: DateTime?
+  endedBy: UuidValue?
+  ### Lo terminó alguien que no era el host (un operador).
+  endedByModeration: bool, default=false
+  viewerPeak: int, default=0
+  createdAt: DateTime, default=now
+indexes:
+  live_show_status_idx:
+    fields: status, startsAt
+  live_show_host_idx:
+    fields: hostId, startsAt

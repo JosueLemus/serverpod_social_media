@@ -1,6 +1,7 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/core/errors/failures.dart';
+import 'package:nexo_social/features/feed/domain/entities/post.dart';
 import 'package:nexo_social/features/feed/domain/entities/feed_filter.dart';
 import 'package:nexo_social/features/feed/domain/entities/post_extras.dart';
 import 'package:nexo_social/features/feed/presentation/bloc/feed_cubit.dart';
@@ -219,5 +220,86 @@ void main() {
         expect((cubit.state as FeedLoaded).notice, FeedNotice.reported);
       },
     );
+  });
+
+  group('a change does not throw away what was paginated', () {
+    /// Del más nuevo al más viejo, un minuto entre cada uno, como el feed.
+    List<Post> timeline(int count) =>
+        [
+          for (var i = 0; i < count; i++)
+            fakePost('$i').copyWith(body: 'post $i'),
+        ].indexed.map((entry) {
+          final (index, post) = entry;
+          return Post(
+            id: post.id,
+            author: post.author,
+            name: post.name,
+            body: post.body,
+            tags: post.tags,
+            likes: 0,
+            comments: 0,
+            createdAt: DateTime(
+              2026,
+              10,
+              11,
+              12,
+            ).subtract(Duration(minutes: index)),
+          );
+        }).toList();
+
+    /// Regresión: publicar, editar o comentar releía la primera página y la
+    /// ponía en lugar de todo, así que quien había bajado volvía arriba y
+    /// perdía sus guardados.
+    test('the loaded pages and the saved posts survive a refresh', () async {
+      repository = FakePostRepository(timeline(25))..pageSize = 10;
+      final cubit = FeedCubit(repository);
+      await cubit.load();
+      await cubit.loadMore();
+      cubit.toggleSave('15');
+
+      repository.emitChange();
+      await pumpEventQueue();
+
+      final state = cubit.state as FeedLoaded;
+      expect(state.posts, hasLength(20));
+      expect(state.hasMore, isTrue);
+      expect(state.posts.firstWhere((post) => post.id == '15').isSaved, isTrue);
+      await cubit.close();
+    });
+
+    test('a new post goes on top and nothing is repeated', () {
+      final loaded = timeline(20);
+      final current = FeedLoaded(loaded, nextCursor: '20');
+      final newest = Post(
+        id: 'new',
+        author: 'a',
+        name: 'A',
+        body: 'recién publicado',
+        tags: const [],
+        likes: 0,
+        comments: 0,
+        createdAt: DateTime(2026, 10, 11, 13),
+      );
+
+      final merged = FeedCubit.mergeFirstPage(
+        current,
+        PostPage([newest, ...loaded.take(9)], nextCursor: '9'),
+      );
+
+      expect(merged.posts.first.id, 'new');
+      expect(merged.posts, hasLength(21));
+      expect(merged.posts.map((post) => post.id).toSet(), hasLength(21));
+      expect(merged.nextCursor, '20');
+    });
+
+    test('a feed that fits in one page is just that page', () {
+      final merged = FeedCubit.mergeFirstPage(
+        FeedLoaded(timeline(3)),
+        PostPage(timeline(2)),
+      );
+
+      expect(merged.posts, hasLength(2));
+      expect(merged.nextCursor, isNull);
+    });
   });
 }

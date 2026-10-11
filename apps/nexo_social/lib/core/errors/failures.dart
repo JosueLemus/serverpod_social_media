@@ -77,3 +77,9 @@ class CreatorNotVerifiedFailure extends Failure {
 class MutedFailure extends Failure {
   const MutedFailure(super.message);
 }
+
+/// `NexoErrorCode.rateLimited`: demasiado rápido (el chat del vivo admite un
+/// mensaje por segundo).
+class RateLimitedFailure extends Failure {
+  const RateLimitedFailure(super.message);
+}

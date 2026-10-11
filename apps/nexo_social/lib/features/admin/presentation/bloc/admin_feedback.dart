@@ -12,6 +12,7 @@ enum AdminNotice {
   verified,
   verificationRevoked,
   liveEnded,
+  demoReset,
 }
 
 AdminIssue adminIssueFor(Failure failure) => switch (failure) {

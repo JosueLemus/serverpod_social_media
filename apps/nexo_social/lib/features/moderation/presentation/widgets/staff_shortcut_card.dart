@@ -77,6 +77,10 @@ class _Card extends StatelessWidget {
           Text(
             state.isLoading
                 ? 'Leyendo la cola de reportes…'
+                // Un fallo no es una cola vacía: decía "No hay reportes
+                // pendientes" cuando en realidad no había podido leerla.
+                : state.issue != null && pending == 0
+                ? 'No pudimos leer la cola de reportes.'
                 : pending == 0
                 ? 'No hay reportes pendientes.'
                 : pending == 1

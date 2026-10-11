@@ -79,6 +79,7 @@ class AppShell extends StatelessWidget {
               form: form,
               currentBranch: navigationShell.currentIndex,
               onSelected: _select,
+              onCompose: () => unawaited(_openCreate(context)),
             ),
           Expanded(child: SafeArea(bottom: false, child: navigationShell)),
           if (form.isExpanded) const _SidePanel(),
@@ -265,11 +266,17 @@ class _ShellRail extends StatelessWidget {
     required this.form,
     required this.currentBranch,
     required this.onSelected,
+    required this.onCompose,
   });
 
   final FormFactor form;
   final int currentBranch;
   final ValueChanged<int> onSelected;
+
+  /// La misma hoja que el + de la barra inferior. El rail empujaba el
+  /// compositor directo, así que en tablet y escritorio no había forma de
+  /// programar un show ni de ir a transmitir.
+  final VoidCallback onCompose;
 
   @override
   Widget build(BuildContext context) {
@@ -298,7 +305,7 @@ class _ShellRail extends StatelessWidget {
       // clamped -1 to 0 and lit up "Inicio" while the user was elsewhere.
       selectedIndex: selectedIndex >= 0 ? selectedIndex : null,
       onDestinationSelected: (index) => onSelected(destinations[index].branch),
-      leading: _RailLeading(extended: extended),
+      leading: _RailLeading(extended: extended, onCompose: onCompose),
       destinations: [
         for (final destination in destinations)
           NavigationRailDestination(
@@ -312,9 +319,10 @@ class _ShellRail extends StatelessWidget {
 }
 
 class _RailLeading extends StatelessWidget {
-  const _RailLeading({required this.extended});
+  const _RailLeading({required this.extended, required this.onCompose});
 
   final bool extended;
+  final VoidCallback onCompose;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -327,15 +335,17 @@ class _RailLeading extends StatelessWidget {
           SizedBox(
             width: 168,
             child: FilledButton.icon(
-              onPressed: () => context.push(AppRoutes.create),
+              key: const Key('rail-create'),
+              onPressed: onCompose,
               icon: const Icon(Icons.add_rounded),
               label: const Text('Crear'),
             ),
           )
         else
           IconButton.filled(
+            key: const Key('rail-create'),
             tooltip: 'Crear',
-            onPressed: () => context.push(AppRoutes.create),
+            onPressed: onCompose,
             icon: const Icon(Icons.add_rounded),
           ),
       ],

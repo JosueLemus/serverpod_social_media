@@ -89,10 +89,17 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
     GoRoute(
       path: AppRoutes.settings,
       parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const PlaceholderPage(
-        title: 'Ajustes',
-        description: 'Personaliza tu experiencia en Nexo.',
-        icon: Icons.settings_outlined,
+      // Con su propia barra: es una ruta raíz empujada sobre el shell, y sin
+      // AppBar en web y escritorio no había forma de volver de acá.
+      builder: (context, state) => Scaffold(
+        appBar: AppBar(title: const Text('Ajustes')),
+        body: const PlaceholderPage(
+          title: 'Ajustes',
+          description:
+              'Idioma, notificaciones y privacidad llegan con las próximas '
+              'versiones.',
+          icon: Icons.settings_outlined,
+        ),
       ),
     ),
 
@@ -151,7 +158,14 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.studio,
-              builder: (context, state) => const CreatorStudioPage(),
+              // La key reconstruye el Studio si cambia el show pedido: el
+              // branch conserva la página, y sin ella un `?show=` nuevo
+              // dejaría el cubit sobre el show anterior.
+              builder: (context, state) {
+                final show =
+                    state.uri.queryParameters[AppRoutes.studioShowParam];
+                return CreatorStudioPage(key: ValueKey(show), showId: show);
+              },
             ),
           ],
         ),

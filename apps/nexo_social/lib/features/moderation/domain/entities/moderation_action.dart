@@ -106,6 +106,7 @@ class ModerationReport extends Equatable {
     this.authorId = '',
     this.commentId,
     this.liveId,
+    this.canSanctionAuthor = true,
   });
 
   final String id;
@@ -122,6 +123,12 @@ class ModerationReport extends Equatable {
   final String? commentId;
   final String? liveId;
 
+  /// Si quien resuelve puede silenciar o expulsar al autor, o sólo ocultar y
+  /// descartar. Los reportes de posts del servidor no pueden todavía (SDD
+  /// 0003, D10: llega con M6), y ofrecer el botón es una petición que se
+  /// rechaza con el moderador ya comprometido.
+  final bool canSanctionAuthor;
+
   @override
   List<Object?> get props => [
     id,
@@ -133,6 +140,7 @@ class ModerationReport extends Equatable {
     createdAt,
     commentId,
     liveId,
+    canSanctionAuthor,
   ];
 }
 

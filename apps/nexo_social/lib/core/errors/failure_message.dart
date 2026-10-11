@@ -13,5 +13,6 @@ String failureMessage(Failure failure) => switch (failure) {
     'Tu cuenta de creador no está verificada. Solo las cuentas verificadas '
         'pueden iniciar un vivo.',
   MutedFailure() => 'Estás silenciado en este momento.',
+  RateLimitedFailure() => 'Vas muy rápido. Espera un momento.',
   UnexpectedFailure() => 'Ocurrió algo inesperado. Inténtalo nuevamente.',
 };

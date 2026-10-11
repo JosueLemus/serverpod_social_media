@@ -20,6 +20,7 @@ class SimulatedLiveMediaEngine implements LiveMediaEngine {
     required String channel,
     required LiveMediaRole role,
     String token = '',
+    int uid = 0,
   }) async {
     if (!_states.isClosed) {
       _states.add(const LiveMediaState(phase: LiveMediaPhase.connected));
@@ -30,6 +31,19 @@ class SimulatedLiveMediaEngine implements LiveMediaEngine {
   Future<void> leave() async {
     if (!_states.isClosed) _states.add(const LiveMediaState());
   }
+
+  /// Sin cámara real no hay nada que pedir.
+  @override
+  Future<LiveMediaIssue?> preparePublish() async => null;
+
+  @override
+  Future<void> openPermissionSettings() async {}
+
+  @override
+  Future<void> switchCamera() async {}
+
+  @override
+  Future<void> setMicrophoneMuted({required bool muted}) async {}
 
   @override
   Widget localView() => const SizedBox.shrink();

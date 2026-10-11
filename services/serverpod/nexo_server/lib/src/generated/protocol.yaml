@@ -22,6 +22,23 @@ profiles:
   - update:
   - becomeCreator:
   - byUsername:
+live:
+  - schedule:
+  - start:
+  - end:
+  - publish:
+  - cancel:
+  - goLive:
+  - mediaToken:
+  - get:
+  - list:
+  - mine:
+  - roleIn:
+  - chatHistory:
+  - sendChat:
+  - hideChat:
+  - watch:
+  - watchIndex:
 moderation:
   - report:
   - queue:

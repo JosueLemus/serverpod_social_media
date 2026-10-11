@@ -14,6 +14,7 @@ class CommentsState extends Equatable {
     this.comments = const [],
     this.nextCursor,
     this.isLoading = true,
+    this.isLoadingMore = false,
     this.isSending = false,
     this.failed = false,
     this.notice,
@@ -24,6 +25,10 @@ class CommentsState extends Equatable {
   final List<PostComment> comments;
   final String? nextCursor;
   final bool isLoading;
+
+  /// Pidiendo la página siguiente. Sin esta guarda, dos toques rápidos en
+  /// "ver más" pedían la misma página dos veces y la lista la mostraba doble.
+  final bool isLoadingMore;
   final bool isSending;
 
   /// La lista no se pudo leer. Distinto de una lista vacía.
@@ -35,6 +40,7 @@ class CommentsState extends Equatable {
     List<PostComment>? comments,
     String? Function()? nextCursor,
     bool? isLoading,
+    bool? isLoadingMore,
     bool? isSending,
     bool? failed,
     CommentsNotice? notice,
@@ -43,6 +49,7 @@ class CommentsState extends Equatable {
     comments: comments ?? this.comments,
     nextCursor: nextCursor == null ? this.nextCursor : nextCursor(),
     isLoading: isLoading ?? this.isLoading,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     isSending: isSending ?? this.isSending,
     failed: failed ?? this.failed,
     notice: notice ?? this.notice,
@@ -54,6 +61,7 @@ class CommentsState extends Equatable {
     comments,
     nextCursor,
     isLoading,
+    isLoadingMore,
     isSending,
     failed,
     notice,
@@ -89,19 +97,37 @@ class CommentsCubit extends Cubit<CommentsState> {
 
   Future<void> loadMore() async {
     final cursor = state.nextCursor;
-    if (cursor == null) return;
+    if (cursor == null || state.isLoadingMore) return;
+    emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await _posts.comments(postId, cursor: cursor);
       if (isClosed) return;
       emit(
         state.copyWith(
-          comments: [...state.comments, ...page.comments],
+          comments: mergeComments(state.comments, page.comments),
           nextCursor: () => page.nextCursor,
+          isLoadingMore: false,
         ),
       );
     } on Failure {
       // Se puede volver a intentar con el mismo cursor.
+      if (!isClosed) emit(state.copyWith(isLoadingMore: false));
     }
+  }
+
+  /// Une sin repetir y en orden de conversación.
+  ///
+  /// El servidor pagina del más viejo al más nuevo, así que un comentario
+  /// propio enviado con páginas pendientes vuelve a llegar en la última: sin
+  /// deduplicar aparecía dos veces, y sin ordenar quedaba arriba de
+  /// comentarios más viejos que él.
+  static List<PostComment> mergeComments(
+    List<PostComment> current,
+    List<PostComment> page,
+  ) {
+    final known = {for (final comment in current) comment.id};
+    return [...current, ...page.where((comment) => !known.contains(comment.id))]
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
   }
 
   /// Devuelve si se envió, para que la View limpie el campo sólo entonces:

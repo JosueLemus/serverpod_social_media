@@ -501,20 +501,26 @@ class _SocialButton extends StatelessWidget {
   final String label;
   final bool isApple;
 
+  /// Sin proveedores de identidad externos todavía: el botón se ve, porque
+  /// el diseño lo tiene, pero apagado y diciendo por qué. Activo y sin hacer
+  /// nada se leía como un login roto (SDD 0007, F11).
   @override
-  Widget build(BuildContext context) => OutlinedButton.icon(
-    onPressed: () {},
-    icon: isApple
-        ? const Icon(Icons.apple, color: AppColors.textPrimary)
-        : Text(
-            icon,
-            style: const TextStyle(
-              color: Color(0xFF4285F4),
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
+  Widget build(BuildContext context) => Tooltip(
+    message: 'Ingreso con $label: muy pronto',
+    child: OutlinedButton.icon(
+      onPressed: null,
+      icon: isApple
+          ? const Icon(Icons.apple, color: AppColors.textPrimary)
+          : Text(
+              icon,
+              style: const TextStyle(
+                color: Color(0xFF4285F4),
+                fontWeight: FontWeight.w900,
+                fontSize: 18,
+              ),
             ),
-          ),
-    label: Text(label),
+      label: Text(label),
+    ),
   );
 }
 
@@ -592,6 +598,19 @@ void _showSignInSheet(BuildContext context) {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Text('Continuar'),
+                ),
+                // La única entrada al reset. Estaba en una variante de
+                // `AuthForm` que ninguna ruta construye, así que el flujo
+                // existía, conectado al servidor, y nadie podía llegar a él.
+                TextButton(
+                  key: const Key('sheet-forgot-password'),
+                  onPressed: busy
+                      ? null
+                      : () {
+                          Navigator.pop(sheetContext);
+                          context.go(AppRoutes.passwordReset);
+                        },
+                  child: const Text('Olvidé mi contraseña'),
                 ),
               ],
             ),

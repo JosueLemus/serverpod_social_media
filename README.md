@@ -42,7 +42,20 @@ log del servidor (el script dice dónde está).
 tool/demo.sh -d <device-id>     # la app en un teléfono (flutter devices)
 tool/demo.sh --server-only      # sólo el servidor
 API_HOST=192.168.1.20 tool/demo.sh -d <android>   # el teléfono llega al servidor por la IP de la máquina
-AGORA_APP_ID=<app-id> tool/demo.sh                # video real en los vivos (Agora)
+AGORA_APP_ID=<app-id> tool/demo.sh                # video real en los vivos (Agora, modo de prueba)
+AGORA_APP_ID=<app-id> AGORA_APP_CERTIFICATE=<cert> tool/demo.sh   # proyecto con certificado: el servidor firma los tokens
+```
+
+Si el proyecto de Agora tiene **App Certificate**, sin `AGORA_APP_CERTIFICATE`
+el video no conecta (`errInvalidToken`): el token lo emite el servidor
+(`live.mediaToken`) y el certificado nunca llega a la app. En vez de pasarlo
+por el entorno, se puede dejar en `services/serverpod/nexo_server/config/passwords.yaml`,
+que no se versiona:
+
+```yaml
+development:
+  agoraAppId: '<app-id>'
+  agoraAppCertificate: '<certificado>'
 ```
 
 ## Estructura

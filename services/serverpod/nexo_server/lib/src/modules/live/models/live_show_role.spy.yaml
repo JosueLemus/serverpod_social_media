@@ -1,0 +1,9 @@
+### El rol de quien pide dentro de un show. Lo calcula el servidor por sesión;
+### nunca viaja en un mensaje compartido.
+enum: LiveShowRole
+serialized: byName
+values:
+  - audience
+  - host
+  - cohost
+  - moderator

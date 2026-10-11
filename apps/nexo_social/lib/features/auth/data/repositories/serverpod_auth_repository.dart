@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:nexo_client/nexo_client.dart' as api;
-import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart';
+import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
@@ -30,11 +31,13 @@ class ServerpodAuthRepository implements AuthRepository {
       if (!validated) {
         throw const AuthenticationFailure(AuthFailureReason.network);
       }
-      return await _account();
-    } on AuthenticationFailure {
+      final user = await _account();
+      if (!user.isActive) throw const AccountSuspendedFailure('restore');
+      return user;
+    } on Failure {
       rethrow;
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -49,10 +52,11 @@ class ServerpodAuthRepository implements AuthRepository {
         // Passwords are intentionally passed verbatim.
         password: password,
       );
-      await _session.updateSignedInUser(success);
-      return await _account();
+      return await _completeSignIn(success);
+    } on Failure {
+      rethrow;
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -66,7 +70,7 @@ class ServerpodAuthRepository implements AuthRepository {
       );
       return EmailVerificationRequest(id.toString());
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -88,10 +92,11 @@ class ServerpodAuthRepository implements AuthRepository {
         registrationToken: token,
         password: password,
       );
-      await _session.updateSignedInUser(success);
-      return await _account();
+      return await _completeSignIn(success);
+    } on Failure {
+      rethrow;
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -107,7 +112,7 @@ class ServerpodAuthRepository implements AuthRepository {
       // unknown emails, avoiding account enumeration.
       return EmailVerificationRequest(id.toString());
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -127,7 +132,7 @@ class ServerpodAuthRepository implements AuthRepository {
         newPassword: newPassword,
       );
     } catch (error) {
-      throw _failureFor(error);
+      throw failureFor(error);
     }
   }
 
@@ -180,6 +185,24 @@ class ServerpodAuthRepository implements AuthRepository {
   /// cuenta nueva le crea su perfil con un nombre de usuario libre.
   Future<AppUser> _account() async => fromAccount(await _client.profiles.me());
 
+  /// Guarda la credencial y pide la cuenta. Si la cuenta no llega, o llega
+  /// sancionada, la credencial se descarta antes de propagar el error.
+  ///
+  /// `profiles.me` necesita la credencial puesta, así que el orden no se
+  /// puede invertir. Sin la limpieza, la UI quedaba deslogueada mientras la
+  /// credencial seguía guardada, y en el próximo arranque la app entraba sola.
+  Future<AppUser> _completeSignIn(AuthSuccess success) async {
+    await _session.updateSignedInUser(success);
+    try {
+      final user = await _account();
+      if (!user.isActive) throw const AccountSuspendedFailure('signIn');
+      return user;
+    } catch (_) {
+      await _session.signOutDevice();
+      rethrow;
+    }
+  }
+
   /// Traduce la cuenta del servidor. Los roles salen de los scopes firmados
   /// por el servidor (`admin` es el `operator` de Nexo); ser creador y estar
   /// verificado son datos del perfil, no scopes.
@@ -201,29 +224,56 @@ class ServerpodAuthRepository implements AuthRepository {
     );
   }
 
-  static Failure _failureFor(Object error) {
-    final type = error.runtimeType.toString().toLowerCase();
-    if (type.contains('blocked')) {
-      return const AccountSuspendedFailure('blocked');
-    }
-    if (type.contains('invalidcredentials')) {
-      return const AuthenticationFailure(AuthFailureReason.invalidCredentials);
-    }
-    if (type.contains('toomanyattempts')) {
-      return const AuthenticationFailure(AuthFailureReason.tooManyAttempts);
-    }
-    if (type.contains('expired')) {
-      return const AuthenticationFailure(AuthFailureReason.expiredCode);
-    }
-    if (type.contains('policyviolation')) {
-      return const AuthenticationFailure(AuthFailureReason.passwordPolicy);
-    }
-    if (type.contains('invalid')) {
-      return const AuthenticationFailure(AuthFailureReason.invalidCode);
-    }
-    if (error is api.ServerpodClientException || type.contains('socket')) {
-      return const AuthenticationFailure(AuthFailureReason.network);
-    }
-    return const AuthenticationFailure(AuthFailureReason.unavailable);
-  }
+  /// Traduce un error del login por correo a un motivo tipado.
+  ///
+  /// Por tipo y por `reason`, nunca por el nombre del tipo: el cliente lanza
+  /// `_EmailAccountLoginExceptionImpl`, y buscar "invalidcredentials" en ese
+  /// nombre no encuentra nada. Así, contraseña incorrecta, código vencido y
+  /// contraseña débil terminaban todos en "No pudimos completar la operación".
+  @visibleForTesting
+  static Failure failureFor(Object error) => switch (error) {
+    Failure() => error,
+    AuthUserBlockedException() => const AccountSuspendedFailure('blocked'),
+    EmailAccountLoginException(:final reason) => AuthenticationFailure(
+      switch (reason) {
+        EmailAccountLoginExceptionReason.invalidCredentials =>
+          AuthFailureReason.invalidCredentials,
+        EmailAccountLoginExceptionReason.tooManyAttempts =>
+          AuthFailureReason.tooManyAttempts,
+        EmailAccountLoginExceptionReason.unknown =>
+          AuthFailureReason.unavailable,
+      },
+    ),
+    EmailAccountRequestException(:final reason) => AuthenticationFailure(
+      switch (reason) {
+        EmailAccountRequestExceptionReason.expired =>
+          AuthFailureReason.expiredCode,
+        EmailAccountRequestExceptionReason.invalid =>
+          AuthFailureReason.invalidCode,
+        EmailAccountRequestExceptionReason.policyViolation =>
+          AuthFailureReason.passwordPolicy,
+        EmailAccountRequestExceptionReason.tooManyAttempts =>
+          AuthFailureReason.tooManyAttempts,
+        EmailAccountRequestExceptionReason.unknown =>
+          AuthFailureReason.unavailable,
+      },
+    ),
+    EmailAccountPasswordResetException(:final reason) => AuthenticationFailure(
+      switch (reason) {
+        EmailAccountPasswordResetExceptionReason.expired =>
+          AuthFailureReason.expiredCode,
+        EmailAccountPasswordResetExceptionReason.invalid =>
+          AuthFailureReason.invalidCode,
+        EmailAccountPasswordResetExceptionReason.policyViolation =>
+          AuthFailureReason.passwordPolicy,
+        EmailAccountPasswordResetExceptionReason.tooManyAttempts =>
+          AuthFailureReason.tooManyAttempts,
+        EmailAccountPasswordResetExceptionReason.unknown =>
+          AuthFailureReason.unavailable,
+      },
+    ),
+    api.ServerpodClientNetworkException() || TimeoutException() =>
+      const AuthenticationFailure(AuthFailureReason.network),
+    _ => const AuthenticationFailure(AuthFailureReason.unavailable),
+  };
 }

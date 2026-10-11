@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/errors/failures.dart';
@@ -144,21 +145,64 @@ class FeedCubit extends Cubit<FeedState> {
       final page = await _posts.feed();
       if (isClosed) return;
       final current = state;
+      final merged = current is FeedLoaded
+          ? mergeFirstPage(current, page)
+          : (posts: page.posts, nextCursor: page.nextCursor);
       emit(
         FeedLoaded(
-          page.posts,
+          merged.posts,
           filter: filter,
-          nextCursor: page.nextCursor,
+          nextCursor: merged.nextCursor,
           notice: current is FeedLoaded ? current.notice : null,
           noticeSerial: current is FeedLoaded ? current.noticeSerial : 0,
         ),
       );
     } on Failure catch (failure) {
       if (isClosed) return;
-      // Un fallo al refrescar no borra lo que ya se estaba mostrando.
-      if (state is FeedLoaded) return;
+      // Un fallo al refrescar no borra lo que ya se estaba mostrando, pero
+      // se avisa: un pull-to-refresh que no hace nada parece que anduvo.
+      if (state is FeedLoaded) {
+        _notify(FeedNotice.actionFailed);
+        return;
+      }
       emit(FeedFailure(offline: failure is NetworkFailure));
     }
+  }
+
+  /// La primera página recién leída, más lo ya paginado que queda después.
+  ///
+  /// Publicar, editar o comentar disparan una relectura de la primera página,
+  /// que antes **reemplazaba** la lista: quien había bajado tres páginas
+  /// volvía a la primera y perdía los guardados. Los guardados son locales
+  /// (no hay backend), así que se copian por id.
+  @visibleForTesting
+  static ({List<Post> posts, String? nextCursor}) mergeFirstPage(
+    FeedLoaded current,
+    PostPage page,
+  ) {
+    final saved = {
+      for (final post in current.posts)
+        if (post.isSaved) post.id,
+    };
+    final fresh = [
+      for (final post in page.posts)
+        saved.contains(post.id) ? post.copyWith(isSaved: true) : post,
+    ];
+    // Todo el feed entra en una página: no hay nada más que conservar.
+    if (page.nextCursor == null || fresh.isEmpty) {
+      return (posts: fresh, nextCursor: page.nextCursor);
+    }
+    final ids = {for (final post in fresh) post.id};
+    final boundary = fresh.last.createdAt;
+    final older = [
+      for (final post in current.posts)
+        if (!ids.contains(post.id) && !post.createdAt.isAfter(boundary)) post,
+    ];
+    return (
+      posts: [...fresh, ...older],
+      // Si se conservaron páginas, el cursor sigue siendo el de la última.
+      nextCursor: older.isEmpty ? page.nextCursor : current.nextCursor,
+    );
   }
 
   Future<void> loadMore() async {
@@ -170,11 +214,15 @@ class FeedCubit extends Cubit<FeedState> {
     try {
       final page = await _posts.feed(cursor: current.nextCursor);
       if (isClosed) return;
-      final known = {for (final post in current.posts) post.id};
+      // Sobre el estado de ahora, no sobre `current`: emitir el de antes del
+      // await revertía un like hecho mientras cargaba la página.
+      final latest = state;
+      if (latest is! FeedLoaded) return;
+      final known = {for (final post in latest.posts) post.id};
       emit(
-        current.copyWith(
+        latest.copyWith(
           posts: [
-            ...current.posts,
+            ...latest.posts,
             ...page.posts.where((post) => !known.contains(post.id)),
           ],
           nextCursor: () => page.nextCursor,
@@ -182,7 +230,12 @@ class FeedCubit extends Cubit<FeedState> {
         ),
       );
     } on Failure {
-      if (!isClosed) emit(current.copyWith(isLoadingMore: false));
+      if (isClosed) return;
+      final latest = state;
+      if (latest is FeedLoaded) {
+        emit(latest.copyWith(isLoadingMore: false));
+        _notify(FeedNotice.actionFailed);
+      }
     }
   }
 

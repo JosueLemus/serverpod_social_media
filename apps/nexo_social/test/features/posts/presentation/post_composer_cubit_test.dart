@@ -20,6 +20,13 @@ class _FakePicker implements MediaPicker {
   Future<MediaAttachment?> pick(PostMedia kind) async => attachment;
 }
 
+/// Un selector que lanza, como el plugin cuando el permiso está negado.
+class _DeniedPicker implements MediaPicker {
+  @override
+  Future<MediaAttachment?> pick(PostMedia kind) async =>
+      throw StateError('photo_access_denied');
+}
+
 MediaAttachment _file({
   PostMedia kind = PostMedia.image,
   String type = 'image/jpeg',
@@ -35,6 +42,40 @@ void main() {
   late FakePostRepository repository;
 
   setUp(() => repository = FakePostRepository());
+
+  /// Regresión: `canPublish` exigía texto, así que una foto sola —la
+  /// publicación más común— no se podía publicar aunque el servidor la acepta.
+  blocTest<PostComposerCubit, PostComposerState>(
+    'a photo alone can be published',
+    build: () => PostComposerCubit(repository, _FakePicker(_file())),
+    act: (cubit) async {
+      await cubit.attach(PostMedia.image);
+      await cubit.publish();
+    },
+    verify: (cubit) {
+      expect(cubit.state, isA<PostComposerPublished>());
+      expect(repository.created.single.body, isEmpty);
+    },
+  );
+
+  test('the limit is the server\'s, not a stricter one', () {
+    expect(PostComposerCubit.maxLength, 2200);
+    final cubit = PostComposerCubit(repository, _FakePicker(null))
+      ..change('a' * 2200);
+    expect((cubit.state as PostComposerIdle).canPublish, isTrue);
+    cubit.change('a' * 2201);
+    expect((cubit.state as PostComposerIdle).canPublish, isFalse);
+  });
+
+  blocTest<PostComposerCubit, PostComposerState>(
+    'a denied gallery says so instead of doing nothing',
+    build: () => PostComposerCubit(repository, _DeniedPicker()),
+    act: (cubit) => cubit.attach(PostMedia.image),
+    verify: (cubit) => expect(
+      (cubit.state as PostComposerIdle).issue,
+      ComposerIssue.pickerFailed,
+    ),
+  );
 
   blocTest<PostComposerCubit, PostComposerState>(
     'publishes the draft through the repository, with its hashtags',

@@ -1,0 +1,7 @@
+### Qué puede hacer una cuenta en el canal de video. Lo decide el servidor al
+### emitir el token: el cliente nunca pide ser publicador.
+enum: LiveMediaGrantRole
+serialized: byName
+values:
+  - publisher
+  - subscriber

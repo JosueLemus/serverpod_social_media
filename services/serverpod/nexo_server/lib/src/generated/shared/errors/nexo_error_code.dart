@@ -19,7 +19,16 @@ enum NexoErrorCode implements _is.SerializableModel {
   notFound,
   conflict,
   invalidInput,
-  rateLimited;
+  rateLimited,
+
+  /// Iniciar o programar un vivo sin ser creador verificado.
+  creatorNotVerified,
+
+  /// La cuenta está suspendida o baneada: no puede escribir.
+  accountSuspended,
+
+  /// La cuenta está silenciada: no puede comentar ni chatear.
+  muted;
 
   static NexoErrorCode fromJson(String name) {
     switch (name) {
@@ -35,6 +44,12 @@ enum NexoErrorCode implements _is.SerializableModel {
         return NexoErrorCode.invalidInput;
       case 'rateLimited':
         return NexoErrorCode.rateLimited;
+      case 'creatorNotVerified':
+        return NexoErrorCode.creatorNotVerified;
+      case 'accountSuspended':
+        return NexoErrorCode.accountSuspended;
+      case 'muted':
+        return NexoErrorCode.muted;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "NexoErrorCode"',

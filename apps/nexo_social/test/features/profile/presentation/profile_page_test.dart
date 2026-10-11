@@ -50,4 +50,52 @@ void main() {
     expect(find.text('Tu perfil te está esperando.'), findsOneWidget);
     expect(find.text('Publicaciones'), findsNothing);
   });
+
+  /// Regresión: el endpoint es público, pero un visitante que abría
+  /// `/u/elena_ux` veía "Tu perfil te está esperando" y nada de Elena.
+  testWidgets('a visitor sees the public profile of someone else', (
+    tester,
+  ) async {
+    await AppHarness.bootstrap();
+    await sl<AuthCubit>().guest();
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      AppHarness.wrap(const ProfilePage(username: 'elena_ux')),
+    );
+    await AppHarness.settle(tester);
+
+    expect(find.text('Elena Vega'), findsOneWidget);
+    expect(find.text('Tu perfil te está esperando.'), findsNothing);
+    // Mirar sí; seguir y suscribirse, con una cuenta.
+    expect(find.byKey(const Key('profile-follow')), findsNothing);
+  });
+
+  /// Regresión: el menú de un perfil ajeno ofrecía Creator Studio y "Cerrar
+  /// sesión", como si fuera el propio.
+  testWidgets('someone else\'s profile has no account menu', (tester) async {
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      AppHarness.wrap(const ProfilePage(username: 'carlos_mendez')),
+    );
+    await AppHarness.settle(tester);
+
+    expect(find.text('Carlos Méndez'), findsOneWidget);
+    expect(find.byTooltip('Opciones del perfil'), findsNothing);
+    expect(find.byKey(const Key('profile-follow')), findsOneWidget);
+  });
+
+  testWidgets('an unknown account says so', (tester) async {
+    await tester.pumpWidget(
+      AppHarness.wrap(const ProfilePage(username: 'nadie_123')),
+    );
+    await AppHarness.settle(tester);
+
+    expect(find.text('Esta cuenta no existe'), findsOneWidget);
+  });
 }

@@ -22,10 +22,10 @@ class ServerpodPostRepository implements PostRepository {
 
   @override
   Future<PostPage> feed({String? cursor}) => _guard(() async {
-    final page = await _client.posts.feed(after: _decodeCursor(cursor));
+    final page = await _client.posts.feed(after: decodeCursor(cursor));
     return PostPage([
       for (final view in page.items) toPost(view),
-    ], nextCursor: _encodeCursor(page.nextCursor));
+    ], nextCursor: encodeCursor(page.nextCursor));
   });
 
   @override
@@ -113,11 +113,11 @@ class ServerpodPostRepository implements PostRepository {
       _guard(() async {
         final page = await _client.comments.list(
           int.parse(postId),
-          after: _decodeCursor(cursor),
+          after: decodeCursor(cursor),
         );
         return CommentPage([
           for (final view in page.items) _toComment(view),
-        ], nextCursor: _encodeCursor(page.nextCursor));
+        ], nextCursor: encodeCursor(page.nextCursor));
       });
 
   @override
@@ -188,12 +188,13 @@ class ServerpodPostRepository implements PostRepository {
   );
 
   /// El cursor del servidor viaja como texto opaco: la app no sabe ni
-  /// necesita saber que es `(createdAt, id)`.
-  static String? _encodeCursor(api.PageCursor? cursor) => cursor == null
+  /// necesita saber que es `(createdAt, id)`. Públicos porque el perfil
+  /// pagina `posts.byAuthor` con el mismo cursor.
+  static String? encodeCursor(api.PageCursor? cursor) => cursor == null
       ? null
       : '${cursor.createdAt.toUtc().toIso8601String()}|${cursor.id}';
 
-  static api.PageCursor? _decodeCursor(String? cursor) {
+  static api.PageCursor? decodeCursor(String? cursor) {
     if (cursor == null) return null;
     final parts = cursor.split('|');
     if (parts.length != 2) return null;

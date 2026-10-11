@@ -1,0 +1,7 @@
+### En qué quedó la invitación a co-conducir un show.
+enum: LiveShowGuestStatus
+serialized: byName
+values:
+  - invited
+  - accepted
+  - declined

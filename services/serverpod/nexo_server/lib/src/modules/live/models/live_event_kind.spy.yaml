@@ -1,0 +1,14 @@
+### Qué trae un [LiveEvent].
+enum: LiveEventKind
+serialized: byName
+values:
+  ### Lo primero que recibe quien se conecta: show, rol, espectadores e historia.
+  - snapshot
+  ### El show cambió de estado.
+  - status
+  ### Cambió la cantidad de espectadores.
+  - viewers
+  ### Mensaje nuevo en el chat.
+  - chat
+  ### Un mensaje se ocultó.
+  - chatHidden

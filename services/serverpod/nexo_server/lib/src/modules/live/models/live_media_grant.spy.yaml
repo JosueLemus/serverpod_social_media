@@ -1,0 +1,11 @@
+### Credencial para entrar al canal de video de un show. El token lo firma el
+### servidor con el App Certificate, que nunca sale de acá. `token` vacío
+### quiere decir modo de prueba: el proyecto de Agora no tiene certificado.
+class: LiveMediaGrant
+fields:
+  appId: String
+  channel: String
+  uid: int
+  token: String
+  role: LiveMediaGrantRole
+  expiresAt: DateTime

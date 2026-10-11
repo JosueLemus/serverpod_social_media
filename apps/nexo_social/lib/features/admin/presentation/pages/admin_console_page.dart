@@ -109,10 +109,56 @@ class _ConsoleViewState extends State<_ConsoleView> {
                 AdminSection.lives => _LivesSection(lives: state.lives),
                 AdminSection.audit => const _AuditSection(),
               },
+              const SizedBox(height: AppSpacing.xl),
+              const _ResetDemo(),
             ],
           ],
         ),
       );
+}
+
+/// Vuelve la demo a la semilla, para grabar el recorrido otra vez (SDD 0007,
+/// F13). Pide confirmación: borra sanciones y auditoría de la consola.
+class _ResetDemo extends StatelessWidget {
+  const _ResetDemo();
+
+  Future<void> _confirm(BuildContext context) async {
+    final cubit = context.read<AdminConsoleCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('¿Reiniciar los datos de la demo?'),
+        content: const Text(
+          'Las cuentas, las sanciones, los reportes del chat y la auditoría '
+          'de la consola vuelven a su estado inicial. Las publicaciones y las '
+          'cuentas del servidor no cambian.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('admin-reset-demo-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Reiniciar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) await cubit.resetDemo();
+  }
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: TextButton.icon(
+      key: const Key('admin-reset-demo'),
+      onPressed: () => unawaited(_confirm(context)),
+      icon: const Icon(Icons.restart_alt_rounded),
+      label: const Text('Reiniciar datos de la demo'),
+    ),
+  );
 }
 
 /// El servidor dijo que no. Se muestra aunque el guard ya debería haber

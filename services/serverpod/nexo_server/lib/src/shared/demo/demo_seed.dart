@@ -6,12 +6,17 @@ import '../auth/auth_context.dart';
 
 /// Crea la contraseña de una cuenta. En el servidor es el admin del
 /// proveedor de email de Serverpod; en los tests, un registro.
+///
+/// Recibe la transacción que está creando al usuario: la cuenta de email
+/// apunta a `AuthUser` por foreign key, y fuera de esa transacción el usuario
+/// todavía no existe.
 typedef CreateCredentials =
     Future<void> Function(
       Session session,
       UuidValue authUserId,
       String email,
       String password,
+      Transaction transaction,
     );
 
 class DemoAccount {
@@ -102,6 +107,7 @@ class DemoSeed {
       created++;
     }
     await _seedContent(session, ids);
+    await _seedLive(session, ids);
     return created;
   }
 
@@ -137,7 +143,7 @@ class DemoSeed {
           ),
           transaction: tx,
         );
-        await _createCredentials(session, id, account.email, password);
+        await _createCredentials(session, id, account.email, password, tx);
         return id;
       });
 
@@ -203,6 +209,89 @@ class DemoSeed {
         ),
         transaction: tx,
       );
+    });
+  }
+
+  /// Dos shows programados y un replay. Nada "al aire": un vivo al aire sin
+  /// nadie transmitiendo es justo el mock que esto reemplaza. Guarda propia:
+  /// la de los posts hace `return` y lo saltearía en el segundo arranque.
+  Future<void> _seedLive(Session session, Map<String, UuidValue> ids) async {
+    final elena = ids['elena_ux']!;
+    final carlos = ids['carlos_mendez']!;
+    final tomas = ids['tomas']!;
+    final troll = ids['troll_99']!;
+
+    final elenaShows = await LiveShow.db.count(
+      session,
+      where: (t) => t.hostId.equals(elena),
+    );
+    if (elenaShows > 0) return;
+
+    final now = DateTime.now().toUtc();
+    await session.db.transaction((tx) async {
+      await LiveShow.db.insert(session, [
+        LiveShow(
+          hostId: elena,
+          title: 'Masterclass de Diseño Mobile',
+          description:
+              'Cómo pasar de un mockup a un design system que el equipo '
+              'pueda mantener.',
+          startsAt: now.add(const Duration(hours: 1)),
+          durationMinutes: 60,
+          access: LiveShowAccess.public,
+          status: LiveShowStatus.scheduled,
+        ),
+        LiveShow(
+          hostId: carlos,
+          title: 'Flutter en vivo: tokens de diseño',
+          description: 'Del Figma al ThemeData sin copiar a mano.',
+          startsAt: now.add(const Duration(days: 1)),
+          durationMinutes: 45,
+          access: LiveShowAccess.public,
+          status: LiveShowStatus.scheduled,
+        ),
+      ], transaction: tx);
+
+      final startedAt = now.subtract(const Duration(days: 2));
+      final replay = await LiveShow.db.insertRow(
+        session,
+        LiveShow(
+          hostId: elena,
+          title: 'Q&A: portfolio de producto',
+          description:
+              'Preguntas de la comunidad sobre cómo armar un '
+              'portfolio de diseño de producto.',
+          startsAt: startedAt,
+          durationMinutes: 45,
+          access: LiveShowAccess.public,
+          status: LiveShowStatus.published,
+          startedAt: startedAt,
+          endedAt: startedAt.add(const Duration(minutes: 47)),
+          endedBy: elena,
+          viewerPeak: 312,
+        ),
+        transaction: tx,
+      );
+      await LiveChatMessage.db.insert(session, [
+        LiveChatMessage(
+          showId: replay.id!,
+          authorId: tomas,
+          body: '¿Cuántos proyectos recomiendas mostrar?',
+          createdAt: startedAt.add(const Duration(minutes: 5)),
+        ),
+        LiveChatMessage(
+          showId: replay.id!,
+          authorId: carlos,
+          body: 'Gran sesión, gracias Elena 🙌',
+          createdAt: startedAt.add(const Duration(minutes: 30)),
+        ),
+        LiveChatMessage(
+          showId: replay.id!,
+          authorId: troll,
+          body: 'Aburrido, nadie mira esto',
+          createdAt: startedAt.add(const Duration(minutes: 31)),
+        ),
+      ], transaction: tx);
     });
   }
 }

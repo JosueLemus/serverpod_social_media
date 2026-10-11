@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/mock/demo_accounts.dart';
+import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/core/layout/nexo_page.dart';
 import 'package:nexo_social/core/responsive/breakpoints.dart';
 import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
@@ -136,6 +139,7 @@ void main() {
     testWidgets('liking updates the count and keeps the icon visible', (
       tester,
     ) async {
+      await sl<AuthCubit>().signIn(DemoAccounts.viewer.email, 'demo');
       await pumpAt(tester, const Size(390, 1600));
 
       expect(find.text('482'), findsOneWidget);
@@ -147,6 +151,19 @@ void main() {
       // Regression: the filled heart must exist after the pop animation, and
       // the outlined one must exist before it.
       expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+    });
+
+    /// Regresión: el toque de un visitante llegaba al servidor, que lo
+    /// rechazaba, y el aviso decía "No pudimos guardar tu me gusta".
+    testWidgets('a visitor is asked to sign in instead', (tester) async {
+      await sl<AuthCubit>().guest();
+      await pumpAt(tester, const Size(390, 1600));
+
+      await tester.tap(find.byKey(const Key('like-post-1')));
+      await AppHarness.settle(tester);
+
+      expect(find.byKey(const Key('like-sign-in')), findsOneWidget);
+      expect(find.text('482'), findsOneWidget);
     });
 
     testWidgets('an unliked post still shows a heart to tap', (tester) async {

@@ -1,0 +1,12 @@
+### Lo que el cliente envía para programar un show. Los invitados van por
+### nombre de usuario, como los escribe el creador.
+class: LiveShowDraft
+fields:
+  title: String
+  description: String
+  startsAt: DateTime
+  durationMinutes: int
+  access: LiveShowAccess, default=public
+  allowQuestions: bool, default=true
+  recordReplay: bool, default=true
+  guestUsernames: List<String>

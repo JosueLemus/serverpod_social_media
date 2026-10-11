@@ -96,7 +96,11 @@ class FeaturedLiveCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            'por @$hostUsername',
+                            // Sin handle (el mock no lo tiene) va el nombre:
+                            // inventar un `@` puede nombrar a otra cuenta.
+                            hostUsername.isEmpty
+                                ? 'por ${session.hostName}'
+                                : 'por @$hostUsername',
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall,
                           ),

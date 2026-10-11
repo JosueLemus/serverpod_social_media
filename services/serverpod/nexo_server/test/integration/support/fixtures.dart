@@ -39,6 +39,53 @@ class Fixtures {
     return user.id!;
   }
 
+  /// Una cuenta con su perfil de Nexo ya creado: lo que hace falta para
+  /// probar el gate de los vivos (creador, verificación y estado).
+  Future<UuidValue> seedAccount(
+    String username,
+    String fullName, {
+    bool isCreator = false,
+    VerificationStatus verification = VerificationStatus.none,
+    AccountStatus status = AccountStatus.active,
+  }) async {
+    final id = await seedUser(username, fullName);
+    await AccountProfile.db.insertRow(
+      session,
+      AccountProfile(
+        authUserId: id,
+        username: username,
+        isCreator: isCreator,
+        verification: verification,
+        status: status,
+      ),
+    );
+    return id;
+  }
+
+  /// Creador verificado y activo: el único que puede iniciar un vivo.
+  Future<UuidValue> seedCreator(String username, String fullName) =>
+      seedAccount(
+        username,
+        fullName,
+        isCreator: true,
+        verification: VerificationStatus.verified,
+      );
+
+  LiveShowDraft showDraft(
+    String title, {
+    DateTime? startsAt,
+    int durationMinutes = 60,
+    List<String> guests = const [],
+    bool recordReplay = true,
+  }) => LiveShowDraft(
+    title: title,
+    description: '',
+    startsAt: startsAt ?? DateTime.now().toUtc().add(const Duration(hours: 1)),
+    durationMinutes: durationMinutes,
+    recordReplay: recordReplay,
+    guestUsernames: guests,
+  );
+
   PostDraft draft(
     String body, {
     PostVisibility visibility = PostVisibility.public,

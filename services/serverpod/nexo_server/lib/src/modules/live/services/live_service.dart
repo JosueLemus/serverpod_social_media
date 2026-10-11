@@ -1,0 +1,639 @@
+import 'package:serverpod/serverpod.dart';
+
+import '../../../generated/protocol.dart';
+import '../../../shared/audit/audit_service.dart';
+import '../../../shared/auth/auth_context.dart';
+import '../../../shared/gateways/agora/agora_live_media_gateway.dart';
+import '../../../shared/gateways/live_media_gateway.dart';
+import '../../../shared/profiles/profile_lookup.dart';
+import '../../identity/services/identity_service.dart';
+import 'live_presence.dart';
+import 'live_rules.dart';
+
+/// Reglas de negocio de los vivos: programar, iniciar, terminar, mirar y
+/// chatear.
+///
+/// Toda escritura corre en una transacción con su auditoría, y lo que cambia
+/// se publica **después** del commit: si la transacción se revierte, ningún
+/// dispositivo tiene que haber visto el cambio.
+class LiveService {
+  LiveService({
+    this._identity = const IdentityService(),
+    this._audit = const AuditService(),
+    LivePresence? presence,
+    LiveChatThrottle? throttle,
+    LiveMediaGateway Function(Session session)? mediaGateway,
+    DateTime Function()? now,
+  }) : _presence = presence ?? LivePresence.instance,
+       _throttle = throttle ?? LiveChatThrottle.instance,
+       _mediaGateway =
+           mediaGateway ??
+           ((session) => liveMediaGatewayFrom(session.passwords)),
+       _now = now ?? (() => DateTime.now().toUtc());
+
+  final IdentityService _identity;
+  final AuditService _audit;
+  final LivePresence _presence;
+  final LiveChatThrottle _throttle;
+
+  /// Se resuelve por sesión porque los secretos se leen de ahí: con App
+  /// Certificate, tokens firmados; sin él, el modo de prueba de Agora.
+  final LiveMediaGateway Function(Session session) _mediaGateway;
+  final DateTime Function() _now;
+
+  // --- Lectura -------------------------------------------------------------
+
+  Future<LiveShowView> get(Session session, int showId) async =>
+      _toView(session, await requireVisible(session, showId));
+
+  /// Lo que se muestra en Explorar y en el feed: al aire, programados y
+  /// replays, en ese orden.
+  Future<List<LiveShowView>> list(Session session) async {
+    final shows = await LiveShow.db.find(
+      session,
+      where: (t) => t.status.inSet({
+        LiveShowStatus.live,
+        LiveShowStatus.ending,
+        LiveShowStatus.scheduled,
+        LiveShowStatus.recorded,
+        LiveShowStatus.published,
+      }),
+      orderByList: (t) => [t.startsAt.desc()],
+      limit: LiveRules.listLimit,
+    );
+    int rank(LiveShow s) => LiveRules.isOnAir(s.status)
+        ? 0
+        : s.status == LiveShowStatus.scheduled
+        ? 1
+        : 2;
+    shows.sort((a, b) {
+      final byRank = rank(a).compareTo(rank(b));
+      if (byRank != 0) return byRank;
+      // Programados: el más próximo primero. El resto: el más reciente.
+      return rank(a) == 1
+          ? a.startsAt.compareTo(b.startsAt)
+          : (b.startedAt ?? b.startsAt).compareTo(a.startedAt ?? a.startsAt);
+    });
+    return _toViews(session, shows);
+  }
+
+  /// Los shows de la cuenta de la sesión, en cualquier estado.
+  Future<List<LiveShowView>> mine(Session session) async {
+    final hostId = session.requireUserId;
+    final shows = await LiveShow.db.find(
+      session,
+      where: (t) => t.hostId.equals(hostId),
+      orderByList: (t) => [t.startsAt.desc()],
+      limit: LiveRules.listLimit,
+    );
+    return _toViews(session, shows);
+  }
+
+  Future<LiveShowRole> roleIn(Session session, int showId) async =>
+      _roleIn(session, await requireVisible(session, showId));
+
+  /// Del más viejo al más nuevo. [beforeId] para pedir los anteriores.
+  Future<List<LiveChatMessageView>> chatHistory(
+    Session session,
+    int showId, {
+    int? beforeId,
+  }) async {
+    await requireVisible(session, showId);
+    final rows = await LiveChatMessage.db.find(
+      session,
+      where: (t) {
+        var where = t.showId.equals(showId) & t.hiddenAt.equals(null);
+        if (beforeId != null) where = where & (t.id < beforeId);
+        return where;
+      },
+      orderByList: (t) => [t.id.desc()],
+      limit: LiveRules.chatPageSize,
+    );
+    return _messageViews(session, rows.reversed.toList());
+  }
+
+  // --- Escritura -----------------------------------------------------------
+
+  Future<LiveShowView> schedule(Session session, LiveShowDraft draft) async {
+    final hostId = session.requireUserId;
+    final host = await _identity.requireActive(session, hostId);
+    _requireVerifiedCreator(host);
+
+    final title = LiveRules.normalizeTitle(draft.title);
+    final description = LiveRules.normalizeDescription(draft.description);
+    final duration = LiveRules.checkDuration(draft.durationMinutes);
+    final startsAt = LiveRules.checkStartsAt(draft.startsAt, _now());
+    final guests = await _guestIds(
+      session,
+      hostId,
+      LiveRules.normalizeGuests(draft.guestUsernames),
+    );
+
+    final show = await session.db.transaction((tx) async {
+      final show = await LiveShow.db.insertRow(
+        session,
+        LiveShow(
+          hostId: hostId,
+          title: title,
+          description: description,
+          startsAt: startsAt,
+          durationMinutes: duration,
+          access: draft.access,
+          allowQuestions: draft.allowQuestions,
+          recordReplay: draft.recordReplay,
+          status: LiveShowStatus.scheduled,
+        ),
+        transaction: tx,
+      );
+      await LiveShowGuest.db.insert(session, [
+        for (final id in guests)
+          LiveShowGuest(
+            showId: show.id!,
+            userId: id,
+            status: LiveShowGuestStatus.invited,
+          ),
+      ], transaction: tx);
+      await _audit.record(
+        session,
+        actorId: hostId,
+        action: 'live.schedule',
+        entityType: 'liveShow',
+        entityId: '${show.id}',
+        transaction: tx,
+      );
+      return show;
+    });
+
+    final view = await _toView(session, show);
+    await _publishStatus(session, view);
+    return view;
+  }
+
+  /// D5 del SDD 0004: sólo el host, creador, verificado y con la cuenta
+  /// activa. Un host tiene un solo vivo al aire a la vez.
+  Future<LiveShowView> start(Session session, int showId) =>
+      _transition(session, showId, LiveShowStatus.live);
+
+  Future<LiveShowView> end(Session session, int showId) =>
+      _transition(session, showId, LiveShowStatus.recorded);
+
+  Future<LiveShowView> publish(Session session, int showId) =>
+      _transition(session, showId, LiveShowStatus.published);
+
+  Future<LiveShowView> cancel(Session session, int showId) =>
+      _transition(session, showId, LiveShowStatus.cancelled);
+
+  /// "Transmitir ahora": crea el show y lo pone al aire en un solo paso, como
+  /// en cualquier red social. El mismo gate que [start] (D5) y el mismo lock
+  /// por host: no se puede abrir un segundo vivo con este atajo.
+  Future<LiveShowView> goLive(Session session, String title) async {
+    final hostId = session.requireUserId;
+    _requireVerifiedCreator(await _identity.requireActive(session, hostId));
+    final normalized = LiveRules.normalizeTitle(title);
+
+    final show = await session.db.transaction((tx) async {
+      await _lockHost(session, hostId, tx);
+      await _requireNoOtherLive(session, hostId, tx);
+      final now = _now();
+      final show = await LiveShow.db.insertRow(
+        session,
+        LiveShow(
+          hostId: hostId,
+          title: normalized,
+          startsAt: now,
+          durationMinutes: LiveRules.goLiveDurationMinutes,
+          access: LiveShowAccess.public,
+          status: LiveShowStatus.live,
+          startedAt: now,
+        ),
+        transaction: tx,
+      );
+      await _audit.record(
+        session,
+        actorId: hostId,
+        action: 'live.goLive',
+        entityType: 'liveShow',
+        entityId: '${show.id}',
+        transaction: tx,
+      );
+      return show;
+    });
+
+    final view = await _toView(session, show);
+    await _publishStatus(session, view);
+    return view;
+  }
+
+  /// La credencial de video para entrar al canal del show. El rol lo decide
+  /// el servidor: publica sólo el host con el show al aire; el resto, incluso
+  /// sin sesión, mira. El cliente nunca pide ser publicador (D9).
+  Future<LiveMediaGrant> mediaToken(Session session, int showId) async {
+    final show = await requireVisible(session, showId);
+    final onAir = LiveRules.isOnAir(show.status);
+    // La audiencia entra también a un show programado: es la sala de
+    // espera, y el video aparece cuando el host arranca.
+    if (!onAir && show.status != LiveShowStatus.scheduled) {
+      throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
+    }
+    final viewer = session.userIdOrNull;
+    final isPublisher = onAir && viewer == show.hostId;
+    final channel = LiveRules.mediaChannel(showId);
+    final uid = LiveRules.mediaUid(viewer);
+    final token = await _mediaGateway(session).issueToken(
+      channel: channel,
+      uid: uid,
+      isPublisher: isPublisher,
+      ttl: LiveRules.mediaTokenTtl,
+    );
+    return LiveMediaGrant(
+      appId: token.appId,
+      channel: channel,
+      uid: uid,
+      token: token.token,
+      role: isPublisher
+          ? LiveMediaGrantRole.publisher
+          : LiveMediaGrantRole.subscriber,
+      expiresAt: token.expiresAt,
+    );
+  }
+
+  Future<LiveChatMessageView> sendChat(
+    Session session,
+    int showId,
+    String body,
+  ) async {
+    final authorId = session.requireUserId;
+    await _identity.requireActive(session, authorId);
+    final show = await requireVisible(session, showId);
+    if (show.status != LiveShowStatus.live) {
+      throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
+    }
+    final text = LiveRules.normalizeChat(body);
+    if (!_throttle.tryAcquire(authorId, _now(), LiveRules.chatCooldown)) {
+      throw _error(
+        NexoErrorCode.rateLimited,
+        'Esperá un segundo antes del próximo mensaje.',
+      );
+    }
+
+    final message = await LiveChatMessage.db.insertRow(
+      session,
+      LiveChatMessage(showId: showId, authorId: authorId, body: text),
+    );
+    final view = (await _messageViews(session, [message])).single;
+    await session.messages.postMessage(
+      LiveChannels.show(showId),
+      LiveEvent(kind: LiveEventKind.chat, message: view),
+    );
+    return view;
+  }
+
+  /// El host del show o el staff. No borra: queda en la auditoría.
+  Future<void> hideChat(Session session, int messageId) async {
+    final actorId = session.requireUserId;
+    final hidden = await session.db.transaction((tx) async {
+      final message = await LiveChatMessage.db.findById(
+        session,
+        messageId,
+        transaction: tx,
+        lockMode: LockMode.forUpdate,
+      );
+      if (message == null) {
+        throw _error(NexoErrorCode.notFound, 'El mensaje no existe.');
+      }
+      final show = await LiveShow.db.findById(
+        session,
+        message.showId,
+        transaction: tx,
+      );
+      if (show?.hostId != actorId && !session.isStaff) {
+        throw _error(
+          NexoErrorCode.forbidden,
+          'Sólo el host o un moderador ocultan mensajes.',
+        );
+      }
+      if (message.hiddenAt != null) return null;
+
+      await LiveChatMessage.db.updateRow(
+        session,
+        message.copyWith(hiddenAt: _now(), hiddenBy: actorId),
+        columns: (t) => [t.hiddenAt, t.hiddenBy],
+        transaction: tx,
+      );
+      await _audit.record(
+        session,
+        actorId: actorId,
+        action: 'live.hideChat',
+        entityType: 'liveChatMessage',
+        entityId: '$messageId',
+        metadata: {'showId': message.showId},
+        transaction: tx,
+      );
+      return message;
+    });
+
+    if (hidden == null) return;
+    await session.messages.postMessage(
+      LiveChannels.show(hidden.showId),
+      LiveEvent(kind: LiveEventKind.chatHidden, hiddenMessageId: messageId),
+    );
+  }
+
+  // --- Tiempo real ---------------------------------------------------------
+
+  /// El show si existe y se puede mirar. `removed` cuenta como inexistente.
+  Future<LiveShow> requireVisible(Session session, int showId) async {
+    final show = await LiveShow.db.findById(session, showId);
+    if (show == null || show.status == LiveShowStatus.removed) {
+      throw _error(NexoErrorCode.notFound, 'El show no existe.');
+    }
+    return show;
+  }
+
+  /// Lo primero que recibe quien se conecta. Se arma en SU sesión: es el
+  /// único evento que puede llevar el rol.
+  Future<LiveEvent> snapshot(Session session, LiveShow show) async => LiveEvent(
+    kind: LiveEventKind.snapshot,
+    liveShow: await _toView(session, show),
+    role: await _roleIn(session, show),
+    viewerCount: _viewerCount(show),
+    history: await chatHistory(session, show.id!),
+  );
+
+  /// Suma la sesión a los espectadores, salvo que sea el host.
+  Future<void> joinAudience(Session session, LiveShow show) async {
+    if (session.userIdOrNull == show.hostId) return;
+    final count = _presence.join(show.id!, session);
+    await _publishViewers(session, show.id!, count);
+  }
+
+  /// Idempotente: el `WillCloseListener` y el `finally` de `watch` la llaman
+  /// los dos.
+  Future<void> leaveAudience(Session session, int showId) async {
+    final count = _presence.leave(showId, session);
+    if (count != null) await _publishViewers(session, showId, count);
+  }
+
+  // --- Internos ------------------------------------------------------------
+
+  Future<LiveShowView> _transition(
+    Session session,
+    int showId,
+    LiveShowStatus to,
+  ) async {
+    final actorId = session.requireUserId;
+    final current = await requireVisible(session, showId);
+
+    // Quién puede, antes de bloquear nada. El host no cambia nunca, así que
+    // leerlo fuera de la transacción es seguro.
+    final isHost = current.hostId == actorId;
+    if (to == LiveShowStatus.live) {
+      if (!isHost) {
+        throw _error(NexoErrorCode.forbidden, 'Sólo el host inicia su vivo.');
+      }
+      _requireVerifiedCreator(await _identity.requireActive(session, actorId));
+    } else if (!isHost && !session.hasScope(NexoScopes.admin)) {
+      throw _error(
+        NexoErrorCode.forbidden,
+        'Sólo el host o un operador cambian este show.',
+      );
+    }
+
+    final updated = await session.db.transaction((tx) async {
+      await _lockHost(session, current.hostId, tx);
+      final show = (await LiveShow.db.findById(
+        session,
+        showId,
+        transaction: tx,
+        lockMode: LockMode.forUpdate,
+      ))!;
+
+      if (!LiveRules.canTransition(show.status, to)) {
+        throw _error(
+          NexoErrorCode.conflict,
+          'El show no puede pasar de ${show.status.name} a ${to.name}.',
+        );
+      }
+      if (to == LiveShowStatus.published && !show.recordReplay) {
+        throw _error(NexoErrorCode.conflict, 'Este show no guarda replay.');
+      }
+      if (to == LiveShowStatus.live) {
+        await _requireNoOtherLive(session, show.hostId, tx, except: show.id);
+      }
+
+      final now = _now();
+      final next = switch (to) {
+        LiveShowStatus.live => show.copyWith(status: to, startedAt: now),
+        LiveShowStatus.recorded => show.copyWith(
+          status: to,
+          endedAt: now,
+          endedBy: actorId,
+          endedByModeration: !isHost,
+          viewerPeak: [
+            show.viewerPeak,
+            _presence.peak(show.id!),
+          ].reduce((a, b) => a > b ? a : b),
+        ),
+        _ => show.copyWith(status: to),
+      };
+      final saved = await LiveShow.db.updateRow(session, next, transaction: tx);
+      await _audit.record(
+        session,
+        actorId: actorId,
+        action: 'live.${_actionName(to)}',
+        entityType: 'liveShow',
+        entityId: '$showId',
+        metadata: {'from': show.status.name, 'to': to.name},
+        transaction: tx,
+      );
+      return saved;
+    });
+
+    final view = await _toView(session, updated);
+    await _publishStatus(session, view);
+    return view;
+  }
+
+  /// Con el lock por host, dos toques seguidos de "Iniciar" (o de
+  /// "Transmitir ahora") no abren dos vivos: el segundo espera y ve el
+  /// primero al aire.
+  Future<void> _lockHost(
+    Session session,
+    UuidValue hostId,
+    Transaction tx,
+  ) => session.db.unsafeExecute(
+    'SELECT pg_advisory_xact_lock(hashtext(@key))',
+    parameters: QueryParameters.named({'key': 'live:host:$hostId'}),
+    transaction: tx,
+  );
+
+  /// Un host tiene un solo vivo al aire a la vez. Corre con [_lockHost]
+  /// tomado.
+  Future<void> _requireNoOtherLive(
+    Session session,
+    UuidValue hostId,
+    Transaction tx, {
+    int? except,
+  }) async {
+    final onAir = await LiveShow.db.count(
+      session,
+      where: (t) =>
+          t.hostId.equals(hostId) &
+          t.status.inSet({LiveShowStatus.live, LiveShowStatus.ending}) &
+          // Con `except` nulo es `id IS NOT NULL`: todos.
+          t.id.notEquals(except),
+      transaction: tx,
+    );
+    if (onAir > 0) {
+      throw _error(NexoErrorCode.conflict, 'Ya tenés un vivo al aire.');
+    }
+  }
+
+  static String _actionName(LiveShowStatus to) => switch (to) {
+    LiveShowStatus.live => 'start',
+    LiveShowStatus.recorded => 'end',
+    LiveShowStatus.published => 'publish',
+    LiveShowStatus.cancelled => 'cancel',
+    _ => to.name,
+  };
+
+  void _requireVerifiedCreator(AccountProfile account) {
+    if (!account.isCreator ||
+        account.verification != VerificationStatus.verified) {
+      throw _error(
+        NexoErrorCode.creatorNotVerified,
+        'Necesitás ser creador verificado para transmitir.',
+      );
+    }
+  }
+
+  Future<List<UuidValue>> _guestIds(
+    Session session,
+    UuidValue hostId,
+    List<String> usernames,
+  ) async {
+    if (usernames.isEmpty) return const [];
+    final accounts = await AccountProfile.db.find(
+      session,
+      where: (t) => t.username.inSet(usernames.toSet()),
+    );
+    final byName = {for (final a in accounts) a.username: a};
+    return [
+      for (final username in usernames)
+        switch (byName[username]) {
+          null => throw _error(
+            NexoErrorCode.notFound,
+            'No existe la cuenta @$username.',
+          ),
+          final a when a.authUserId == hostId => throw _error(
+            NexoErrorCode.invalidInput,
+            'No podés invitarte a tu propio show.',
+          ),
+          final a when a.status != AccountStatus.active => throw _error(
+            NexoErrorCode.invalidInput,
+            '@$username no puede participar ahora.',
+          ),
+          final a => a.authUserId,
+        },
+    ];
+  }
+
+  Future<LiveShowRole> _roleIn(Session session, LiveShow show) async {
+    final viewer = session.userIdOrNull;
+    if (viewer == null) return LiveShowRole.audience;
+    if (show.hostId == viewer) return LiveShowRole.host;
+    if (session.isStaff) return LiveShowRole.moderator;
+    final cohost = await LiveShowGuest.db.count(
+      session,
+      where: (t) =>
+          t.showId.equals(show.id) &
+          t.userId.equals(viewer) &
+          t.status.equals(LiveShowGuestStatus.accepted),
+    );
+    return cohost > 0 ? LiveShowRole.cohost : LiveShowRole.audience;
+  }
+
+  int _viewerCount(LiveShow show) {
+    if (LiveRules.isOnAir(show.status)) return _presence.count(show.id!);
+    if (LiveRules.isEnded(show.status)) return show.viewerPeak;
+    return 0;
+  }
+
+  Future<LiveShowView> _toView(Session session, LiveShow show) async =>
+      (await _toViews(session, [show])).single;
+
+  Future<List<LiveShowView>> _toViews(
+    Session session,
+    List<LiveShow> shows,
+  ) async {
+    if (shows.isEmpty) return const [];
+    final profiles = await profilesOf(session, shows.map((s) => s.hostId));
+    final guests = await LiveShowGuest.db.find(
+      session,
+      where: (t) => t.showId.inSet(shows.map((s) => s.id!).toSet()),
+      orderBy: (t) => t.id,
+    );
+    return [
+      for (final show in shows)
+        LiveShowView(
+          id: show.id!,
+          hostId: show.hostId,
+          hostUsername: profiles[show.hostId]?.userName,
+          hostName: profiles[show.hostId]?.fullName,
+          title: show.title,
+          description: show.description,
+          startsAt: show.startsAt,
+          durationMinutes: show.durationMinutes,
+          access: show.access,
+          allowQuestions: show.allowQuestions,
+          recordReplay: show.recordReplay,
+          status: show.status,
+          startedAt: show.startedAt,
+          endedAt: show.endedAt,
+          endedByModeration: show.endedByModeration,
+          viewerCount: _viewerCount(show),
+          guestIds: [
+            for (final g in guests)
+              if (g.showId == show.id) g.userId,
+          ],
+        ),
+    ];
+  }
+
+  Future<List<LiveChatMessageView>> _messageViews(
+    Session session,
+    List<LiveChatMessage> messages,
+  ) async {
+    if (messages.isEmpty) return const [];
+    final profiles = await profilesOf(session, messages.map((m) => m.authorId));
+    return [
+      for (final m in messages)
+        LiveChatMessageView(
+          id: m.id!,
+          showId: m.showId,
+          authorId: m.authorId,
+          authorUsername: profiles[m.authorId]?.userName,
+          authorName: profiles[m.authorId]?.fullName,
+          body: m.body,
+          createdAt: m.createdAt,
+        ),
+    ];
+  }
+
+  Future<void> _publishStatus(Session session, LiveShowView view) async {
+    await session.messages.postMessage(
+      LiveChannels.show(view.id),
+      LiveEvent(kind: LiveEventKind.status, liveShow: view),
+    );
+    await session.messages.postMessage(LiveChannels.index, view);
+  }
+
+  Future<void> _publishViewers(Session session, int showId, int count) =>
+      session.messages.postMessage(
+        LiveChannels.show(showId),
+        LiveEvent(kind: LiveEventKind.viewers, viewerCount: count),
+      );
+
+  static NexoException _error(NexoErrorCode code, String message) =>
+      NexoException(code: code, message: message);
+}

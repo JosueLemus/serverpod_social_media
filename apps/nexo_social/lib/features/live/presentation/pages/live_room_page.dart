@@ -11,14 +11,13 @@ import '../../../../core/animations/app_motion.dart';
 import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
-import '../../../moderation/presentation/widgets/moderation_sheet.dart';
-import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../domain/entities/live_session.dart';
 import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_card.dart';
+import '../widgets/live_chat.dart';
 import '../widgets/live_media_sync.dart';
 import '../widgets/live_video_surface.dart';
 
@@ -137,10 +136,27 @@ class _RoomViewState extends State<_RoomView> {
                 child: Column(
                   children: [
                     _RoomTopBar(session: session, onLeave: _leave),
+                    // Se cortó el tiempo real: decirlo, en vez de dejar un
+                    // chat que parece vivo y no recibe nada.
+                    if (state.reconnecting)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: StatusBadge(
+                            key: Key('live-reconnecting'),
+                            label: 'RECONECTANDO',
+                            color: AppColors.neutral,
+                            icon: Icons.sync_rounded,
+                          ),
+                        ),
+                      ),
                     const Spacer(),
                     if (state.pinnedComment != null)
                       _PinnedComment(comment: state.pinnedComment!),
-                    _ChatOverlay(comments: state.comments),
+                    LiveChatOverlay(comments: state.comments),
                     _Composer(
                       controller: _composer,
                       loved: state.loved,
@@ -365,139 +381,6 @@ class _PinnedComment extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-}
-
-/// Los comentarios, flotando sobre el video.
-///
-/// Alto acotado y sin fondo propio: el chat de un vivo es efímero, y un panel
-/// opaco que se come media pantalla compite con lo que la gente vino a ver.
-class _ChatOverlay extends StatelessWidget {
-  const _ChatOverlay({required this.comments});
-
-  final List<LiveComment> comments;
-
-  @override
-  Widget build(BuildContext context) {
-    if (comments.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Sé la primera persona en comentar',
-            style: TextStyle(color: Colors.white54, fontSize: 12.5),
-          ),
-        ),
-      );
-    }
-
-    return ConstrainedBox(
-      // Un tercio de la pantalla como techo: el chat crece hacia arriba hasta
-      // ahí y después scrollea.
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * .32,
-      ),
-      child: ListView.builder(
-        // Anclado abajo, que es donde llega lo nuevo.
-        reverse: true,
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        itemCount: comments.length,
-        itemBuilder: (context, index) =>
-            _ChatLine(comment: comments[comments.length - 1 - index]),
-      ),
-    );
-  }
-}
-
-class _ChatLine extends StatelessWidget {
-  const _ChatLine({required this.comment});
-
-  final LiveComment comment;
-
-  /// Moderar sale de una pulsación larga sobre el mensaje, no de un ícono por
-  /// fila: con seis acciones disponibles, un control por comentario convierte
-  /// el chat en una consola y le come la pantalla al directo.
-  Future<void> _moderate(BuildContext context) async {
-    final cubit = context.read<LiveRoomCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-    final issueBefore = cubit.state.issueSerial;
-    final decision = await showModerationSheet(
-      context,
-      author: comment.author,
-      comment: comment.body,
-      canModerate: cubit.state.canModerate,
-    );
-    if (decision == null) return;
-
-    switch (decision.type) {
-      case ModerationType.hideComment:
-        await cubit.hideComment(comment);
-      case ModerationType.report:
-        await cubit.reportComment(comment);
-      case ModerationType.muteUser ||
-          ModerationType.banUser ||
-          ModerationType.dismissReport:
-        cubit.recordModeration('${decision.confirmation} (${comment.author})');
-    }
-    // Si el servidor lo rechazó, el listener ya avisó por qué.
-    if (cubit.state.issue != null && cubit.state.issueSerial != issueBefore) {
-      return;
-    }
-    // Se confirma qué pasó. Una acción de moderación que no deja rastro
-    // visible se siente como que no se aplicó, y el moderador la repite.
-    messenger.showSnackBar(SnackBar(content: Text(decision.confirmation)));
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        UserAvatar(name: comment.author, size: 24),
-        const SizedBox(width: AppSpacing.xs),
-        Flexible(
-          child: InkWell(
-            key: Key('chat-${comment.id}'),
-            onLongPress: () => unawaited(_moderate(context)),
-            borderRadius: AppRadii.medium,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xs,
-                vertical: 5,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.neutral.withValues(alpha: .5),
-                borderRadius: AppRadii.medium,
-              ),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  children: [
-                    TextSpan(
-                      text: '${comment.author} ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: comment.isMine
-                            ? AppColors.primarySurface
-                            : Colors.white70,
-                      ),
-                    ),
-                    TextSpan(text: comment.body),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-      ],
     ),
   );
 }

@@ -1,3 +1,4 @@
+import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/mock_platform.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../live/domain/entities/live_session.dart';
@@ -10,6 +11,16 @@ class MockAdminRepository implements AdminRepository {
   MockAdminRepository(this._platform);
 
   final MockPlatform _platform;
+
+  @override
+  Future<void> resetDemo() async {
+    final id = _platform.sessionAccountId;
+    final actor = id == null ? null : _platform.accountById(id);
+    if (actor == null || !actor.isOperator) {
+      throw const ForbiddenFailure('demo.reset: operator');
+    }
+    await _platform.reset();
+  }
 
   @override
   Future<ResultPage<AppUser>> searchAccounts(

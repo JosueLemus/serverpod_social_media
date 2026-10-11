@@ -18,6 +18,8 @@ import 'package:nexo_server/src/generated/modules/content/models/post_media_kind
     as _iwuw8bb0;
 import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.dart'
     as _iu4itgek;
+import 'package:nexo_server/src/generated/modules/live/models/live_show_draft.dart'
+    as _i9mwtw4q;
 import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
     as _ixmgs13r;
 import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
@@ -35,6 +37,7 @@ import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../modules/content/endpoints/posts_endpoint.dart' as _i14rwr4t;
 import '../modules/identity/endpoints/profiles_endpoint.dart' as _ijchdihn;
+import '../modules/live/endpoints/live_endpoint.dart' as _i440evyb;
 import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
 import '../modules/social/endpoints/comments_endpoint.dart' as _iiig3ywm;
 import '../modules/social/endpoints/likes_endpoint.dart' as _ippoapkl;
@@ -66,6 +69,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'profiles',
+          null,
+        ),
+      'live': _i440evyb.LiveEndpoint()
+        ..initialize(
+          server,
+          'live',
           null,
         ),
       'moderation': _ityzuh2k.ModerationEndpoint()
@@ -530,6 +539,297 @@ class Endpoints extends _is.EndpointDispatch {
                     session,
                     params['username'],
                   ),
+        ),
+      },
+    );
+    connectors['live'] = _is.EndpointConnector(
+      name: 'live',
+      endpoint: endpoints['live']!,
+      methodConnectors: {
+        'schedule': _is.MethodConnector(
+          name: 'schedule',
+          params: {
+            'draft': _is.ParameterDescription(
+              name: 'draft',
+              type: _is.getType<_i9mwtw4q.LiveShowDraft>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).schedule(
+                session,
+                params['draft'],
+              ),
+        ),
+        'start': _is.MethodConnector(
+          name: 'start',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).start(
+                session,
+                params['showId'],
+              ),
+        ),
+        'end': _is.MethodConnector(
+          name: 'end',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).end(
+                session,
+                params['showId'],
+              ),
+        ),
+        'publish': _is.MethodConnector(
+          name: 'publish',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).publish(
+                session,
+                params['showId'],
+              ),
+        ),
+        'cancel': _is.MethodConnector(
+          name: 'cancel',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).cancel(
+                session,
+                params['showId'],
+              ),
+        ),
+        'goLive': _is.MethodConnector(
+          name: 'goLive',
+          params: {
+            'title': _is.ParameterDescription(
+              name: 'title',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).goLive(
+                session,
+                params['title'],
+              ),
+        ),
+        'mediaToken': _is.MethodConnector(
+          name: 'mediaToken',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).mediaToken(
+                    session,
+                    params['showId'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).get(
+                session,
+                params['showId'],
+              ),
+        ),
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).list(session),
+        ),
+        'mine': _is.MethodConnector(
+          name: 'mine',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).mine(session),
+        ),
+        'roleIn': _is.MethodConnector(
+          name: 'roleIn',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).roleIn(
+                session,
+                params['showId'],
+              ),
+        ),
+        'chatHistory': _is.MethodConnector(
+          name: 'chatHistory',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'beforeId': _is.ParameterDescription(
+              name: 'beforeId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).chatHistory(
+                    session,
+                    params['showId'],
+                    beforeId: params['beforeId'],
+                  ),
+        ),
+        'sendChat': _is.MethodConnector(
+          name: 'sendChat',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).sendChat(
+                session,
+                params['showId'],
+                params['body'],
+              ),
+        ),
+        'hideChat': _is.MethodConnector(
+          name: 'hideChat',
+          params: {
+            'messageId': _is.ParameterDescription(
+              name: 'messageId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).hideChat(
+                session,
+                params['messageId'],
+              ),
+        ),
+        'watch': _is.MethodStreamConnector(
+          name: 'watch',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['live'] as _i440evyb.LiveEndpoint).watch(
+                session,
+                params['showId'],
+              ),
+        ),
+        'watchIndex': _is.MethodStreamConnector(
+          name: 'watchIndex',
+          params: {},
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['live'] as _i440evyb.LiveEndpoint).watchIndex(
+                session,
+              ),
         ),
       },
     );
