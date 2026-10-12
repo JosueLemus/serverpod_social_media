@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
 import '../animations/app_motion.dart';
+import 'nexo_icon.dart';
 
-/// Chip de filtro con estado, como la fila "Para ti / Siguiendo / En vivo /
-/// Comunidades" del diseño.
+/// Filtro con estado, como la fila "Para ti / Siguiendo / En vivo /
+/// Comunidades".
 ///
-/// Uno solo para toda la app: el feed y el centro de actividad tenían el mismo
-/// layout escrito dos veces, y dos copias se separan.
+/// En reposo es un sticker todavía pegado a la plancha (gris, sin borde). Al
+/// elegirlo se despega: blanco con tinta, la misma forma que un CTA. Uno solo
+/// para toda la app, porque dos copias del mismo layout se separan.
 class FilterPill extends StatelessWidget {
   const FilterPill({
     super.key,
@@ -22,94 +24,103 @@ class FilterPill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  /// Punto de color antes de la etiqueta — el rojo de "En vivo".
+  /// Punto de color antes de la etiqueta: el rojo de "En vivo".
   final Color? dotColor;
 
   /// Contador a la derecha, para un filtro que cuantifica lo que muestra.
   final int? count;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    selected: selected,
-    button: true,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: AppRadii.pill,
-      child: AnimatedContainer(
-        duration: AppMotion.feedbackDuration,
-        curve: Curves.easeOut,
-        height: AppSizes.chipHeight,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryDeep : AppColors.surface,
+  Widget build(BuildContext context) {
+    final foreground = selected ? AppColors.ink : AppColors.textSecondary;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: AppRadii.pill,
-          border: Border.all(
-            color: selected ? AppColors.primaryDeep : AppColors.border,
+          child: AnimatedContainer(
+            duration: AppMotion.feedbackDuration,
+            curve: Curves.easeOutCubic,
+            height: AppSizes.chipHeight,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.sticker : AppColors.linerHigh,
+              borderRadius: AppRadii.pill,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (dotColor != null) ...[
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: dotColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: foreground),
+                  ),
+                ),
+                if (count != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '$count',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: selected
+                          ? AppColors.ink.withValues(alpha: .55)
+                          : AppColors.textTertiary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dotColor != null) ...[
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  // Seleccionado, el punto va en blanco: su propio rojo sobre
-                  // el azul relleno pierde todo contraste.
-                  color: selected ? Colors.white : dotColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? Colors.white : AppColors.textSecondary,
-                ),
-              ),
-            ),
-            if (count != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: selected
-                      ? Colors.white70
-                      : AppColors.textOnBrandSurface,
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-/// Insignia pequeña de estado: EN VIVO, PRO, DESTACADO, VIP.
+/// Insignia de estado (EN VIVO, PRO, DESTACADO, VIP), como un sticker chico:
+/// vinilo de color con su troquel blanco.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,
     required this.label,
     this.color = AppColors.secondary,
-    this.foreground = Colors.white,
+    this.foreground = AppColors.sticker,
     this.icon,
+    this.glyph,
     this.pulse = false,
+    this.tilt = 0,
   });
 
   final String label;
   final Color color;
   final Color foreground;
   final IconData? icon;
+
+  /// El glifo propio, preferido a [icon] cuando existe.
+  final NexoGlyph? glyph;
+
+  /// Radianes. Una insignia pegada encima de otro sticker (la esquina de una
+  /// media, el borde de un plan) va apenas torcida, como pegada a mano. Una
+  /// insignia dentro de una fila de texto va derecha.
+  final double tilt;
 
   /// Sólo para lo que está pasando ahora. Un pulso sobre un replay afirmaría
   /// que está ocurriendo en este momento.
@@ -122,42 +133,51 @@ class StatusBadge extends StatelessWidget {
       height: 6,
       decoration: BoxDecoration(color: foreground, shape: BoxShape.circle),
     );
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.xs,
-        vertical: 4,
+    final badge = Container(
+      padding: const EdgeInsets.all(1.5),
+      decoration: const BoxDecoration(
+        color: AppColors.sticker,
+        borderRadius: AppRadii.pill,
       ),
-      decoration: BoxDecoration(color: color, borderRadius: AppRadii.pill),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (pulse)
-            PulsingDot(child: dot)
-          else if (icon != null)
-            Icon(icon, size: 11, color: foreground),
-          if (pulse || icon != null) const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: .6,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(color: color, borderRadius: AppRadii.pill),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (pulse)
+              PulsingDot(child: dot)
+            else if (glyph != null)
+              NexoIcon(glyph!, filled: true, size: 11, color: foreground)
+            else if (icon != null)
+              Icon(icon, size: 11, color: foreground),
+            if (pulse || glyph != null || icon != null)
+              const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 10,
+                  height: 1.1,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: .5,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+    return tilt == 0 ? badge : Transform.rotate(angle: tilt, child: badge);
   }
 }
 
 /// Un punto que late. Aislado en su propia capa: sin el [RepaintBoundary] el
 /// repintado que programa cada frame sube al ancestro y vuelve a rasterizar
-/// todo lo que comparte esa capa — normalmente una miniatura de video.
+/// todo lo que comparte esa capa, normalmente una miniatura de video.
 class PulsingDot extends StatefulWidget {
   const PulsingDot({super.key, required this.child});
 

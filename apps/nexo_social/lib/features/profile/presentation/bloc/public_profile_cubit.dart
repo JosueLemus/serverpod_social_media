@@ -9,6 +9,7 @@ import '../../../feed/domain/repositories/post_repository.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/domain/repositories/live_repository.dart';
 import '../../domain/entities/public_profile.dart';
+import '../../domain/repositories/follow_repository.dart';
 import '../../domain/repositories/profile_repository.dart';
 
 sealed class PublicProfileState extends Equatable {
@@ -36,6 +37,9 @@ class PublicProfileFailure extends PublicProfileState {
   List<Object?> get props => [offline];
 }
 
+/// Por qué no se pudo seguir. La View elige la copy.
+enum ProfileNotice { followFailed, signInToFollow, suspended }
+
 class PublicProfileLoaded extends PublicProfileState {
   const PublicProfileLoaded({
     required this.profile,
@@ -43,6 +47,8 @@ class PublicProfileLoaded extends PublicProfileState {
     this.nextCursor,
     this.isLoadingMore = false,
     this.lives = const [],
+    this.notice,
+    this.noticeSerial = 0,
   });
 
   final PublicProfile profile;
@@ -53,30 +59,53 @@ class PublicProfileLoaded extends PublicProfileState {
   /// Los vivos de esta cuenta: al aire, programados y grabados.
   final List<LiveSession> lives;
 
+  /// El último rechazo al seguir. [noticeSerial] crece con cada uno, así que
+  /// el mismo dos veces seguidas también se avisa.
+  final ProfileNotice? notice;
+  final int noticeSerial;
+
   bool get hasMore => nextCursor != null;
 
   PublicProfileLoaded copyWith({
+    PublicProfile? profile,
     List<Post>? posts,
     String? Function()? nextCursor,
     bool? isLoadingMore,
+    ProfileNotice? notice,
+    int? noticeSerial,
   }) => PublicProfileLoaded(
-    profile: profile,
+    profile: profile ?? this.profile,
     posts: posts ?? this.posts,
     nextCursor: nextCursor == null ? this.nextCursor : nextCursor(),
     isLoadingMore: isLoadingMore ?? this.isLoadingMore,
     lives: lives,
+    notice: notice ?? this.notice,
+    noticeSerial: noticeSerial ?? this.noticeSerial,
   );
 
   @override
-  List<Object?> get props => [profile, posts, nextCursor, isLoadingMore, lives];
+  List<Object?> get props => [
+    profile,
+    posts,
+    nextCursor,
+    isLoadingMore,
+    lives,
+    notice,
+    noticeSerial,
+  ];
 }
 
 /// El perfil de [username]: lo que dice el servidor de la cuenta, sus
 /// publicaciones y sus vivos. Antes la pantalla tenía a Elena escrita a mano
 /// y mostraba lo mismo para cualquier cuenta.
 class PublicProfileCubit extends Cubit<PublicProfileState> {
-  PublicProfileCubit(this._profiles, this._lives, this._posts, this.username)
-    : super(const PublicProfileLoading()) {
+  PublicProfileCubit(
+    this._profiles,
+    this._lives,
+    this._posts,
+    this.username, [
+    this._follows,
+  ]) : super(const PublicProfileLoading()) {
     // Publicar, editar o borrar desde otra pestaña tiene que verse en el
     // perfil propio, que el shell conserva montado.
     _changes = _posts.changes().listen((_) => unawaited(_reload()));
@@ -85,6 +114,7 @@ class PublicProfileCubit extends Cubit<PublicProfileState> {
   final ProfileRepository _profiles;
   final LiveRepository _lives;
   final PostRepository _posts;
+  final FollowRepository? _follows;
   final String username;
   late final StreamSubscription<void> _changes;
 
@@ -151,6 +181,59 @@ class PublicProfileCubit extends Cubit<PublicProfileState> {
       if (!isClosed && latest is PublicProfileLoaded) {
         emit(latest.copyWith(isLoadingMore: false));
       }
+    }
+  }
+
+  /// Optimista: el botón y el contador cambian en el turno del tap. La
+  /// respuesta del servidor deja el número real; si falla, todo vuelve como
+  /// estaba y se dice por qué.
+  Future<void> toggleFollow() async {
+    final follows = _follows;
+    final current = state;
+    if (follows == null || current is! PublicProfileLoaded) return;
+    final before = current.profile;
+    final following = !before.viewerFollows;
+    emit(
+      current.copyWith(
+        profile: before.copyWith(
+          viewerFollows: following,
+          followers: () => switch (before.followers) {
+            final count? => count + (following ? 1 : -1),
+            null => null,
+          },
+        ),
+      ),
+    );
+    try {
+      final result = following
+          ? await follows.follow(before.id)
+          : await follows.unfollow(before.id);
+      final latest = state;
+      if (isClosed || latest is! PublicProfileLoaded) return;
+      emit(
+        latest.copyWith(
+          profile: latest.profile.copyWith(
+            viewerFollows: result.viewerFollows,
+            followers: result.followerCount == null
+                ? null
+                : () => result.followerCount,
+          ),
+        ),
+      );
+    } on Failure catch (failure) {
+      final latest = state;
+      if (isClosed || latest is! PublicProfileLoaded) return;
+      emit(
+        latest.copyWith(
+          profile: before,
+          notice: switch (failure) {
+            AccountSuspendedFailure() => ProfileNotice.suspended,
+            ForbiddenFailure() => ProfileNotice.signInToFollow,
+            _ => ProfileNotice.followFailed,
+          },
+          noticeSerial: latest.noticeSerial + 1,
+        ),
+      );
     }
   }
 

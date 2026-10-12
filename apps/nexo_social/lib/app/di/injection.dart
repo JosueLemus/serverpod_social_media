@@ -13,8 +13,11 @@ import '../../core/media/simulated_live_media_engine.dart';
 import '../../core/mock/mock_platform.dart';
 import '../../core/storage/mock_social_store.dart';
 import '../../core/storage/session_storage.dart';
+import '../../features/feed/data/repositories/mock_home_feed_repository.dart';
 import '../../features/feed/data/repositories/mock_post_repository.dart';
+import '../../features/feed/data/repositories/serverpod_home_feed_repository.dart';
 import '../../features/feed/data/repositories/serverpod_post_repository.dart';
+import '../../features/feed/domain/repositories/home_feed_repository.dart';
 import '../../features/feed/domain/repositories/post_repository.dart';
 import '../../features/feed/presentation/bloc/comments_cubit.dart';
 import '../../features/feed/presentation/bloc/feed_cubit.dart';
@@ -27,6 +30,7 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/posts/presentation/bloc/post_composer_cubit.dart';
 import '../../features/explore/data/repositories/mock_discovery_repository.dart';
+import '../../features/explore/data/repositories/serverpod_discovery_repository.dart';
 import '../../features/explore/domain/repositories/discovery_repository.dart';
 import '../../features/live/data/repositories/mock_live_repository.dart';
 import '../../features/live/data/repositories/serverpod_live_repository.dart';
@@ -50,10 +54,25 @@ import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/admin/presentation/bloc/account_detail_cubit.dart';
 import '../../features/admin/presentation/bloc/admin_console_cubit.dart';
 import '../../features/admin/presentation/bloc/audit_log_cubit.dart';
+import '../../features/profile/data/repositories/mock_account_repository.dart';
+import '../../features/profile/data/repositories/mock_follow_repository.dart';
 import '../../features/profile/data/repositories/mock_profile_repository.dart';
+import '../../features/profile/data/repositories/serverpod_account_repository.dart';
+import '../../features/profile/data/repositories/serverpod_follow_repository.dart';
 import '../../features/profile/data/repositories/serverpod_profile_repository.dart';
+import '../../features/profile/domain/entities/follow.dart';
+import '../../features/profile/domain/repositories/account_repository.dart';
+import '../../features/profile/domain/repositories/follow_repository.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/presentation/bloc/edit_profile_cubit.dart';
+import '../../features/profile/presentation/bloc/follow_cubit.dart';
+import '../../features/profile/presentation/bloc/follow_list_cubit.dart';
 import '../../features/profile/presentation/bloc/public_profile_cubit.dart';
+import '../../features/notifications/data/repositories/mock_notification_repository.dart';
+import '../../features/notifications/data/repositories/serverpod_notification_repository.dart';
+import '../../features/notifications/domain/repositories/notification_repository.dart';
+import '../../features/notifications/presentation/bloc/activity_cubit.dart';
+import '../../features/notifications/presentation/bloc/unread_activity_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -141,7 +160,18 @@ Future<void> configureDependencies({
         ? MockPostRepository(sl())
         : ServerpodPostRepository(sl<serverpod.Client>()),
   );
-  sl.registerFactory(() => FeedCubit(sl()));
+  // Seguir y el inicio por secciones (SDD 0008, M2): el mismo interruptor.
+  sl.registerLazySingleton<FollowRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockFollowRepository(sl(), sl())
+        : ServerpodFollowRepository(sl<serverpod.Client>()),
+  );
+  sl.registerLazySingleton<HomeFeedRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockHomeFeedRepository(sl(), lives: sl(), follows: sl())
+        : ServerpodHomeFeedRepository(sl<serverpod.Client>()),
+  );
+  sl.registerFactory(() => FeedCubit(sl(), sl(), sl()));
   sl.registerFactoryParam<CommentsCubit, String, void>(
     (postId, _) => CommentsCubit(sl(), postId),
   );
@@ -151,6 +181,18 @@ Future<void> configureDependencies({
   // its own cubit, so signing out in one place would leave the others
   // authenticated.
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
+  // Actividad (SDD 0008, M5): con cuentas reales, la bandeja del servidor.
+  sl.registerLazySingleton<NotificationRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockNotificationRepository()
+        : ServerpodNotificationRepository(sl<serverpod.Client>()),
+  );
+  sl.registerFactory(() => ActivityCubit(sl()));
+  // El badge de la campana sigue a la sesión, como el shell: singleton, o
+  // cada pestaña tendría su propio conteo.
+  sl.registerLazySingleton<UnreadActivityCubit>(
+    () => UnreadActivityCubit(sl(), sl<AuthCubit>()),
+  );
   // Con cuentas reales, vivos reales (SDD 0006): el mismo interruptor que
   // los posts. Una sesión de Serverpod sobre los vivos del mock es la que
   // contestaba "sin permiso" a todos.
@@ -182,7 +224,11 @@ Future<void> configureDependencies({
   );
   sl.registerLazySingleton(() => ScheduleShow(sl()));
   sl.registerFactory(() => ScheduleShowCubit(sl(), sl()));
-  sl.registerLazySingleton<DiscoveryRepository>(MockDiscoveryRepository.new);
+  sl.registerLazySingleton<DiscoveryRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockDiscoveryRepository()
+        : ServerpodDiscoveryRepository(sl<serverpod.Client>(), sl()),
+  );
   // Con cuentas reales, la cola junta los reportes de posts del servidor con
   // los del chat, que siguen en el mock hasta M6 (SDD 0007, F9).
   sl.registerLazySingleton<ModerationRepository>(
@@ -208,8 +254,22 @@ Future<void> configureDependencies({
         : ServerpodProfileRepository(sl<serverpod.Client>(), sl()),
   );
   sl.registerFactoryParam<PublicProfileCubit, String, void>(
-    (username, _) => PublicProfileCubit(sl(), sl(), sl(), username),
+    (username, _) => PublicProfileCubit(sl(), sl(), sl(), username, sl()),
   );
+  sl.registerFactoryParam<FollowListCubit, String, FollowListKind>(
+    (userId, kind) => FollowListCubit(sl(), userId, kind),
+  );
+  sl.registerFactoryParam<FollowCubit, String, void>(
+    (username, _) => FollowCubit(sl(), sl(), username),
+  );
+  // La cuenta propia (SDD 0008, M1): editar el perfil, la foto y volverse
+  // creador. El mock no la modela y lo dice.
+  sl.registerLazySingleton<AccountRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? const MockAccountRepository()
+        : ServerpodAccountRepository(sl<serverpod.Client>()),
+  );
+  sl.registerFactory(() => EditProfileCubit(sl(), sl()));
 }
 
 /// Tears the graph down so the next `configureDependencies()` rebuilds it.

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
+import 'nexo_mascot.dart';
 import 'offline_view.dart';
 
-/// Empty state: says what is missing and offers the one action that fixes it.
+/// Estado vacío: el gato, qué falta y la única acción que lo arregla.
 class AppEmptyView extends StatelessWidget {
   const AppEmptyView({
     super.key,
@@ -12,13 +13,20 @@ class AppEmptyView extends StatelessWidget {
     required this.actionLabel,
     required this.onAction,
     this.icon = Icons.auto_awesome_outlined,
+    this.mascot = NexoMascot.peek,
   });
 
   final String title;
   final String message;
   final String actionLabel;
   final VoidCallback onAction;
+
+  /// Se mantiene por compatibilidad con quien ya lo pasa. Sólo se dibuja si
+  /// [mascot] es null: un estado vacío de Nexo lo acompaña el gato, no un
+  /// ícono gris.
   final IconData icon;
+
+  final NexoMascot? mascot;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -26,11 +34,10 @@ class AppEmptyView extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        CircleAvatar(
-          radius: 34,
-          backgroundColor: AppColors.primarySurface,
-          child: Icon(icon, color: AppColors.primary, size: 32),
-        ),
+        if (mascot != null)
+          MascotIllustration(mascot!)
+        else
+          Icon(icon, color: AppColors.textSecondary, size: 40),
         const SizedBox(height: AppSpacing.md),
         Text(
           title,
@@ -38,12 +45,17 @@ class AppEmptyView extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          message,
-          style: Theme.of(context).textTheme.bodyMedium,
-          textAlign: TextAlign.center,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 340),
+          child: Text(
+            message,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.lg),
         FilledButton(onPressed: onAction, child: Text(actionLabel)),
       ],
     ),
@@ -68,7 +80,7 @@ class AppErrorView extends StatelessWidget {
   Widget build(BuildContext context) => isOffline
       ? AppOfflineView(onRetry: onRetry, savedReadings: _demoReadings)
       : AppEmptyView(
-          icon: Icons.error_outline,
+          mascot: NexoMascot.error,
           title: 'Algo no salió como esperábamos',
           message: 'Inténtalo nuevamente o vuelve más tarde.',
           actionLabel: 'Reintentar',
@@ -93,7 +105,7 @@ class AppErrorView extends StatelessWidget {
   ];
 }
 
-/// One grey bar of a loading placeholder.
+/// Una barra de un placeholder de carga.
 class AppSkeleton extends StatelessWidget {
   const AppSkeleton({super.key, this.height = 18, this.width});
 
@@ -104,18 +116,19 @@ class AppSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: height,
     width: width,
-    decoration: BoxDecoration(
-      color: AppColors.border.withValues(alpha: .65),
+    decoration: const BoxDecoration(
+      color: AppColors.linerHigh,
       borderRadius: AppRadii.small,
     ),
   );
 }
 
-/// Breathes its child so a slow load reads as working rather than frozen.
+/// Hace respirar a su hijo para que una carga lenta se lea como trabajo y no
+/// como algo congelado.
 ///
-/// The pulse is wrapped in a [RepaintBoundary]: without one, the repaint it
-/// schedules every frame walks up to the nearest boundary and re-rasterises
-/// whatever else shares that layer.
+/// El pulso va dentro de un [RepaintBoundary]: sin él, el repintado que
+/// programa cada frame sube hasta la barrera más cercana y vuelve a
+/// rasterizar todo lo que comparte esa capa.
 class PulsingSkeleton extends StatefulWidget {
   const PulsingSkeleton({super.key, required this.child});
 
@@ -150,11 +163,11 @@ class _PulsingSkeletonState extends State<PulsingSkeleton>
   );
 }
 
-/// Loading placeholder for the feed.
+/// Placeholder de carga del feed.
 ///
-/// A Column, not a ListView: it is rendered as one item inside the page's
-/// sliver list, and a nested scrollable there has no bounded height — it
-/// throws on layout rather than degrading.
+/// Un Column, no un ListView: se dibuja como un ítem dentro de la lista de
+/// slivers de la página, y un scrollable anidado ahí no tiene alto acotado:
+/// revienta en layout en vez de degradarse.
 class FeedSkeleton extends StatelessWidget {
   const FeedSkeleton({super.key, this.count = 3});
 
@@ -166,48 +179,47 @@ class FeedSkeleton extends StatelessWidget {
       children: [
         for (var index = 0; index < count; index++)
           const Padding(
-            padding: EdgeInsets.only(bottom: AppSpacing.md),
-            child: _SkeletonCard(),
+            padding: EdgeInsets.only(bottom: AppSpacing.lg),
+            // La key va en el hijo y no en el Padding: los Padding son
+            // hermanos, y una key repetida entre hermanos revienta el árbol.
+            child: _SkeletonPost(key: Key('feed-skeleton-item')),
           ),
       ],
     ),
   );
 }
 
-class _SkeletonCard extends StatelessWidget {
-  const _SkeletonCard();
+/// Con la forma de un post sobre el liner: avatar redondo, dos líneas y la
+/// media. Sin tarjeta alrededor, igual que el post de verdad.
+class _SkeletonPost extends StatelessWidget {
+  const _SkeletonPost({super.key});
 
   @override
-  Widget build(BuildContext context) => const Card(
-    child: Padding(
-      padding: EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => const Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              AppSkeleton(height: 42, width: 42),
-              SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppSkeleton(width: 110),
-                    SizedBox(height: 6),
-                    AppSkeleton(width: 80, height: 12),
-                  ],
-                ),
-              ),
-            ],
+          ClipOval(child: AppSkeleton(height: 42, width: 42)),
+          SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSkeleton(width: 120, height: 14),
+                SizedBox(height: 6),
+                AppSkeleton(width: 80, height: 11),
+              ],
+            ),
           ),
-          SizedBox(height: AppSpacing.md),
-          AppSkeleton(),
-          SizedBox(height: AppSpacing.xs),
-          AppSkeleton(width: 220),
-          SizedBox(height: AppSpacing.md),
-          AppSkeleton(height: 140),
         ],
       ),
-    ),
+      SizedBox(height: AppSpacing.md),
+      AppSkeleton(height: 14),
+      SizedBox(height: AppSpacing.xs),
+      AppSkeleton(width: 220, height: 14),
+      SizedBox(height: AppSpacing.md),
+      ClipRRect(borderRadius: AppRadii.medium, child: AppSkeleton(height: 180)),
+    ],
   );
 }

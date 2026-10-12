@@ -3,21 +3,25 @@ import 'package:serverpod/serverpod.dart';
 import '../../../generated/protocol.dart';
 import '../../../shared/audit/audit_service.dart';
 import '../../../shared/auth/auth_context.dart';
+import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import '../../content/services/post_rules.dart';
 import '../../content/services/post_service.dart';
+import '../../notifications/services/notification_service.dart';
 
 /// Comentarios de posts: leer, comentar y eliminar.
 class CommentService {
   const CommentService({
     this._posts = const PostService(),
     this._audit = const AuditService(),
+    this._notifications = const NotificationService(),
   });
 
   static const maxBodyLength = 1000;
 
   final PostService _posts;
   final AuditService _audit;
+  final NotificationService _notifications;
 
   /// Del más viejo al más nuevo. Lo ve quien ve el post.
   Future<PostCommentPage> list(
@@ -72,7 +76,7 @@ class CommentService {
       );
     }
 
-    final (post, comment) = await session.db.transaction((tx) async {
+    final (post, comment, notices) = await session.db.transaction((tx) async {
       final post = await _posts.loadVisible(session, postId, transaction: tx);
       if (!post.allowComments) {
         throw _error(
@@ -86,9 +90,18 @@ class CommentService {
         transaction: tx,
       );
       await _posts.adjustCounts(session, post, comments: 1, transaction: tx);
-      return (post, comment);
+      final notices = await _notifications.create(
+        session,
+        recipients: [post.authorId],
+        kind: NotificationKind.postCommented,
+        actorId: authorId,
+        postId: postId,
+        transaction: tx,
+      );
+      return (post, comment, notices);
     });
 
+    await _notifications.publish(session, notices);
     return (await _toViews(session, post, [comment])).single;
   }
 
@@ -180,6 +193,7 @@ class CommentService {
     List<PostComment> comments,
   ) async {
     final profiles = await profilesOf(session, comments.map((c) => c.authorId));
+    final avatars = await avatarsOf(session, comments.map((c) => c.authorId));
     final viewer = session.userIdOrNull;
     final canModerate =
         viewer != null && (post.authorId == viewer || session.isStaff);
@@ -192,6 +206,7 @@ class CommentService {
           authorId: c.authorId,
           authorUsername: profiles[c.authorId]?.userName,
           authorName: profiles[c.authorId]?.fullName,
+          authorAvatarUrl: avatars[c.authorId],
           body: c.body,
           createdAt: c.createdAt,
           canDelete: canModerate || c.authorId == viewer,

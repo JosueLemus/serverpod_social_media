@@ -3,8 +3,13 @@ import 'package:equatable/equatable.dart';
 enum NotificationType {
   like('Me gusta'),
   follow('Seguidores'),
-  comment('Menciones'),
+  comment('Comentarios'),
+
+  /// Alguien que seguís salió al aire.
   liveReminder('Lives'),
+
+  /// Un show que seguís empieza en minutos.
+  showSoon('Próximos'),
   membership('Membresías'),
   moderation('Moderación');
 
@@ -36,32 +41,48 @@ enum ActivityBucket {
   }
 }
 
+/// Un aviso de la bandeja.
+///
+/// Lleva datos, no frases: qué pasó ([type]), quién ([actor]) y sobre qué
+/// ([subject], [postId], [showId]). La oración la arma la View —un cubit o un
+/// repositorio no tienen `BuildContext`, y una frase escrita en la capa de
+/// datos no se puede traducir ni corregir en un solo lugar.
 class AppNotification extends Equatable {
   const AppNotification({
     required this.id,
     required this.type,
-    required this.actor,
-    required this.title,
     required this.createdAt,
-    this.detail,
+    this.actor,
+    this.actorUsername,
+    this.actorAvatarUrl,
+    this.subject,
     this.quote,
+    this.postId,
+    this.showId,
     this.read = false,
   });
 
   final String id;
   final NotificationType type;
 
-  /// Quién lo hizo. Separado del [title] porque la fila dibuja su avatar y
-  /// enlaza a su perfil: concatenarlo dentro de la frase lo vuelve intocable.
-  final String actor;
+  /// El nombre de quien lo hizo. Null en los avisos del sistema (un reporte
+  /// resuelto): la View pone la marca en su lugar.
+  final String? actor;
 
-  final String title;
-  final String? detail;
+  /// Para abrir su perfil. Separado de [actor] porque el nombre se muestra y
+  /// el username enruta.
+  final String? actorUsername;
+  final String? actorAvatarUrl;
 
-  /// El texto del comentario, cuando lo hay. Se pinta en su propia tarjeta
-  /// citada: dentro del título no se distingue de la descripción del evento.
+  /// El título del show o el comienzo del post del que se habla.
+  final String? subject;
+
+  /// El texto de un comentario, cuando el aviso lo trae. Va en su propia
+  /// tarjeta citada: dentro de la frase no se distingue del evento.
   final String? quote;
 
+  final String? postId;
+  final String? showId;
   final DateTime createdAt;
   final bool read;
 
@@ -71,11 +92,14 @@ class AppNotification extends Equatable {
   AppNotification copyWith({bool? read}) => AppNotification(
     id: id,
     type: type,
-    actor: actor,
-    title: title,
-    detail: detail,
-    quote: quote,
     createdAt: createdAt,
+    actor: actor,
+    actorUsername: actorUsername,
+    actorAvatarUrl: actorAvatarUrl,
+    subject: subject,
+    quote: quote,
+    postId: postId,
+    showId: showId,
     read: read ?? this.read,
   );
 
@@ -84,12 +108,27 @@ class AppNotification extends Equatable {
     id,
     type,
     actor,
-    title,
-    detail,
+    actorUsername,
+    actorAvatarUrl,
+    subject,
     quote,
+    postId,
+    showId,
     createdAt,
     read,
   ];
+}
+
+/// Una página de la bandeja, de la más nueva a la más vieja. [nextCursor]
+/// null es que no hay más.
+class NotificationFeedPage extends Equatable {
+  const NotificationFeedPage({required this.items, this.nextCursor});
+
+  final List<AppNotification> items;
+  final String? nextCursor;
+
+  @override
+  List<Object?> get props => [items, nextCursor];
 }
 
 /// El evento destacado que encabeza la pantalla.

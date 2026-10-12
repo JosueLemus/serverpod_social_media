@@ -27,6 +27,9 @@ void main() {
         'shell como el compositor',
     'lib/features/subscriptions/presentation/pages/subscription_page.dart':
         'paywall empujado sobre el shell',
+    'lib/features/profile/presentation/pages/edit_profile_page.dart':
+        'editar perfil: tarea a pantalla completa, empujada sobre el shell '
+        'como el compositor',
     'lib/features/profile/presentation/pages/profile_page.dart':
         'portada full-bleed con slivers propios y tab bar fijada',
     'lib/features/profile/presentation/pages/account_profile_view.dart':

@@ -1,0 +1,7 @@
+### Una sección del feed de inicio. [accounts] sólo se llena en
+### `suggestedAccounts`; el resto lleva [items].
+class: FeedSection
+fields:
+  kind: FeedSectionKind
+  items: List<FeedItem>
+  accounts: List<ProfileView>

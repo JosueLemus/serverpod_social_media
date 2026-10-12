@@ -12,9 +12,9 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod/serverpod.dart' as _is;
 
-/// Quién puede ver un post. Mientras no existan los módulos `social` y
-/// `billing`, `followers` y `members` solo los ve su autor: sin un grafo de
-/// seguidores ni suscripciones, negar es lo único seguro.
+/// Quién puede ver un post. `followers` lo ven quienes siguen al autor
+/// (SDD 0008, S5). `members` sólo lo ve su autor mientras no exista
+/// `billing`: sin suscripciones, negar es lo único seguro.
 enum PostVisibility implements _is.SerializableModel {
   public,
   followers,

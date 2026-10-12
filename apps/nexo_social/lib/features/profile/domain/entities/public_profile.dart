@@ -5,9 +5,10 @@ import '../../../auth/domain/entities/app_user.dart';
 /// El perfil de una cuenta tal como lo ve cualquiera.
 ///
 /// [followers], [following] y [likes] son opcionales a propósito (SDD 0007,
-/// F8): el servidor todavía no los tiene (llegan con los follows, M2), y un
-/// perfil real con "48.5K seguidores" inventados es justo el dato falso que
-/// la auditoría encontró. Null quiere decir "no se sabe", y no se dibuja.
+/// F8): un perfil real con "48.5K seguidores" inventados es justo el dato
+/// falso que la auditoría encontró. Null quiere decir "no se sabe", y no se
+/// dibuja. Con M2 el servidor cuenta seguidores y seguidos; los likes
+/// todavía no.
 class PublicProfile extends Equatable {
   const PublicProfile({
     required this.id,
@@ -21,6 +22,8 @@ class PublicProfile extends Equatable {
     this.followers,
     this.following,
     this.likes,
+    this.viewerFollows = false,
+    this.avatarUrl,
   });
 
   /// El id de la cuenta en el servidor. Es lo que pide `posts.byAuthor`.
@@ -38,7 +41,31 @@ class PublicProfile extends Equatable {
   final int? following;
   final int? likes;
 
+  /// Si quien mira sigue a esta cuenta. Lo calcula el servidor por sesión.
+  final bool viewerFollows;
+
+  /// La foto de perfil. Null: se dibuja la inicial.
+  final String? avatarUrl;
+
   bool get isVerified => verification == VerificationStatus.verified;
+
+  /// Seguir cambia dos cosas a la vez: el botón y el contador.
+  PublicProfile copyWith({bool? viewerFollows, int? Function()? followers}) =>
+      PublicProfile(
+        id: id,
+        username: username,
+        name: name,
+        bio: bio,
+        isCreator: isCreator,
+        verification: verification,
+        status: status,
+        joinedAt: joinedAt,
+        followers: followers == null ? this.followers : followers(),
+        following: following,
+        likes: likes,
+        viewerFollows: viewerFollows ?? this.viewerFollows,
+        avatarUrl: avatarUrl,
+      );
 
   @override
   List<Object?> get props => [
@@ -53,5 +80,7 @@ class PublicProfile extends Equatable {
     followers,
     following,
     likes,
+    viewerFollows,
+    avatarUrl,
   ];
 }

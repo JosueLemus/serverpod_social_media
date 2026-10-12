@@ -1,0 +1,6 @@
+### Un elemento del feed: un post o un show, según [kind].
+class: FeedItem
+fields:
+  kind: FeedItemKind
+  post: PostView?
+  liveShow: LiveShowView?

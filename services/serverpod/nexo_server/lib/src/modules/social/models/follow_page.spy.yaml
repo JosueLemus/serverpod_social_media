@@ -1,0 +1,6 @@
+### Seguidores o seguidos, del más reciente al más viejo. [nextCursor] es
+### `null` cuando no hay más.
+class: FollowPage
+fields:
+  items: List<ProfileView>
+  nextCursor: PageCursor?

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexo_social/core/widgets/nexo_icon.dart';
 import 'package:nexo_social/app/di/injection.dart';
 import 'package:nexo_social/core/mock/demo_accounts.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
@@ -98,8 +99,11 @@ void main() {
   /// edge are not built, and scrolling one into view disposes the one that
   /// scrolls out — so a test that taps two chips in sequence would be
   /// measuring the list's recycling, not the filter.
+  /// Alto de sobra para que entren las tres publicaciones del mock junto con
+  /// la fila "A quién seguir": la lista de slivers no construye lo que queda
+  /// fuera del viewport, y un post sin construir no se puede contar.
   Future<void> pumpWide(WidgetTester tester) =>
-      pumpAt(tester, const Size(700, 1600));
+      pumpAt(tester, const Size(700, 2600));
 
   /// The chip, not the page heading — "Para ti" is both.
   Future<void> tapFilter(WidgetTester tester, String label) async {
@@ -181,7 +185,13 @@ void main() {
       expect(find.text('483'), findsOneWidget);
       // Regression: the filled heart must exist after the pop animation, and
       // the outlined one must exist before it.
-      expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('like-post-1')),
+          matching: _glyph(NexoGlyph.heart, filled: true),
+        ),
+        findsOneWidget,
+      );
     });
 
     /// Regresión: el toque de un visitante llegaba al servidor, que lo
@@ -202,7 +212,7 @@ void main() {
 
       // `animate_do` with `animate: false` holds its child at frame zero,
       // which is invisible. That made every un-liked heart disappear.
-      expect(find.byIcon(Icons.favorite_border), findsWidgets);
+      expect(_glyph(NexoGlyph.heart, filled: false), findsWidgets);
     });
 
     testWidgets('saving toggles the bookmark', (tester) async {
@@ -211,7 +221,13 @@ void main() {
       await tester.tap(find.byKey(const Key('save-post-1')));
       await AppHarness.settle(tester);
 
-      expect(find.byIcon(Icons.bookmark_rounded), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('save-post-1')),
+          matching: _glyph(NexoGlyph.bookmark, filled: true),
+        ),
+        findsOneWidget,
+      );
     });
   });
 
@@ -220,11 +236,74 @@ void main() {
     testWidgets('timestamps come from the post, not a constant', (
       tester,
     ) async {
-      await pumpAt(tester, const Size(390, 1600));
+      await pumpAt(tester, const Size(390, 2600));
 
       expect(find.textContaining('25 min'), findsOneWidget);
       expect(find.textContaining('3 h'), findsOneWidget);
       expect(find.textContaining('1 d'), findsOneWidget);
     });
   });
+
+  group('sections', () {
+    /// "Para ti" en el orden del servidor: de quienes sigues, a quién seguir
+    /// y para descubrir. El mock arma lo mismo con su semilla.
+    testWidgets('"Para ti" shows the sections in order', (tester) async {
+      await sl<AuthCubit>().signIn(DemoAccounts.viewer.email, 'demo');
+      await pumpAt(tester, const Size(390, 2600));
+
+      final following = tester.getTopLeft(
+        find.byKey(const Key('feed-section-following')),
+      );
+      final suggested = tester.getTopLeft(
+        find.byKey(const Key('feed-section-suggested')),
+      );
+      final discover = tester.getTopLeft(
+        find.byKey(const Key('feed-section-discover')),
+      );
+      expect(following.dy, lessThan(suggested.dy));
+      expect(suggested.dy, lessThan(discover.dy));
+    });
+
+    testWidgets('a suggested account is followed from the feed', (
+      tester,
+    ) async {
+      await sl<AuthCubit>().signIn(DemoAccounts.viewer.email, 'demo');
+      await pumpAt(tester, const Size(390, 2600));
+      final button = find.byKey(const Key('suggested-follow-elena_ux'));
+      expect(
+        find.descendant(of: button, matching: find.text('Seguir')),
+        findsOneWidget,
+      );
+
+      await tester.tap(button);
+      await AppHarness.settle(tester);
+
+      expect(
+        find.descendant(of: button, matching: find.text('Siguiendo')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('"Siguiendo" shows the posts of followed accounts', (
+      tester,
+    ) async {
+      await sl<AuthCubit>().signIn(DemoAccounts.viewer.email, 'demo');
+      await pumpWide(tester);
+
+      await tapFilter(tester, 'Siguiendo');
+
+      // La semilla del mock tiene dos posts de cuentas seguidas.
+      expect(find.byType(PostCard), findsNWidgets(2));
+    });
+  });
 }
+
+/// Los íconos del post son `NexoIcon` (los propios), no `Icons.*`: el estado
+/// se lee en si el glifo está relleno o en contorno.
+Finder _glyph(NexoGlyph glyph, {required bool filled}) =>
+    find.byWidgetPredicate(
+      (widget) =>
+          widget is NexoIcon &&
+          widget.glyph == glyph &&
+          widget.filled == filled,
+    );

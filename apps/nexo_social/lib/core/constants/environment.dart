@@ -23,6 +23,12 @@ abstract final class Environment {
   /// vacío y en modo mock, entra contra el mock. En un build de producción
   /// no se define y el selector no existe.
   static const demoPassword = String.fromEnvironment('DEMO_PASSWORD');
+
+  /// Dónde se abre un enlace compartido (la app web desplegada). Vacío = se
+  /// comparte el texto sin enlace: con el servidor en una máquina local no
+  /// hay una dirección que funcione desde otro teléfono, y un enlace roto es
+  /// peor que ninguno.
+  static const shareBaseUrl = String.fromEnvironment('SHARE_BASE_URL');
   static const dataSource = String.fromEnvironment(
     'DATA_SOURCE',
     defaultValue: 'mock',

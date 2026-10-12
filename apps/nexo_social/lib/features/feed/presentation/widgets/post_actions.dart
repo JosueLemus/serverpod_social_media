@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../admin/presentation/widgets/reason_sheet.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
@@ -43,28 +45,24 @@ Future<PostAction?> showPostActions(BuildContext context, Post post) async {
           if (post.canEdit)
             ListTile(
               key: const Key('post-action-edit'),
-              leading: const Icon(Icons.edit_outlined),
+              leading: const NexoIcon(NexoGlyph.edit, size: 22),
               title: const Text('Editar texto'),
               onTap: () => Navigator.pop(sheetContext, 'edit'),
             ),
           if (post.canDelete)
             ListTile(
               key: const Key('post-action-delete'),
-              leading: const Icon(
-                Icons.delete_outline_rounded,
-                color: AppColors.error,
-              ),
-              title: const Text(
-                'Eliminar',
-                style: TextStyle(color: AppColors.error),
-              ),
+              iconColor: AppColors.error,
+              textColor: AppColors.error,
+              leading: const NexoIcon(NexoGlyph.trash, size: 22),
+              title: const Text('Eliminar'),
               onTap: () => Navigator.pop(sheetContext, 'delete'),
             ),
           // Lo propio no se reporta: se edita o se elimina.
           if (!post.canEdit)
             ListTile(
               key: const Key('post-action-report'),
-              leading: const Icon(Icons.flag_outlined),
+              leading: const NexoIcon(NexoGlyph.flag, size: 22),
               title: const Text('Reportar'),
               onTap: () => Navigator.pop(sheetContext, 'report'),
             ),
@@ -94,10 +92,8 @@ Future<PostAction?> showPostActions(BuildContext context, Post post) async {
             TextButton(
               key: const Key('confirm-delete-post'),
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text(
-                'Eliminar',
-                style: TextStyle(color: AppColors.error),
-              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+              child: const Text('Eliminar'),
             ),
           ],
         ),
@@ -193,7 +189,21 @@ Future<void> showLikersSheet(
           }
           final items = snapshot.data ?? const [];
           if (items.isEmpty) {
-            return const Center(child: Text('Todavía nadie dio me gusta.'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const MascotIllustration(NexoMascot.heart, size: 112),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Todavía nadie dio me gusta.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            );
           }
           return ListView(
             children: [

@@ -4,14 +4,22 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import '../../../generated/protocol.dart';
 import '../../../shared/audit/audit_service.dart';
 import '../../../shared/auth/auth_context.dart';
+import '../../../shared/gateways/media_storage_gateway.dart';
+import '../../../shared/gateways/serverpod_media_storage_gateway.dart';
+import '../../../shared/profiles/avatar_lookup.dart';
+import 'avatar_policy.dart';
 import 'username_rules.dart';
 
 /// El perfil de Nexo de cada cuenta: nombre de usuario, si crea contenido,
 /// su verificación y su estado.
 class IdentityService {
-  const IdentityService({this._audit = const AuditService()});
+  const IdentityService({
+    this._audit = const AuditService(),
+    this._storage = const ServerpodMediaStorageGateway(),
+  });
 
   final AuditService _audit;
+  final MediaStorageGateway _storage;
 
   /// La cuenta de la sesión. La primera vez crea su perfil de Nexo con un
   /// nombre de usuario libre derivado del correo, así que una cuenta recién
@@ -21,7 +29,7 @@ class IdentityService {
     final account = await ensure(session, userId);
     final user = await _userProfile(session, userId);
     return AccountView(
-      profile: _view(account, user),
+      profile: (await viewsOf(session, [account])).single,
       email: user?.email,
       isModerator: session.hasScope(NexoScopes.moderator),
       isAdmin: session.hasScope(NexoScopes.admin),
@@ -36,7 +44,47 @@ class IdentityService {
     if (account == null) {
       throw _error(NexoErrorCode.notFound, 'Ese perfil no existe.');
     }
-    return _view(account, await _userProfile(session, account.authUserId));
+    return (await viewsOf(session, [account])).single;
+  }
+
+  /// El perfil público de cada cuenta en [accounts], en el mismo orden, con
+  /// `viewerFollows` calculado para la sesión. Una consulta por tabla, nunca
+  /// una por cuenta.
+  Future<List<ProfileView>> viewsOf(
+    Session session,
+    List<AccountProfile> accounts,
+  ) async {
+    if (accounts.isEmpty) return const [];
+    final ids = {for (final a in accounts) a.authUserId};
+    final users = {
+      for (final user in await UserProfile.db.find(
+        session,
+        where: (t) => t.authUserId.inSet(ids),
+        include: UserProfile.include(image: UserProfileImage.include()),
+      ))
+        user.authUserId: user,
+    };
+    final avatars = await avatarsOf(session, ids, storage: _storage);
+    final viewer = session.userIdOrNull;
+    final followed = viewer == null
+        ? const <UuidValue>{}
+        : {
+            for (final row in await Follow.db.find(
+              session,
+              where: (t) =>
+                  t.followerId.equals(viewer) & t.followeeId.inSet(ids),
+            ))
+              row.followeeId,
+          };
+    return [
+      for (final account in accounts)
+        _view(
+          account,
+          users[account.authUserId],
+          avatarUrl: avatars[account.authUserId],
+          viewerFollows: followed.contains(account.authUserId),
+        ),
+    ];
   }
 
   Future<AccountView> update(Session session, ProfileEdit edit) async {
@@ -104,6 +152,95 @@ class IdentityService {
         userId,
         userName: username,
         fullName: displayName,
+        transaction: tx,
+      );
+    });
+    return me(session);
+  }
+
+  /// El permiso para subir un avatar: JPEG, PNG o WebP de hasta 5 MB. El
+  /// cliente lo sube con `FileUploader` y después lo confirma con
+  /// [setAvatar]. Mismo patrón que los adjuntos de posts.
+  Future<MediaUploadTicket> requestAvatarUpload(
+    Session session, {
+    required String contentType,
+    required int sizeBytes,
+  }) async {
+    final userId = session.requireUserId;
+    final ext = AvatarPolicy.extensionFor(contentType);
+    if (ext == null) {
+      throw _error(
+        NexoErrorCode.invalidInput,
+        'El avatar tiene que ser JPEG, PNG o WebP.',
+      );
+    }
+    if (sizeBytes <= 0 || sizeBytes > AvatarPolicy.maxBytes) {
+      throw _error(
+        NexoErrorCode.invalidInput,
+        'El avatar supera el máximo de '
+        '${AvatarPolicy.maxBytes ~/ (1024 * 1024)} MB.',
+      );
+    }
+    final key = AvatarPolicy.newKey(userId, ext);
+    final description = await _storage.createUploadDescription(
+      session,
+      key,
+      contentType: contentType.toLowerCase(),
+      contentLength: sizeBytes,
+      maxBytes: AvatarPolicy.maxBytes,
+    );
+    if (description == null) {
+      throw StateError('El storage configurado no admite subidas directas.');
+    }
+    return MediaUploadTicket(
+      key: key,
+      uploadDescription: description,
+      maxBytes: AvatarPolicy.maxBytes,
+    );
+  }
+
+  /// Confirma [key] como avatar de la sesión, o lo quita con `null`. La
+  /// clave tiene que ser de [requestAvatarUpload], de la misma cuenta y ya
+  /// subida. El archivo anterior queda en el storage.
+  Future<AccountView> setAvatar(Session session, String? key) async {
+    final userId = session.requireUserId;
+    await requireActive(session, userId);
+    if (key != null) {
+      final owner = AvatarPolicy.ownerOf(key);
+      if (owner == null) {
+        throw _error(NexoErrorCode.invalidInput, 'Archivo no válido.');
+      }
+      if (owner != userId) {
+        throw _error(NexoErrorCode.forbidden, 'Ese archivo no es tuyo.');
+      }
+      if (!await _storage.verifyUpload(session, key)) {
+        throw _error(
+          NexoErrorCode.invalidInput,
+          'El avatar todavía no terminó de subirse.',
+        );
+      }
+    }
+
+    await session.db.transaction((tx) async {
+      final account = (await AccountProfile.db.findFirstRow(
+        session,
+        where: (t) => t.authUserId.equals(userId),
+        transaction: tx,
+        lockMode: LockMode.forUpdate,
+      ))!;
+      await AccountProfile.db.updateRow(
+        session,
+        account.copyWith(avatarKey: key, updatedAt: DateTime.now().toUtc()),
+        columns: (t) => [t.avatarKey, t.updatedAt],
+        transaction: tx,
+      );
+      await _audit.record(
+        session,
+        actorId: userId,
+        action: 'identity.setAvatar',
+        entityType: 'account',
+        entityId: '$userId',
+        metadata: {'removed': key == null},
         transaction: tx,
       );
     });
@@ -244,17 +381,25 @@ class IdentityService {
     );
   }
 
-  ProfileView _view(AccountProfile account, UserProfile? user) => ProfileView(
+  ProfileView _view(
+    AccountProfile account,
+    UserProfile? user, {
+    String? avatarUrl,
+    bool viewerFollows = false,
+  }) => ProfileView(
     userId: account.authUserId,
     username: account.username,
     displayName: (user?.fullName?.trim().isNotEmpty ?? false)
         ? user!.fullName!.trim()
         : account.username,
     bio: account.bio,
-    avatarUrl: user?.image?.url.toString(),
+    avatarUrl: avatarUrl ?? user?.image?.url.toString(),
     isCreator: account.isCreator,
     verification: account.verification,
     status: account.status,
+    followerCount: account.followerCount,
+    followingCount: account.followingCount,
+    viewerFollows: viewerFollows,
     createdAt: account.createdAt,
   );
 

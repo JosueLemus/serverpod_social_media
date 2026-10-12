@@ -1,0 +1,674 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-11T21:56:24+00:00",
+  "title": "Design System: Nexo Social",
+  "extensions": {
+    "colorMeta": {
+      "liner": {
+        "role": "neutral",
+        "displayName": "Liner",
+        "canonical": "#0F0F12",
+        "tonalRamp": [
+          "#23232A",
+          "#3C3C48",
+          "#565667",
+          "#6F6F86",
+          "#8D8DA0",
+          "#ACACB9",
+          "#CDCDD5",
+          "#ECECEF"
+        ]
+      },
+      "liner-raised": {
+        "role": "neutral",
+        "displayName": "Hoja",
+        "canonical": "#18181D",
+        "tonalRamp": [
+          "#23232A",
+          "#3C3C49",
+          "#555567",
+          "#6F6F86",
+          "#8D8DA0",
+          "#ABABBA",
+          "#CDCDD5",
+          "#EBEBEF"
+        ]
+      },
+      "liner-high": {
+        "role": "neutral",
+        "displayName": "Hoja Alta",
+        "canonical": "#23232B",
+        "tonalRamp": [
+          "#22222A",
+          "#3C3C49",
+          "#555568",
+          "#6E6E87",
+          "#8C8CA1",
+          "#ABABBA",
+          "#CCCCD6",
+          "#EBEBEF"
+        ]
+      },
+      "sticker": {
+        "role": "primary",
+        "displayName": "Blanco Sticker",
+        "canonical": "#FFFFFF"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "#0F0F12",
+        "tonalRamp": [
+          "#23232A",
+          "#3C3C48",
+          "#565667",
+          "#6F6F86",
+          "#8D8DA0",
+          "#ACACB9",
+          "#CDCDD5",
+          "#ECECEF"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Tinta Secundaria",
+        "canonical": "#57555F",
+        "tonalRamp": [
+          "#252428",
+          "#403F46",
+          "#5B5964",
+          "#767481",
+          "#93919C",
+          "#B0AEB7",
+          "#D0CFD4",
+          "#EDECEE"
+        ]
+      },
+      "vinyl-cyan": {
+        "role": "tertiary",
+        "displayName": "Vinilo Cyan",
+        "canonical": "#3FE0F2",
+        "tonalRamp": [
+          "#054148",
+          "#08717C",
+          "#0CA0B1",
+          "#10D0E5",
+          "#3BDFF2",
+          "#70E8F5",
+          "#A9F1F9",
+          "#DEFAFD"
+        ]
+      },
+      "vinyl-blue": {
+        "role": "tertiary",
+        "displayName": "Vinilo Azul (iris del holo)",
+        "canonical": "#4F7BFF",
+        "tonalRamp": [
+          "#00134C",
+          "#002185",
+          "#002FBD",
+          "#003DF5",
+          "#2E62FF",
+          "#668CFF",
+          "#A3BAFF",
+          "#DBE4FF"
+        ]
+      },
+      "vinyl-violet": {
+        "role": "tertiary",
+        "displayName": "Vinilo Violeta",
+        "canonical": "#9B5CFF",
+        "tonalRamp": [
+          "#1E004C",
+          "#330085",
+          "#4900BD",
+          "#5F00F5",
+          "#7F2EFF",
+          "#A166FF",
+          "#C7A3FF",
+          "#E9DBFF"
+        ]
+      },
+      "vinyl-magenta": {
+        "role": "tertiary",
+        "displayName": "Vinilo Magenta",
+        "canonical": "#E24CF2",
+        "tonalRamp": [
+          "#410547",
+          "#71097C",
+          "#A00DB0",
+          "#D011E4",
+          "#DF3CF1",
+          "#E870F5",
+          "#F1A9F9",
+          "#FADEFD"
+        ]
+      },
+      "vinyl-lime": {
+        "role": "tertiary",
+        "displayName": "Vinilo Lima",
+        "canonical": "#C9F24A",
+        "tonalRamp": [
+          "#374705",
+          "#607C09",
+          "#88B00D",
+          "#B1E410",
+          "#C5F13C",
+          "#D4F570",
+          "#E5F9A9",
+          "#F5FDDE"
+        ]
+      },
+      "vinyl-green": {
+        "role": "tertiary",
+        "displayName": "Vinilo Verde (tertiary/success)",
+        "canonical": "#3EE58C",
+        "tonalRamp": [
+          "#094324",
+          "#10753F",
+          "#16A65A",
+          "#1DD874",
+          "#47E691",
+          "#78EDAF",
+          "#AEF4CF",
+          "#E0FBEC"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Lila Holo",
+        "canonical": "#8E8BFF",
+        "tonalRamp": [
+          "#02004C",
+          "#030085",
+          "#0500BD",
+          "#0600F5",
+          "#332EFF",
+          "#6A66FF",
+          "#A6A3FF",
+          "#DCDBFF"
+        ]
+      },
+      "primary-deep": {
+        "role": "primary",
+        "displayName": "Iris Profundo",
+        "canonical": "#5B4BFF",
+        "tonalRamp": [
+          "#07004C",
+          "#0C0085",
+          "#1100BD",
+          "#1600F5",
+          "#402EFF",
+          "#7466FF",
+          "#ABA3FF",
+          "#DEDBFF"
+        ]
+      },
+      "primary-surface": {
+        "role": "primary",
+        "displayName": "Superficie de Marca",
+        "canonical": "#211F38",
+        "tonalRamp": [
+          "#1D1B31",
+          "#322F55",
+          "#484379",
+          "#5D579E",
+          "#7D78B4",
+          "#A09DC8",
+          "#C6C4DE",
+          "#E9E8F2"
+        ]
+      },
+      "primary-surface-deep": {
+        "role": "primary",
+        "displayName": "Superficie de Marca Profunda",
+        "canonical": "#2D2A55",
+        "tonalRamp": [
+          "#1B1933",
+          "#2F2C59",
+          "#433E7E",
+          "#5751A4",
+          "#7873BA",
+          "#9C99CC",
+          "#C4C2E1",
+          "#E8E7F3"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Rojo Sticker (= error)",
+        "canonical": "#F0234A",
+        "tonalRamp": [
+          "#480512",
+          "#7C081E",
+          "#B10C2B",
+          "#E51038",
+          "#F23B5E",
+          "#F57089",
+          "#F9A9B8",
+          "#FDDEE4"
+        ]
+      },
+      "success-surface": {
+        "role": "tertiary",
+        "displayName": "Superficie de Éxito",
+        "canonical": "#12291E",
+        "tonalRamp": [
+          "#173527",
+          "#285C43",
+          "#3A8360",
+          "#4BAA7C",
+          "#6EBF98",
+          "#95D0B4",
+          "#BFE3D2",
+          "#E6F4ED"
+        ]
+      },
+      "warning": {
+        "role": "tertiary",
+        "displayName": "Ámbar",
+        "canonical": "#FFB020",
+        "tonalRamp": [
+          "#4C3100",
+          "#855600",
+          "#BD7A00",
+          "#F59E00",
+          "#FFB52E",
+          "#FFC966",
+          "#FFDEA3",
+          "#FFF2DB"
+        ]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Crema de Texto",
+        "canonical": "#F4F3EF",
+        "tonalRamp": [
+          "#2D2A1F",
+          "#4F4A36",
+          "#70694D",
+          "#918864",
+          "#AAA283",
+          "#C1BBA4",
+          "#DAD6C9",
+          "#F0EFEA"
+        ]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Gris Lavanda",
+        "canonical": "#A09EAB",
+        "tonalRamp": [
+          "#242429",
+          "#3F3E47",
+          "#5A5865",
+          "#747283",
+          "#918F9E",
+          "#AFADB8",
+          "#CFCED4",
+          "#ECECEE"
+        ]
+      },
+      "text-tertiary": {
+        "role": "neutral",
+        "displayName": "Gris Deshabilitado",
+        "canonical": "#6C6A76",
+        "tonalRamp": [
+          "#252428",
+          "#403F46",
+          "#5B5963",
+          "#767481",
+          "#93919C",
+          "#B0AEB7",
+          "#CFCFD4",
+          "#EDECEE"
+        ]
+      },
+      "text-on-brand-surface": {
+        "role": "neutral",
+        "displayName": "Texto sobre Marca",
+        "canonical": "#C7C3FF",
+        "tonalRamp": [
+          "#05004C",
+          "#090085",
+          "#0D00BD",
+          "#1000F5",
+          "#3C2EFF",
+          "#7066FF",
+          "#A9A3FF",
+          "#DEDBFF"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Filete",
+        "canonical": "#2B2A33",
+        "tonalRamp": [
+          "#23232A",
+          "#3D3C49",
+          "#575567",
+          "#716F86",
+          "#8F8CA1",
+          "#ADABBA",
+          "#CECDD6",
+          "#ECEBEF"
+        ]
+      },
+      "stage-dark": {
+        "role": "neutral",
+        "displayName": "Escenario",
+        "canonical": "#070709",
+        "tonalRamp": [
+          "#21212B",
+          "#3A3A4B",
+          "#53536A",
+          "#6B6B8A",
+          "#8989A4",
+          "#A9A9BC",
+          "#CBCBD7",
+          "#EBEBEF"
+        ]
+      },
+      "stage-scrim": {
+        "role": "neutral",
+        "displayName": "Velo de Escenario (60%)",
+        "canonical": "#99070709"
+      }
+    },
+    "colorGroups": {
+      "holo": [
+        "vinyl-cyan",
+        "vinyl-blue",
+        "vinyl-violet",
+        "vinyl-magenta",
+        "vinyl-lime",
+        "vinyl-green",
+        "vinyl-cyan"
+      ]
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Títulos de presentación; escala 34/30/26 con tracking -0.6/-0.5/-0.4."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Títulos de página y diálogo; 24/22/20."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Encabezado de sección y app bar, Dela 18."
+      },
+      "title-small": {
+        "displayName": "Title small",
+        "purpose": "Nombres y títulos de fila; 15.5/14 a 800."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Cuerpo; 16/14.5/12.5 a 500, el pequeño en text-secondary."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Botones (15/800), chips y menús (13/700)."
+      },
+      "label-small": {
+        "displayName": "Label small",
+        "purpose": "Metadatos y pistas de sección, 11/700."
+      }
+    },
+    "strokes": [
+      {
+        "name": "ink",
+        "value": "2.5px",
+        "purpose": "Contorno de tinta de un sticker y del switch encendido."
+      },
+      {
+        "name": "kissCut",
+        "value": "3px",
+        "purpose": "Troquel blanco u holo alrededor del contorno."
+      },
+      {
+        "name": "hairline",
+        "value": "1px",
+        "purpose": "Filete de panel y divisores."
+      }
+    ],
+    "sizes": [
+      {
+        "name": "buttonHeight",
+        "value": "52px"
+      },
+      {
+        "name": "buttonHeightDense",
+        "value": "44px"
+      },
+      {
+        "name": "chipHeight",
+        "value": "38px"
+      },
+      {
+        "name": "searchHeight",
+        "value": "46px"
+      },
+      {
+        "name": "avatarHeader",
+        "value": "34px"
+      },
+      {
+        "name": "icon",
+        "value": "24px"
+      },
+      {
+        "name": "bottomInset",
+        "value": "96px"
+      },
+      {
+        "name": "contentMaxWidth",
+        "value": "640px"
+      }
+    ],
+    "shadows": [
+      {
+        "name": "brand-shadow",
+        "value": "0 6px 16px rgba(91,75,255,0.4)",
+        "purpose": "Sólo la tecla de crear de la barra inferior."
+      },
+      {
+        "name": "lift",
+        "value": "rgba(0,0,0,0.4)",
+        "purpose": "Color de sombra del ColorScheme para lo que se despega; sin uso propio hoy."
+      }
+    ],
+    "motion": [
+      {
+        "name": "enter",
+        "value": "320ms, fade + translateY 18px, stagger 55ms (máx 12 pasos)",
+        "purpose": "Contenido que entra (Enter)."
+      },
+      {
+        "name": "enter-static",
+        "value": "240ms fade",
+        "purpose": "Todo lo tappable (EnterStatic)."
+      },
+      {
+        "name": "feedback",
+        "value": "220ms easeOutCubic",
+        "purpose": "Cambio de estado de chips y toggles."
+      },
+      {
+        "name": "slap",
+        "value": "280ms easeOutBack, scale 1.35→1, rotate -0.12rad→0",
+        "purpose": "Pop: reaccionar pega un sticker. Sin opacidad."
+      },
+      {
+        "name": "holo-turn",
+        "value": "8s linear infinite",
+        "purpose": "El foil al aire gira; quieto con reducir movimiento."
+      },
+      {
+        "name": "pulse",
+        "value": "850ms opacity .35↔1",
+        "purpose": "PulsingDot de EN VIVO, sólo para lo que pasa ahora."
+      },
+      {
+        "name": "press",
+        "value": "120ms easeOut scale .9",
+        "purpose": "Tecla de crear al apretar."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "0px"
+      },
+      {
+        "name": "medium",
+        "value": "700px"
+      },
+      {
+        "name": "expanded",
+        "value": "1100px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (sticker)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La acción principal: sticker blanco con tinta, pastilla de 52.",
+      "html": "<button class=\"ds-btn-primary\">Crear cuenta</button>",
+      "css": ".ds-btn-primary{background:#FFFFFF;color:#0F0F12;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:800;font-size:15px;height:52px;padding:0 24px;border:none;border-radius:999px;cursor:pointer;transition:background .2s,transform .12s}.ds-btn-primary:hover{background:#EDEDF0}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px solid #8E8BFF;outline-offset:3px}.ds-btn-primary:disabled{background:#23232B;color:#6C6A76}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Acción secundaria sobre el liner.",
+      "html": "<button class=\"ds-btn-outline\">Iniciar sesión</button>",
+      "css": ".ds-btn-outline{background:transparent;color:#F4F3EF;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:800;font-size:15px;height:52px;padding:0 24px;border:1.6px solid rgba(244,243,239,.38);border-radius:999px;cursor:pointer;transition:background .2s}.ds-btn-outline:hover{background:rgba(244,243,239,.06)}.ds-btn-outline:focus-visible{outline:2px solid #8E8BFF;outline-offset:3px}"
+    },
+    {
+      "name": "Filter Pill",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Gris pegado a la plancha en reposo; blanco despegado al elegirlo.",
+      "html": "<div class=\"ds-row\"><button class=\"ds-pill ds-pill-on\">Para ti</button><button class=\"ds-pill\"><span class=\"ds-dot\"></span>En vivo<span class=\"ds-count\">3</span></button></div>",
+      "css": ".ds-row{display:flex;gap:8px;background:#0F0F12;padding:12px}.ds-pill{display:inline-flex;align-items:center;gap:7px;height:38px;padding:0 16px;border:none;border-radius:999px;background:#23232B;color:#A09EAB;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-weight:700;font-size:13px;cursor:pointer;transition:background .22s cubic-bezier(.33,1,.68,1),color .22s}.ds-pill:hover{color:#F4F3EF}.ds-pill:focus-visible{outline:2px solid #8E8BFF;outline-offset:2px}.ds-pill-on{background:#FFFFFF;color:#0F0F12}.ds-pill-on:hover{color:#0F0F12}.ds-dot{width:8px;height:8px;border-radius:50%;background:#F0234A}.ds-count{font-size:11px;color:#6C6A76;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Pastilla liner-high sin marco; el borde lila aparece sólo en foco.",
+      "html": "<label class=\"ds-search\"><svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#A09EAB\" stroke-width=\"2.5\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"M20 20l-4-4\"/></svg><input placeholder=\"Buscar creadores\"></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:8px;height:46px;padding:0 16px 0 12px;background:#23232B;border-radius:999px;border:1.6px solid transparent;transition:border-color .2s}.ds-search:focus-within{border-color:#8E8BFF}.ds-search input{flex:1;background:none;border:none;outline:none;color:#F4F3EF;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-size:14.5px;font-weight:500}.ds-search input::placeholder{color:#A09EAB}"
+    },
+    {
+      "name": "Sticker Card",
+      "kind": "card",
+      "refersTo": "card-sticker",
+      "description": "Un objeto troquelado como el gato: blanco, contorno de tinta 2.5, troquel blanco 3; adentro todo se invierte a tinta.",
+      "html": "<div class=\"ds-stage\"><div class=\"ds-sc\"><div class=\"ds-sc-ink\"><div class=\"ds-sc-body\"><span class=\"ds-badge ds-tilt\">Alta</span><p class=\"ds-sc-t\">@troll_99</p><p class=\"ds-sc-s\">Acoso · 8 min</p><button class=\"ds-sc-btn\">Ocultar</button></div></div></div></div>",
+      "css": ".ds-stage{background:#0F0F12;padding:20px}.ds-sc{background:#FFFFFF;padding:3px;border-radius:27.5px}.ds-sc-ink{background:#0F0F12;padding:2.5px;border-radius:24.5px}.ds-sc-body{position:relative;background:#FFFFFF;border-radius:22px;padding:16px;color:#0F0F12;font-family:'M PLUS Rounded 1c',system-ui,sans-serif;}.ds-sc-t{margin:6px 0 0;font-weight:800;font-size:15.5px}.ds-sc-s{margin:2px 0 12px;font-size:12.5px;color:#57555F}.ds-sc-btn{height:44px;padding:0 24px;border:none;border-radius:999px;background:#0F0F12;color:#FFFFFF;font:inherit;font-weight:800;font-size:15px;cursor:pointer}.ds-sc-btn:hover{background:#2A2A30}.ds-sc-btn:focus-visible{outline:2px solid #5B4BFF;outline-offset:3px}.ds-badge{display:inline-block;padding:3px 7px;border-radius:999px;background:#F0234A;color:#FFFFFF;box-shadow:0 0 0 1.5px #FFFFFF;font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase}.ds-tilt{transform:rotate(-.05rad)}"
+    },
+    {
+      "name": "Holo On-Air Avatar",
+      "kind": "custom",
+      "refersTo": "",
+      "description": "Avatar sticker con el foil holográfico girando: sólo para quien está al aire.",
+      "html": "<div class=\"ds-stage2\"><div class=\"ds-holo\"><div class=\"ds-av\"><span>E</span></div></div><div class=\"ds-av ds-av-plain\"><span>C</span></div></div>",
+      "css": ".ds-stage2{display:flex;gap:16px;align-items:center;background:#0F0F12;padding:16px}@property --a{syntax:'<angle>';inherits:false;initial-value:0deg}.ds-holo{padding:4px;border-radius:50%;background:conic-gradient(from var(--a),#3FE0F2,#4F7BFF,#9B5CFF,#E24CF2,#C9F24A,#3EE58C,#3FE0F2);-webkit-mask:radial-gradient(circle,transparent calc(50% - 2.5px),#000 calc(50% - 2.5px));animation:ds-turn 8s linear infinite;position:relative}.ds-holo{-webkit-mask:none}.ds-holo .ds-av{box-shadow:0 0 0 1.5px #0F0F12}@keyframes ds-turn{to{--a:360deg}}@media (prefers-reduced-motion:reduce){.ds-holo{animation:none}}.ds-av{width:56px;height:56px;border-radius:50%;background:#FFFFFF;padding:3.4px;box-sizing:border-box}.ds-av span{display:flex;align-items:center;justify-content:center;width:100%;height:100%;border-radius:50%;background:#C9F24A;color:#0F0F12;font-family:'Dela Gothic One',sans-serif;font-size:23px}.ds-av-plain span{background:#3FE0F2}"
+    },
+    {
+      "name": "Bottom Nav with Create Key",
+      "kind": "nav",
+      "refersTo": "nav-create",
+      "description": "Tira de liner de 62 con filete; la tecla de crear es un sticker blanco con sombra de marca.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-tab ds-on\">Inicio</a><a class=\"ds-tab\">Explorar</a><button class=\"ds-create\" aria-label=\"Crear publicación\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" stroke=\"#0F0F12\" stroke-width=\"3\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg></button><a class=\"ds-tab\">Actividad</a><a class=\"ds-tab\">Perfil</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-around;height:62px;background:#0F0F12;border-top:1px solid #2B2A33}.ds-tab{font-family:'M PLUS Rounded 1c',system-ui,sans-serif;font-size:11px;font-weight:700;color:#A09EAB;cursor:pointer;padding:8px}.ds-tab:hover{color:#F4F3EF}.ds-on{color:#F4F3EF}.ds-create{width:52px;height:44px;border:none;border-radius:16px;background:#FFFFFF;box-shadow:0 6px 16px rgba(91,75,255,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform .12s ease-out}.ds-create:active{transform:scale(.9)}.ds-create:focus-visible{outline:2px solid #8E8BFF;outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "La plancha de stickers",
+    "overview": "Nexo es una plancha de vinilo troquelado. El suelo de toda la app es el liner negro brillante sobre el que vienen pegados los stickers, y todo lo que se publica, se reacciona o se colecciona es un sticker cortado exactamente como el gato del logo: relleno blanco, contorno grueso de tinta y borde troquelado. El sistema rechaza el default de la categoría (un feed blanco de tarjetas redondeadas con borde y un solo acento azul): acá la acción principal es un sticker blanco sobre negro, y el color viene en vinilos planos sacados del borde holográfico del logo.\n\nEl borde de un sticker no es decoración: es el vocabulario de estado de la app. Troquel blanco es lo normal (y lo que queda cuando un vivo termina y pasa a replay), foil holográfico girando es lo que está al aire, línea de corte punteada es lo programado que todavía no se despegó, y el dorso (liner hacia arriba, sin troquel, con el motivo impreso) es lo oculto. La densidad es la de una app móvil de consumo: una columna, controles de 44 a 52 de alto, ritmo en múltiplos de 4.\n\nEs oscuro por dónde se usa (en la cama, de noche, con el brillo bajo) y por el material: un troquel blanco sólo se lee sobre un liner negro. El gato de la marca acompaña cada momento vacío, roto o de bienvenida, para que un estado vacío siga sintiéndose Nexo.",
+    "keyCharacteristics": [
+      "Liner negro (`liner`) como suelo único; paneles que suben un paso (`liner-raised`, `liner-high`) en vez de sombras.",
+      "La acción principal es un sticker blanco con texto de tinta; seleccionar es despegar (gris en reposo, blanco al elegir).",
+      "El borde dice el estado: troquel, holo, punteado o dorso.",
+      "Holo reservado para lo que está al aire y para la marca.",
+      "Toda forma de control es una pastilla.",
+      "Íconos propios (`NexoIcon`, 64 SVG de trazo redondeado) y el gato mascota en 15 estados.",
+      "Movimiento corto: las reacciones se \"pegan\" con un slap (escala y giro), nunca con un fundido."
+    ],
+    "rules": [
+      {
+        "name": "The On-Air Holo Rule",
+        "body": "El foil holográfico (cyan → azul → violeta → magenta → lima → verde → cyan, girando una vuelta cada 8 s) sólo rodea lo que está pasando ahora y la marca. Gastarlo en decoración le quita el significado.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink-On-Vinyl Rule",
+        "body": "Sobre un vinilo o sobre el blanco va tinta; el blanco como texto sólo va sobre `secondary`, `primary-deep` o media oscura.",
+        "section": "colors"
+      },
+      {
+        "name": "The Name-By-Meaning Rule",
+        "body": "`secondary` y `error` son el mismo rojo con dos nombres: `error` cuando algo falló, `secondary` cuando es vivo o reacción. Siempre `AppColors`, nunca hex crudo.",
+        "section": "colors"
+      },
+      {
+        "name": "The Sticker Voice Rule",
+        "body": "Dela Gothic One sólo para titulares (display, headline, title y la inicial de un avatar); todo lo demás es M PLUS Rounded. Siempre desde `context.textTheme`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Micro-Label Exception",
+        "body": "Un `TextStyle` crudo sólo para micro-etiquetas de 9 a 11.5 px que no existen en la escala (el texto de `StatusBadge`: 10 px, 900, mayúsculas, tracking 0.5).",
+        "section": "typography"
+      },
+      {
+        "name": "The Cut-Not-Shadow Rule",
+        "body": "La profundidad de un sticker es su troquel (`AppStroke.kissCut` 3) y su contorno de tinta (`AppStroke.ink` 2.5), no una sombra. Nada de sombras duras desplazadas.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pill Control Rule",
+        "body": "Un rectángulo redondeado en un control se lee como otra app. La única excepción hoy es la tecla de crear (52 × 44, radio 16).",
+        "section": "shapes"
+      },
+      {
+        "name": "The Edge-Is-State Rule",
+        "body": "`StickerEdge.kissCut` = normal o replay; `holo` = al aire; `dashed` = programado (gris `text-secondary`, trazos de 6 con 5 de gap); `none` = media ya dentro de otro sticker. Oculto es el dorso: `liner-high`, sin borde, con el motivo impreso. Ningún borde se usa por fuera de su significado.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Hand-Slapped Tilt Rule",
+        "body": "Una insignia pegada encima de otro sticker (la esquina de una media, el borde de un plan) va apenas torcida (±0.05 rad), como pegada a mano; dentro de una fila de texto va derecha.",
+        "section": "components"
+      },
+      {
+        "name": "The Slap Rule",
+        "body": "Reaccionar pega un sticker: `Pop` aterriza a 135 % y -0.12 rad y se asienta en 280 ms con easeOutBack, sólo escala y giro, nunca opacidad. Con \"reducir movimiento\", holo y slap quedan quietos.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do hacer de cada acción principal un sticker blanco con tinta (`FilledButton`), y dejar que `StickerCard` la invierta a tinta adentro.",
+      "Do expresar el estado con el borde: troquel, holo (`HoloRing`, aislado en `RepaintBoundary`), punteado o dorso.",
+      "Do usar `NexoIcon` para todo ícono: contorno en reposo, relleno al seleccionar.",
+      "Do dar a un avatar sin foto el vinilo de `vinylFor(name)` con la inicial en Dela y tinta.",
+      "Do poner el gato en todo estado vacío, de error o sin conexión.",
+      "Do tomar color, tipo, radio, espacio y alto de `AppColors`, `textTheme`, `AppRadii`, `AppSpacing` y `AppSizes`."
+    ],
+    "donts": [
+      "Don't usar el holo en nada que no esté al aire ni sea la marca.",
+      "Don't usar la línea punteada para lo oculto: punteado es \"programado\".",
+      "Don't usar `primary-deep` como texto sobre el liner ni `text-secondary` sobre blanco.",
+      "Don't mezclar íconos de Material con `NexoIcon`: es otro trazo y otra mano.",
+      "Don't dar forma de rectángulo redondeado a un control ni poner sombras duras desplazadas.",
+      "Don't usar `text-tertiary` para nada que haya que leer.",
+      "Don't usar texto blanco sobre un vinilo."
+    ]
+  }
+}

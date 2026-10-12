@@ -1,0 +1,8 @@
+### Las secciones del feed de inicio, en el orden en que se muestran.
+enum: FeedSectionKind
+serialized: byName
+values:
+  - liveNow
+  - following
+  - suggestedAccounts
+  - discover

@@ -102,7 +102,7 @@ void main() {
     expect(find.byKey(const Key('create-post-field')), findsNothing);
 
     // Los vivos viven dentro de Explorar, que es la segunda pestaña.
-    await tester.tap(find.byIcon(Icons.explore_outlined));
+    await tester.tap(find.byKey(const Key('tab-/explore')));
     await settle(tester);
     expect(find.text('En vivo ahora'), findsWidgets);
 

@@ -56,120 +56,106 @@ class ShowDescriptionField extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     return ShowSection(
-      icon: Icons.notes_rounded,
       title: 'Descripción y Temario',
-      trailing: const ShowHintPill(
-        label: 'Soporta Markdown',
-        icon: Icons.code_rounded,
-        tinted: true,
-      ),
-      child: ShowCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              key: const Key('schedule-description-field'),
-              controller: controller,
-              onChanged: onChanged,
-              minLines: 4,
-              maxLines: 8,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                hintText:
-                    '¿Qué va a aprender tu audiencia? Cuenta el temario y '
-                    'cómo van a poder participar.',
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+      trailing: const ShowHintPill(label: 'Soporta Markdown'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            key: const Key('schedule-description-field'),
+            controller: controller,
+            onChanged: onChanged,
+            minLines: 4,
+            maxLines: 8,
+            textCapitalization: TextCapitalization.sentences,
+            decoration: showMultilineDecoration(
+              hintText:
+                  '¿Qué va a aprender tu audiencia? Cuenta el temario y '
+                  'cómo van a poder participar.',
+            ),
+            style: text.bodyMedium?.copyWith(height: 1.5),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xs,
+                  children: [
+                    _FormatButton(
+                      key: const Key('schedule-format-bold'),
+                      label: 'Negrita',
+                      emphasis: FontWeight.w900,
+                      onTap: () => _wrap('**'),
+                    ),
+                    _FormatButton(
+                      key: const Key('schedule-format-code'),
+                      label: 'Código',
+                      onTap: () => _wrap('`'),
+                    ),
+                    _FormatButton(
+                      key: const Key('schedule-format-list'),
+                      label: 'Lista',
+                      onTap: _bullet,
+                    ),
+                  ],
+                ),
               ),
-              style: text.bodyMedium?.copyWith(height: 1.5),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            const Divider(),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: AppSpacing.xs,
-                    runSpacing: AppSpacing.xs,
-                    children: [
-                      _FormatButton(
-                        key: const Key('schedule-format-bold'),
-                        icon: Icons.format_bold_rounded,
-                        label: 'Negrita',
-                        onTap: () => _wrap('**'),
-                      ),
-                      _FormatButton(
-                        key: const Key('schedule-format-code'),
-                        icon: Icons.code_rounded,
-                        label: 'Código',
-                        onTap: () => _wrap('`'),
-                      ),
-                      _FormatButton(
-                        key: const Key('schedule-format-list'),
-                        icon: Icons.format_list_bulleted_rounded,
-                        label: 'Lista',
-                        onTap: _bullet,
-                      ),
-                    ],
-                  ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Opcional',
+                style: text.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
                 ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  'Opcional',
-                  style: text.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
+/// Un atajo de formato. Sin ícono: negrita, código y lista no tienen glifo
+/// propio, y uno de Material sería otro trazo en medio de los de Nexo. La
+/// palabra alcanza.
 class _FormatButton extends StatelessWidget {
   const _FormatButton({
     super.key,
-    required this.icon,
     required this.label,
     required this.onTap,
+    this.emphasis,
   });
 
-  final IconData icon;
   final String label;
   final VoidCallback onTap;
 
+  /// La propia etiqueta muestra lo que hace: "Negrita" va en negrita.
+  final FontWeight? emphasis;
+
   @override
   Widget build(BuildContext context) => Material(
-    color: AppColors.background,
+    color: AppColors.linerHigh,
     borderRadius: AppRadii.pill,
     clipBehavior: Clip.antiAlias,
     child: InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: 6,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: AppColors.textPrimary),
-            const SizedBox(width: AppSpacing.xxs),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
-              ),
+      child: Container(
+        height: AppSizes.chipHeight,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        // Center con widthFactor y no `alignment`: un Container alineado
+        // se estira a todo el ancho que le den, y en el Wrap cada atajo
+        // ocupaba un renglón entero.
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: emphasis,
             ),
-          ],
+          ),
         ),
       ),
     ),

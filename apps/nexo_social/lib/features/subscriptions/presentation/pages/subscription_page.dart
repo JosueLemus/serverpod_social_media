@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/di/injection.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../bloc/subscription_cubit.dart';
 
@@ -37,7 +40,7 @@ class _SubscriptionView extends StatelessWidget {
               leading: IconButton(
                 tooltip: 'Cerrar',
                 onPressed: context.pop,
-                icon: const Icon(Icons.close_rounded),
+                icon: const NexoIcon(NexoGlyph.close, size: 20),
               ),
               title: const Text('Premium'),
             ),
@@ -53,34 +56,12 @@ class _SubscriptionView extends StatelessWidget {
                       AppSpacing.xl,
                     ),
                     children: [
-                      const Enter(child: _CreatorHeader()),
-                      const SizedBox(height: AppSpacing.md),
+                      const Enter(child: _CreatorHero()),
+                      const SizedBox(height: AppSpacing.lg),
                       Enter(index: 1, child: _LockedPreview(unlocked: active)),
-                      const SizedBox(height: AppSpacing.md),
-                      Enter(index: 2, child: _PlanCard(active: active)),
+                      const SizedBox(height: AppSpacing.lg),
+                      Enter(index: 2, child: _PlanSection(active: active)),
                       const _DonationSection(),
-                      const SizedBox(height: AppSpacing.md),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.lock_outline_rounded,
-                            size: 13,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 5),
-                          Flexible(
-                            child: Text(
-                              // Dicho con todas las letras. Una demo de pagos
-                              // que parece un cobro real es lo único que un
-                              // mock de pagos no puede hacer.
-                              'Pago simulado para la demo. No se cobra nada.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
                   ),
                 ),
@@ -91,56 +72,54 @@ class _SubscriptionView extends StatelessWidget {
       );
 }
 
-class _CreatorHeader extends StatelessWidget {
-  const _CreatorHeader();
+/// El gato con la corona, en vez de un banner en degradado: la membresía es
+/// lo que se colecciona, no un anuncio.
+class _CreatorHero extends StatelessWidget {
+  const _CreatorHero();
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Row(
-        children: [
-          const UserAvatar(name: 'Elena Vega', size: 44),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        'Elena Vega',
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.verified_rounded,
-                      size: 14,
-                      color: AppColors.primary,
-                    ),
-                  ],
-                ),
-                Text(
-                  '@elena_ux · 42.8k miembros activos',
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        const MascotIllustration(NexoMascot.crown, size: 140),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const UserAvatar(name: 'Elena Vega', size: 30),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                'Elena Vega',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.headlineMedium,
+              ),
             ),
-          ),
-          const StatusBadge(
-            label: 'Top 1%',
-            color: AppColors.primarySurface,
-            foreground: AppColors.textOnBrandSurface,
-            icon: Icons.trending_up_rounded,
-          ),
-        ],
-      ),
-    ),
-  );
+            const SizedBox(width: 6),
+            const NexoIcon(
+              NexoGlyph.verified,
+              size: 18,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          '@elena_ux · 42.8k miembros activos',
+          textAlign: TextAlign.center,
+          style: text.bodySmall,
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        const StatusBadge(
+          label: 'Top 1%',
+          color: AppColors.vinylLime,
+          foreground: AppColors.ink,
+        ),
+      ],
+    );
+  }
 }
 
 /// El contenido que la membresía abre.
@@ -152,97 +131,112 @@ class _LockedPreview extends StatelessWidget {
 
   final bool unlocked;
 
+  /// Cuánto asoma la insignia por encima del borde.
+  static const _badgeOverhang = 10.0;
+
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      ClipRRect(
-        borderRadius: AppRadii.medium,
-        child: AspectRatio(
-          aspectRatio: 16 / 8,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primaryDeep, AppColors.stageDark],
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: _badgeOverhang),
+          child: StickerFrame(
+            radius: 22,
+            fill: AppColors.surface,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.md,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: unlocked
+                              ? AppColors.tertiary
+                              : AppColors.linerHigh,
+                          shape: BoxShape.circle,
+                        ),
+                        child: NexoIcon(
+                          unlocked ? NexoGlyph.play : NexoGlyph.lock,
+                          filled: true,
+                          size: 20,
+                          color: unlocked
+                              ? AppColors.ink
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Guía completa de monetización y diseño de '
+                          'micro-interacciones',
+                          style: text.titleLarge,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: .16),
-                        shape: BoxShape.circle,
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      const NexoIcon(
+                        NexoGlyph.clock,
+                        size: 14,
+                        color: AppColors.textSecondary,
                       ),
-                      child: Icon(
-                        unlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
-                        color: Colors.white,
-                        size: 20,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Taller de 45 min · Figma + Flutter Code',
+                          style: text.bodySmall,
+                        ),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Aprende a estructurar tokens de diseño para producción, '
+                    'conectarlos con Flutter y cobrar por el sistema, no por '
+                    'la pantalla.',
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.45,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      unlocked
-                          ? 'DESBLOQUEADO · VER AHORA'
-                          : 'CONTENIDO EXCLUSIVO PARA MIEMBROS',
-                      key: const Key('premium-content-state'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: .8,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-      ),
-      const SizedBox(height: AppSpacing.sm),
-      Row(
-        children: [
-          const Icon(
-            Icons.schedule_rounded,
-            size: 14,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Text(
-              'Taller de 45 min · Figma + Flutter Code',
-              style: Theme.of(context).textTheme.bodySmall,
             ),
           ),
-        ],
-      ),
-      const SizedBox(height: AppSpacing.xs),
-      Text(
-        'Guía completa de monetización y diseño de micro-interacciones',
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 17),
-      ),
-      const SizedBox(height: AppSpacing.xxs),
-      Text(
-        'Aprende a estructurar tokens de diseño para producción, conectarlos '
-        'con Flutter y cobrar por el sistema, no por la pantalla.',
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.45),
-      ),
-    ],
-  );
+        ),
+        // El estado pegado en el borde, no como una línea encima del título.
+        Positioned(
+          top: 0,
+          right: AppSpacing.md,
+          child: StatusBadge(
+            key: const Key('premium-content-state'),
+            label: unlocked ? 'Desbloqueado' : 'Solo miembros',
+            color: unlocked ? AppColors.tertiary : AppColors.vinylLime,
+            foreground: AppColors.ink,
+            tilt: .05,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.active});
+class _PlanSection extends StatelessWidget {
+  const _PlanSection({required this.active});
 
   final bool active;
 
@@ -254,121 +248,173 @@ class _PlanCard extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.primarySurface,
-      borderRadius: AppRadii.medium,
-      border: Border.all(color: AppColors.primarySurfaceDeep),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const StatusBadge(
-          label: 'Plan recomendado',
-          color: AppColors.primaryDeep,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Pase Nexo Creador Pro',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Text(
-              '\$4.99',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                color: AppColors.textOnBrandSurface,
-              ),
-            ),
-            const SizedBox(width: 5),
-            Text('USD / mes', style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Row(
-          children: [
-            const Icon(
-              Icons.check_circle_outline_rounded,
-              size: 14,
-              color: AppColors.tertiary,
-            ),
-            const SizedBox(width: 5),
-            Expanded(
-              child: Text(
-                'Cancela sin compromiso cuando quieras',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
+        const _PlanTile(),
+        const SizedBox(height: AppSpacing.md),
         for (final perk in _perks)
           Padding(
-            padding: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 15,
-                  color: AppColors.tertiary,
+                const Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: NexoIcon(
+                    NexoGlyph.star,
+                    size: 16,
+                    color: AppColors.vinylLime,
+                  ),
                 ),
-                const SizedBox(width: 7),
+                const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text(
                     perk,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      height: 1.35,
-                    ),
+                    style: text.bodyMedium?.copyWith(height: 1.35),
                   ),
                 ),
               ],
             ),
           ),
-        const SizedBox(height: AppSpacing.xs),
+        const SizedBox(height: AppSpacing.sm),
         // Sólo opacidad: es el botón por el que existe la pantalla, así que
         // tiene que ser tocable en el frame en que aparece.
         EnterStatic(
           index: 3,
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              key: const Key('subscribe-button'),
-              onPressed: active
-                  ? null
-                  : context.read<SubscriptionCubit>().subscribe,
-              iconAlignment: IconAlignment.end,
-              icon: Icon(
-                active ? Icons.check_rounded : Icons.arrow_forward_rounded,
-                size: 18,
-              ),
-              label: Text(active ? 'Membresía activa' : 'Suscribirme ahora'),
+          child: FilledButton.icon(
+            key: const Key('subscribe-button'),
+            onPressed: active
+                ? null
+                : context.read<SubscriptionCubit>().subscribe,
+            iconAlignment: IconAlignment.end,
+            // Con la membresía activa el botón queda apagado, pero en verde
+            // de confirmación: gris diría que algo falta.
+            style: FilledButton.styleFrom(
+              disabledBackgroundColor: AppColors.tertiary,
+              disabledForegroundColor: AppColors.ink,
             ),
+            icon: NexoIcon(
+              active ? NexoGlyph.verified : NexoGlyph.forward,
+              size: 18,
+            ),
+            label: Text(active ? 'Membresía activa' : 'Suscribirme ahora'),
           ),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.shield_outlined,
-              size: 13,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                'Procesado de forma segura mediante Stripe & Apple Pay',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
+        const SizedBox(height: AppSpacing.sm),
+        const _SimulatedPaymentNotice(),
+      ],
+    );
+  }
+}
+
+/// El plan, como sticker elegido: el corte del logo, con su marca de
+/// selección en tinta. Hoy hay un solo plan, así que es el seleccionado.
+class _PlanTile extends StatelessWidget {
+  const _PlanTile();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    selected: true,
+    container: true,
+    child: const StickerCard(child: _PlanBody()),
+  );
+}
+
+/// Aparte para leer el tema **dentro** de la [StickerCard], que lo invierte a
+/// tinta.
+class _PlanBody extends StatelessWidget {
+  const _PlanBody();
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pase Nexo Creador Pro', style: text.titleLarge),
+              const SizedBox(height: AppSpacing.xxs),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    '\$4.99',
+                    style: text.displaySmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text('USD / mes', style: text.bodySmall)),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                'Cancela sin compromiso cuando quieras',
+                style: text.bodySmall,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        // No hay glifo de "check" en el set de Nexo: el tilde de Material va
+        // dentro de un disco de tinta.
+        Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: AppColors.ink,
+            shape: BoxShape.circle,
+          ),
+          child: const NexoIcon(
+            NexoGlyph.check,
+            filled: true,
+            size: 18,
+            color: AppColors.sticker,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dicho con todas las letras y junto al botón que cobra. Una demo de pagos
+/// que parece un cobro real es lo único que un mock de pagos no puede hacer.
+class _SimulatedPaymentNotice extends StatelessWidget {
+  const _SimulatedPaymentNotice();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.xs,
+    ),
+    decoration: const BoxDecoration(
+      color: AppColors.linerHigh,
+      borderRadius: AppRadii.medium,
+    ),
+    child: Row(
+      children: [
+        const StatusBadge(
+          label: 'Demo',
+          color: AppColors.warning,
+          foreground: AppColors.ink,
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Expanded(
+          child: Text(
+            'Pago simulado para la demo. No se cobra nada.',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.textPrimary),
+          ),
         ),
       ],
     ),
@@ -399,11 +445,7 @@ class _DonationSectionState extends State<_DonationSection> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionHeader(
-                title: 'Apoyo y donación rápida',
-                hint: 'Nexo Tip Directo',
-                icon: Icons.volunteer_activism_outlined,
-              ),
+              const SectionHeader(title: 'Apoyo y donación rápida'),
               Text(
                 'Envía una propina directa para apoyar su contenido '
                 'independiente y acelerar la publicación del próximo curso.',
@@ -412,7 +454,9 @@ class _DonationSectionState extends State<_DonationSection> {
               const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
-                  for (final amount in SubscriptionCubit.donationAmounts) ...[
+                  for (final (index, amount)
+                      in SubscriptionCubit.donationAmounts.indexed) ...[
+                    if (index > 0) const SizedBox(width: AppSpacing.xs),
                     Expanded(
                       child: FilterPill(
                         key: Key('donate-$amount'),
@@ -421,7 +465,6 @@ class _DonationSectionState extends State<_DonationSection> {
                         onTap: () => cubit.selectDonation(amount),
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
                   ],
                 ],
               ),
@@ -435,20 +478,24 @@ class _DonationSectionState extends State<_DonationSection> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
+              // Contorno y no sticker blanco: la acción de esta pantalla es
+              // suscribirse, y dos CTA blancos se pelean el mismo lugar.
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
+                child: OutlinedButton.icon(
                   key: const Key('donate-send'),
                   onPressed: () {
                     cubit.donate();
                     _message.clear();
                   },
-                  icon: const Icon(Icons.favorite_rounded, size: 17),
+                  icon: const NexoIcon(
+                    NexoGlyph.heart,
+                    filled: true,
+                    size: 18,
+                    color: AppColors.secondary,
+                  ),
                   label: Text(
                     'Enviar donación de \$${state.selectedDonation} USD',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.secondary,
                   ),
                 ),
               ),

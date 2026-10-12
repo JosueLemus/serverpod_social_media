@@ -162,6 +162,7 @@ class ServerpodLiveRepository implements LiveRepository {
     recordReplay: view.recordReplay,
     startedAt: view.startedAt?.toLocal(),
     endedAt: view.endedAt?.toLocal(),
+    hostAvatarUrl: view.hostAvatarUrl,
   );
 
   static LiveComment toComment(
@@ -173,6 +174,7 @@ class ServerpodLiveRepository implements LiveRepository {
     authorId: message.authorId.toString(),
     body: message.body,
     isMine: me != null && message.authorId.toString() == me,
+    authorAvatarUrl: message.authorAvatarUrl,
   );
 
   static LiveRole toRole(api.LiveShowRole role) =>

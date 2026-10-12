@@ -37,7 +37,12 @@ void main() {
         expect(find.text('Cola de reportes'), findsOneWidget);
 
         for (final section in AdminSection.values) {
-          await tester.tap(find.byKey(Key('admin-section-${section.name}')));
+          final chip = find.byKey(Key('admin-section-${section.name}'));
+          // Los chips son una fila que scrollea: sin traerlo a la vista, el
+          // tap cae afuera, Flutter sólo avisa y la sección queda sin probar.
+          await tester.ensureVisible(chip);
+          await AppHarness.settle(tester);
+          await tester.tap(chip);
           await AppHarness.settle(tester);
           expect(tester.takeException(), isNull, reason: section.label);
         }

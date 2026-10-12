@@ -10,8 +10,10 @@ import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/layout/nexo_page.dart';
 import '../../../../core/widgets/app_state_views.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
-import '../../../../core/widgets/search_field.dart';
+import '../../../../core/widgets/section_header.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/bloc/live_list_cubit.dart';
 import '../../../live/presentation/utils/live_status_ui.dart';
@@ -26,6 +28,8 @@ import '../widgets/empty_feed_view.dart';
 import '../widgets/comments_sheet.dart';
 import '../widgets/post_actions.dart';
 import '../widgets/post_card.dart';
+import '../widgets/suggested_accounts_row.dart';
+import '../../../live/presentation/utils/live_navigation.dart';
 
 class FeedPage extends StatelessWidget {
   const FeedPage({super.key});
@@ -64,11 +68,21 @@ class _FeedView extends StatelessWidget {
         return NexoPage(
           section: 'Feed',
           actions: [
-            // Sin mensajes directos todavía: apagado, no escondido (F11).
+            // La búsqueda de verdad vive en Explorar. El campo que había acá
+            // no buscaba nada y empujaba las historias fuera del primer
+            // vistazo; un ícono en la barra lleva al mismo lugar.
+            IconButton(
+              key: const Key('feed-search'),
+              tooltip: 'Buscar',
+              onPressed: () => context.go(AppRoutes.explore),
+              icon: const NexoIcon(NexoGlyph.search, size: 22),
+            ),
+            // Sin mensajes directos todavía: apagado, no escondido (F11). El
+            // IconButton deshabilitado tiñe el glifo de gris por su IconTheme.
             const IconButton(
               tooltip: 'Mensajes: muy pronto',
               onPressed: null,
-              icon: Icon(Icons.mail_outline_rounded, size: 22),
+              icon: NexoIcon(NexoGlyph.comment, size: 22),
             ),
           ],
           // Los dos cubits se resuelven antes del await: después de él este
@@ -80,8 +94,10 @@ class _FeedView extends StatelessWidget {
           },
           children: [
             const StaffShortcutCard(),
-            const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
-            const SizedBox(height: AppSpacing.sm),
+            // El primer vistazo: la plancha de avatares, los filtros y el vivo
+            // destacado, en ese orden.
+            const _LiveStories(),
+            const SizedBox(height: AppSpacing.md),
             // La fila de filtros queda montada en todos los estados: perder el
             // control que acabás de tocar mientras refresca se lee como que el
             // tap rompió algo.
@@ -99,9 +115,11 @@ class _FeedView extends StatelessWidget {
                 },
               ),
             ),
-            // Con el chip "En vivo" la lista de abajo ya son los vivos: el rail
-            // repetiría la misma transmisión dos veces seguidas.
-            if (loaded?.filter != FeedFilter.live) const _LiveRail(),
+            // Con el chip "En vivo" la lista de abajo ya son los vivos: la
+            // tarjeta destacada repetiría la misma transmisión dos veces
+            // seguidas. Las historias quedan: están arriba de los filtros, y
+            // esconderlas haría saltar la fila que se acaba de tocar.
+            if (loaded?.filter != FeedFilter.live) const _FeaturedLive(),
             ..._body(context, state),
           ],
         );
@@ -127,6 +145,9 @@ class _FeedView extends StatelessWidget {
         _LiveNowList(onShowAll: () => cubit.selectFilter(FeedFilter.forYou)),
       ];
     }
+    if (loaded.filter == FeedFilter.forYou) {
+      return _sections(context, loaded);
+    }
     final posts = loaded.visible;
 
     if (posts.isEmpty) {
@@ -140,42 +161,113 @@ class _FeedView extends StatelessWidget {
 
     return [
       const SizedBox(height: AppSpacing.md),
-      for (final (index, post) in posts.indexed)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: Enter(
-            // Keyed por post para que un like no reinicie la entrada de toda
-            // la columna: animate_do vuelve a correr cuando su subárbol se
-            // reconstruye desde cero, y una key por índice hace que cada
-            // tarjeta sea un subárbol nuevo apenas se filtra la lista.
-            key: ValueKey(post.id),
-            index: index,
-            child: PostCard(
-              post: post,
-              onLike: () => unawaited(cubit.toggleLike(post.id)),
-              onSave: () => cubit.toggleSave(post.id),
-              onComment: () => unawaited(showCommentsSheet(context, post)),
-              onShowLikers: () =>
-                  unawaited(showLikersSheet(context, cubit.likersOf(post.id))),
-              onMore: () => unawaited(_runAction(context, cubit, post)),
-            ),
-          ),
-        ),
-      if (loaded.hasMore)
-        Center(
-          child: loaded.isLoadingMore
-              ? const Padding(
-                  padding: EdgeInsets.all(AppSpacing.md),
-                  child: CircularProgressIndicator(),
-                )
-              : TextButton(
-                  key: const Key('feed-load-more'),
-                  onPressed: () => unawaited(cubit.loadMore()),
-                  child: const Text('Ver más publicaciones'),
-                ),
-        ),
+      ..._cards(context, posts),
+      ..._loadMore(cubit, loaded),
     ];
   }
+
+  /// "Para ti" por secciones, en el orden que arma el servidor: de quienes
+  /// sigues, a quién seguir y para descubrir. Los vivos van arriba, en el
+  /// rail, que se actualiza solo.
+  List<Widget> _sections(BuildContext context, FeedLoaded loaded) {
+    final cubit = context.read<FeedCubit>();
+    final following = loaded.followingPosts;
+    final discover = loaded.discoverPosts;
+    final suggestions = loaded.suggestions;
+    if (following.isEmpty && discover.isEmpty && suggestions.isEmpty) {
+      return [
+        EmptyFeedView(
+          filter: loaded.filter,
+          onShowAll: () => cubit.selectFilter(FeedFilter.forYou),
+        ),
+      ];
+    }
+    // Con una sola sección de posts y nada más, el título sobra: un feed
+    // que dice "Descubrir" arriba de todo se lee como una pantalla distinta.
+    final titled = following.isNotEmpty || suggestions.isNotEmpty;
+    // Los títulos de sección van solos, en la gótica: un ícono de Material
+    // al lado era otra mano junto a la tipografía de la marca.
+    return [
+      // El encabezado de sección ya trae su aire arriba; sin encabezado, el
+      // primer post necesita el suyo para despegarse del vivo destacado.
+      SizedBox(height: titled ? AppSpacing.xs : AppSpacing.lg),
+      if (following.isNotEmpty) ...[
+        const SectionHeader(
+          key: Key('feed-section-following'),
+          title: 'De quienes sigues',
+        ),
+        ..._cards(context, following),
+      ],
+      if (suggestions.isNotEmpty) ...[
+        const SectionHeader(
+          key: Key('feed-section-suggested'),
+          title: 'A quién seguir',
+        ),
+        SuggestedAccountsRow(
+          accounts: suggestions,
+          onToggleFollow: (account) => unawaited(cubit.toggleFollow(account)),
+        ),
+      ],
+      if (discover.isNotEmpty) ...[
+        if (titled)
+          const SectionHeader(
+            key: Key('feed-section-discover'),
+            title: 'Descubrir',
+          ),
+        ..._cards(context, discover, from: following.length),
+      ],
+      ..._loadMore(cubit, loaded),
+    ];
+  }
+
+  List<Widget> _cards(BuildContext context, List<Post> posts, {int from = 0}) {
+    final cubit = context.read<FeedCubit>();
+    return [
+      for (final (index, post) in posts.indexed) ...[
+        // Los posts van sobre el liner, sin tarjeta: entre uno y otro, aire y
+        // un filete. Nada después del último, para que no quede una línea
+        // suelta arriba del siguiente encabezado.
+        if (index > 0)
+          const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.xs, bottom: AppSpacing.md),
+            child: Divider(height: 1),
+          ),
+        Enter(
+          // Keyed por post para que un like no reinicie la entrada de toda
+          // la columna: animate_do vuelve a correr cuando su subárbol se
+          // reconstruye desde cero, y una key por índice hace que cada
+          // tarjeta sea un subárbol nuevo apenas se filtra la lista.
+          key: ValueKey(post.id),
+          index: from + index,
+          child: PostCard(
+            post: post,
+            onLike: () => unawaited(cubit.toggleLike(post.id)),
+            onSave: () => cubit.toggleSave(post.id),
+            onComment: () => unawaited(showCommentsSheet(context, post)),
+            onShowLikers: () =>
+                unawaited(showLikersSheet(context, cubit.likersOf(post.id))),
+            onMore: () => unawaited(_runAction(context, cubit, post)),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  List<Widget> _loadMore(FeedCubit cubit, FeedLoaded loaded) => [
+    if (loaded.hasMore)
+      Center(
+        child: loaded.isLoadingMore
+            ? const Padding(
+                padding: EdgeInsets.all(AppSpacing.md),
+                child: CircularProgressIndicator(),
+              )
+            : TextButton(
+                key: const Key('feed-load-more'),
+                onPressed: () => unawaited(cubit.loadMore()),
+                child: const Text('Ver más publicaciones'),
+              ),
+      ),
+  ];
 }
 
 /// Los vivos al aire, para el chip "En vivo". Los lee del mismo cubit que el
@@ -207,7 +299,7 @@ class _LiveNowList extends StatelessWidget {
     if (onAir.isEmpty) {
       return AppEmptyView(
         key: const Key('feed-live-empty'),
-        icon: Icons.sensors_off_rounded,
+        mascot: NexoMascot.mic,
         title: 'Nadie está en vivo ahora',
         message:
             'Cuando alguien empiece a transmitir aparece acá, sin que '
@@ -226,7 +318,7 @@ class _LiveNowList extends StatelessWidget {
               index: index,
               child: LiveCard(
                 session: session,
-                onTap: () => context.go(AppRoutes.liveRoom(session.id)),
+                onTap: () => openLive(context, session),
               ),
             ),
           ),
@@ -235,10 +327,37 @@ class _LiveNowList extends StatelessWidget {
   }
 }
 
-/// Historias + la transmisión destacada. Lee su propio cubit, así que un fallo
-/// al listar vivos no deja al feed sin posts.
-class _LiveRail extends StatelessWidget {
-  const _LiveRail();
+/// La fila de avatares troquelados que abre el feed. Lee su propio cubit, así
+/// que un fallo al listar vivos no deja al feed sin posts.
+///
+/// Queda montada mientras carga o si falla, con sólo "Tu historia": es la
+/// primera fila de la pantalla, y si apareciera recién al llegar los vivos
+/// empujaría hacia abajo los filtros que el usuario ya está por tocar.
+class _LiveStories extends StatelessWidget {
+  const _LiveStories();
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocBuilder<LiveListCubit, LiveListState>(
+        builder: (context, state) {
+          final stories = state is LiveListLoaded
+              ? state.sessions
+                    .where((session) => session.status != LiveStatus.cancelled)
+                    .toList()
+              : const <LiveSession>[];
+          return LiveStoriesRow(
+            sessions: stories,
+            onCreate: () => context.push(AppRoutes.create),
+            onTap: (session) => openLive(context, session),
+          );
+        },
+      );
+}
+
+/// La transmisión destacada, debajo de los filtros. Sólo si hay alguien al
+/// aire: un hueco reservado para un vivo que no existe se lee como un error.
+class _FeaturedLive extends StatelessWidget {
+  const _FeaturedLive();
 
   @override
   Widget build(BuildContext context) =>
@@ -246,32 +365,23 @@ class _LiveRail extends StatelessWidget {
         builder: (context, state) {
           if (state is! LiveListLoaded) return const SizedBox.shrink();
 
-          final stories = state.sessions
-              .where((session) => session.status != LiveStatus.cancelled)
-              .toList();
           final featured = state.sessions
               .where((session) => session.status == LiveStatus.live)
               .firstOrNull;
+          if (featured == null) return const SizedBox.shrink();
 
-          return Column(
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              LiveStoriesRow(
-                sessions: stories,
-                onCreate: () => context.push(AppRoutes.create),
-                onTap: (session) => context.go(AppRoutes.liveRoom(session.id)),
+          return Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            // Sólo aparece: la tarjeta lleva el botón para entrar, y una
+            // traslación dejaría el hit test corrido mientras dura.
+            child: EnterStatic(
+              child: FeaturedLiveCard(
+                session: featured,
+                hostUsername: featured.hostUsername,
+                onJoin: () => openLive(context, featured),
+                isOwn: isOwnLive(context, featured),
               ),
-              if (featured != null) ...[
-                const SizedBox(height: AppSpacing.md),
-                Enter(
-                  child: FeaturedLiveCard(
-                    session: featured,
-                    hostUsername: featured.hostUsername,
-                    onJoin: () => context.go(AppRoutes.liveRoom(featured.id)),
-                  ),
-                ),
-              ],
-            ],
+            ),
           );
         },
       );
@@ -347,5 +457,8 @@ extension on FeedNotice {
     FeedNotice.actionFailed =>
       'No pudimos completar la acción. Inténtalo de nuevo.',
     FeedNotice.forbidden => 'Tu cuenta no puede hacer esto.',
+    FeedNotice.followFailed =>
+      'No pudimos actualizar a quién sigues. Inténtalo de nuevo.',
+    FeedNotice.signInToFollow => 'Inicia sesión para seguir cuentas.',
   };
 }

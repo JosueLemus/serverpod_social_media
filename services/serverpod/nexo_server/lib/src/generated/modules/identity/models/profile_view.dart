@@ -26,8 +26,13 @@ abstract class ProfileView
     required this.isCreator,
     required this.verification,
     required this.status,
+    int? followerCount,
+    int? followingCount,
+    bool? viewerFollows,
     required this.createdAt,
-  });
+  }) : followerCount = followerCount ?? 0,
+       followingCount = followingCount ?? 0,
+       viewerFollows = viewerFollows ?? false;
 
   factory ProfileView({
     required _is.UuidValue userId,
@@ -38,6 +43,9 @@ abstract class ProfileView
     required bool isCreator,
     required _il3i3d2n.VerificationStatus verification,
     required _ijvat8p8.AccountStatus status,
+    int? followerCount,
+    int? followingCount,
+    bool? viewerFollows,
     required DateTime createdAt,
   }) = _ProfileViewImpl;
 
@@ -55,6 +63,11 @@ abstract class ProfileView
       status: _ijvat8p8.AccountStatus.fromJson(
         (jsonSerialization['status'] as String),
       ),
+      followerCount: jsonSerialization['followerCount'] as int?,
+      followingCount: jsonSerialization['followingCount'] as int?,
+      viewerFollows: jsonSerialization['viewerFollows'] == null
+          ? null
+          : _is.BoolJsonExtension.fromJson(jsonSerialization['viewerFollows']),
       createdAt: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -79,6 +92,14 @@ abstract class ProfileView
   /// demostrar.
   _ijvat8p8.AccountStatus status;
 
+  int followerCount;
+
+  int followingCount;
+
+  /// Si quien pregunta sigue a esta cuenta. Siempre `false` para un
+  /// invitado y para el propio perfil.
+  bool viewerFollows;
+
   DateTime createdAt;
 
   /// Returns a shallow copy of this [ProfileView]
@@ -93,6 +114,9 @@ abstract class ProfileView
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
+    bool? viewerFollows,
     DateTime? createdAt,
   });
   @override
@@ -107,6 +131,9 @@ abstract class ProfileView
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
+      'followerCount': followerCount,
+      'followingCount': followingCount,
+      'viewerFollows': viewerFollows,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -123,6 +150,9 @@ abstract class ProfileView
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
+      'followerCount': followerCount,
+      'followingCount': followingCount,
+      'viewerFollows': viewerFollows,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -145,6 +175,9 @@ class _ProfileViewImpl extends ProfileView {
     required bool isCreator,
     required _il3i3d2n.VerificationStatus verification,
     required _ijvat8p8.AccountStatus status,
+    int? followerCount,
+    int? followingCount,
+    bool? viewerFollows,
     required DateTime createdAt,
   }) : super._(
          userId: userId,
@@ -155,6 +188,9 @@ class _ProfileViewImpl extends ProfileView {
          isCreator: isCreator,
          verification: verification,
          status: status,
+         followerCount: followerCount,
+         followingCount: followingCount,
+         viewerFollows: viewerFollows,
          createdAt: createdAt,
        );
 
@@ -171,6 +207,9 @@ class _ProfileViewImpl extends ProfileView {
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
+    bool? viewerFollows,
     DateTime? createdAt,
   }) {
     return ProfileView(
@@ -182,6 +221,9 @@ class _ProfileViewImpl extends ProfileView {
       isCreator: isCreator ?? this.isCreator,
       verification: verification ?? this.verification,
       status: status ?? this.status,
+      followerCount: followerCount ?? this.followerCount,
+      followingCount: followingCount ?? this.followingCount,
+      viewerFollows: viewerFollows ?? this.viewerFollows,
       createdAt: createdAt ?? this.createdAt,
     );
   }

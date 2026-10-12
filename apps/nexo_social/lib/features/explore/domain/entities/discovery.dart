@@ -30,12 +30,17 @@ class SuggestedCreator extends Equatable {
     required this.username,
     required this.name,
     required this.headline,
+    this.userId = '',
     this.isVerified = false,
     this.isPro = false,
     this.isLive = false,
     this.isFollowed = false,
+    this.avatarUrl,
   });
 
+  /// El id en el servidor, que es lo que pide seguir. Vacío en el mock, que
+  /// sigue por username.
+  final String userId;
   final String username;
   final String name;
 
@@ -47,8 +52,10 @@ class SuggestedCreator extends Equatable {
   final bool isPro;
   final bool isLive;
   final bool isFollowed;
+  final String? avatarUrl;
 
   SuggestedCreator copyWith({bool? isFollowed}) => SuggestedCreator(
+    userId: userId,
     username: username,
     name: name,
     headline: headline,
@@ -56,10 +63,12 @@ class SuggestedCreator extends Equatable {
     isPro: isPro,
     isLive: isLive,
     isFollowed: isFollowed ?? this.isFollowed,
+    avatarUrl: avatarUrl,
   );
 
   @override
   List<Object?> get props => [
+    userId,
     username,
     name,
     headline,
@@ -67,5 +76,6 @@ class SuggestedCreator extends Equatable {
     isPro,
     isLive,
     isFollowed,
+    avatarUrl,
   ];
 }

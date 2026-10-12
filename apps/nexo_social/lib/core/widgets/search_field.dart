@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
+import 'nexo_icon.dart';
 
-/// El buscador del design system: pill, lupa a la izquierda, sin marco.
+/// El buscador: pastilla sobre el liner, lupa propia a la izquierda, sin
+/// marco.
 ///
 /// El `inputDecorationTheme` ya pone la forma y el relleno; esto agrega la
 /// lupa, el alto denso y —cuando no es interactivo— el gesto de toda la caja.
@@ -40,10 +42,13 @@ class SearchField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         isDense: true,
-        prefixIcon: const Icon(
-          Icons.search_rounded,
-          size: 20,
-          color: AppColors.textSecondary,
+        prefixIcon: const Center(
+          widthFactor: 1,
+          child: NexoIcon(
+            NexoGlyph.search,
+            size: 19,
+            color: AppColors.textSecondary,
+          ),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 42),
         suffixIcon: trailing,

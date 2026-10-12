@@ -13,10 +13,19 @@ fields:
   ### Siempre en minúsculas. Ver `UsernameRules`.
   username: String
   bio: String?
+  ### La clave del avatar en el storage público (`avatars/<userId>/…`). La
+  ### clave y no la URL: la URL la arma el storage y cambia de servidor a
+  ### servidor.
+  avatarKey: String?
   ### "Creador" no es un scope: es un dato del perfil.
   isCreator: bool, default=false
   verification: VerificationStatus, default=none
   status: AccountStatus, default=active
+  ### Desnormalizados: contar seguidores en cada vista de perfil sería un
+  ### `COUNT` por pedido. Los mantiene `FollowService` con las filas
+  ### bloqueadas, como `likeCount` en `post`.
+  followerCount: int, default=0
+  followingCount: int, default=0
   createdAt: DateTime, default=now
   updatedAt: DateTime?
 indexes:

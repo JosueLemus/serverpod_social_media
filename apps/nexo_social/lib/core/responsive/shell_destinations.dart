@@ -1,7 +1,6 @@
-import 'package:flutter/material.dart';
-
 import '../../app/router/app_routes.dart';
 import '../../features/auth/domain/entities/app_user.dart';
+import '../widgets/nexo_icon.dart';
 
 /// Quién ve un destino. Esconder no es seguridad —el guard y el repositorio
 /// rechazan igual—, pero un rail que ofrece la consola a quien no puede
@@ -20,8 +19,7 @@ class ShellDestination {
     required this.branch,
     required this.path,
     required this.label,
-    required this.icon,
-    required this.selectedIcon,
+    required this.glyph,
     this.desktopOnly = false,
     this.access = ShellAccess.everyone,
   });
@@ -33,8 +31,11 @@ class ShellDestination {
 
   final String path;
   final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+
+  /// El ícono propio. En reposo se dibuja su contorno y seleccionado, su
+  /// versión rellena: el cambio de forma es la marca de selección, como en
+  /// una tab bar de iOS.
+  final NexoGlyph glyph;
 
   /// Superficies de creador. Necesitan ancho y teclado, así que en teléfono se
   /// llegan desde el perfil y no desde la barra.
@@ -55,44 +56,38 @@ abstract final class ShellDestinations {
       branch: 0,
       path: AppRoutes.feed,
       label: 'Inicio',
-      icon: Icons.home_outlined,
-      selectedIcon: Icons.home_rounded,
+      glyph: NexoGlyph.home,
     ),
     ShellDestination(
       branch: 1,
       path: AppRoutes.explore,
       label: 'Explorar',
-      icon: Icons.explore_outlined,
-      selectedIcon: Icons.explore_rounded,
+      glyph: NexoGlyph.explore,
     ),
     ShellDestination(
       branch: 2,
       path: AppRoutes.activity,
       label: 'Actividad',
-      icon: Icons.notifications_none_rounded,
-      selectedIcon: Icons.notifications_rounded,
+      glyph: NexoGlyph.activity,
     ),
     ShellDestination(
       branch: 3,
       path: AppRoutes.profile,
       label: 'Perfil',
-      icon: Icons.person_outline_rounded,
-      selectedIcon: Icons.person_rounded,
+      glyph: NexoGlyph.profile,
     ),
     ShellDestination(
       branch: 4,
       path: AppRoutes.studio,
       label: 'Studio',
-      icon: Icons.dashboard_outlined,
-      selectedIcon: Icons.dashboard_rounded,
+      glyph: NexoGlyph.studio,
       desktopOnly: true,
     ),
     ShellDestination(
       branch: 5,
       path: AppRoutes.moderation,
       label: 'Moderación',
-      icon: Icons.shield_outlined,
-      selectedIcon: Icons.shield_rounded,
+      glyph: NexoGlyph.moderation,
       desktopOnly: true,
       access: ShellAccess.moderator,
     ),
@@ -100,8 +95,7 @@ abstract final class ShellDestinations {
       branch: 6,
       path: AppRoutes.admin,
       label: 'Consola',
-      icon: Icons.admin_panel_settings_outlined,
-      selectedIcon: Icons.admin_panel_settings_rounded,
+      glyph: NexoGlyph.console,
       desktopOnly: true,
       access: ShellAccess.operator,
     ),

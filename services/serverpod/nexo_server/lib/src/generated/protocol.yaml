@@ -17,9 +17,13 @@ posts:
   - create:
   - update:
   - delete:
+feed:
+  - home:
 profiles:
   - me:
   - update:
+  - requestAvatarUpload:
+  - setAvatar:
   - becomeCreator:
   - byUsername:
 live:
@@ -43,10 +47,22 @@ moderation:
   - report:
   - queue:
   - resolve:
+notifications:
+  - list:
+  - unreadCount:
+  - markRead:
+  - markAllRead:
+  - watch:
 comments:
   - list:
   - create:
   - delete:
+follows:
+  - follow:
+  - unfollow:
+  - followers:
+  - following:
+  - suggestions:
 likes:
   - like:
   - unlike:

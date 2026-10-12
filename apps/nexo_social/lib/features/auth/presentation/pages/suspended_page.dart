@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../domain/entities/app_user.dart';
 import '../bloc/auth_cubit.dart';
 
@@ -32,13 +33,10 @@ class SuspendedPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Enter(
-                    child: Icon(
-                      Icons.gpp_bad_outlined,
-                      size: 64,
-                      color: AppColors.error,
-                    ),
-                  ),
+                  // El sticker "dado vuelta": el gato con el candado dice
+                  // que la cuenta está cerrada sin pintar la pantalla de
+                  // alarma, que haría pensar que la app se rompió.
+                  const Enter(child: MascotIllustration(NexoMascot.lock)),
                   const SizedBox(height: AppSpacing.md),
                   Enter(
                     index: 1,

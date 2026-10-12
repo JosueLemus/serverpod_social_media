@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/responsive/app_shell.dart';
@@ -17,8 +18,10 @@ import '../../features/live/presentation/children/schedule_show/presentation/pag
 import '../../features/live/presentation/pages/creator_studio_page.dart';
 import '../../features/live/presentation/pages/live_room_page.dart';
 import '../../features/moderation/presentation/pages/moderation_page.dart';
+import '../../features/notifications/presentation/bloc/unread_activity_cubit.dart';
 import '../../features/notifications/presentation/pages/activity_page.dart';
 import '../../features/posts/presentation/pages/create_post_page.dart';
+import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subscriptions/presentation/pages/subscription_page.dart';
 import 'app_routes.dart';
@@ -30,7 +33,14 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// A function rather than a top-level `final` so tests can build a router over
 /// a seeded [AuthCubit] and assert the guards. A global would bind to whatever
 /// the previous test left in the service locator.
-GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
+///
+/// [unread] es el conteo de la campana. Opcional para que los tests de
+/// guardas no tengan que armar la bandeja; sin él, el shell no dibuja badge.
+GoRouter createRouter(
+  AuthCubit auth, {
+  String? initialLocation,
+  UnreadActivityCubit? unread,
+}) => GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: initialLocation ?? AppRoutes.splash,
   refreshListenable: _CubitRefresh(auth.stream),
@@ -81,6 +91,11 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
       builder: (context, state) => const SubscriptionPage(),
     ),
     GoRoute(
+      path: AppRoutes.editProfile,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const EditProfilePage(),
+    ),
+    GoRoute(
       path: AppRoutes.userProfilePath,
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>
@@ -104,8 +119,17 @@ GoRouter createRouter(AuthCubit auth, {String? initialLocation}) => GoRouter(
     ),
 
     StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) =>
-          AppShell(navigationShell: navigationShell),
+      // Sólo el shell escucha el conteo: el router no se reconstruye por un
+      // aviso nuevo, y las pestañas conservan su pila.
+      builder: (context, state, navigationShell) => unread == null
+          ? AppShell(navigationShell: navigationShell)
+          : BlocBuilder<UnreadActivityCubit, int>(
+              bloc: unread,
+              builder: (context, count) => AppShell(
+                navigationShell: navigationShell,
+                unreadActivity: count,
+              ),
+            ),
       branches: [
         StatefulShellBranch(
           routes: [

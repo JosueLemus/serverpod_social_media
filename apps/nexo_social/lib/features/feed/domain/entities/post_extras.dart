@@ -25,6 +25,7 @@ class PostComment extends Equatable {
     required this.body,
     required this.createdAt,
     this.canDelete = false,
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -40,6 +41,9 @@ class PostComment extends Equatable {
   /// servidor.
   final bool canDelete;
 
+  /// La foto del autor. Null: se dibuja la inicial.
+  final String? authorAvatarUrl;
+
   @override
   List<Object?> get props => [
     id,
@@ -49,6 +53,7 @@ class PostComment extends Equatable {
     body,
     createdAt,
     canDelete,
+    authorAvatarUrl,
   ];
 }
 

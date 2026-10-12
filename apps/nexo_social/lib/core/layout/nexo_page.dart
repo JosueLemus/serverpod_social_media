@@ -55,9 +55,9 @@ class NexoPage extends StatelessWidget {
     this.onRefresh,
   }) : children = null;
 
-  /// La etiqueta gris en versalitas de la derecha: FEED, PERFIL, ACTIVIDAD.
-  /// Dice en qué parte de la app está el usuario sin gastar una línea de
-  /// título.
+  /// En qué parte de la app está el usuario: FEED, PERFIL, ACTIVIDAD. No se
+  /// dibuja (la pestaña encendida ya lo dice); se anuncia al lector de
+  /// pantalla como encabezado.
   final String? section;
 
   /// El titular grande, dentro del scroll. No es el título de una AppBar: se
@@ -159,23 +159,18 @@ class _BrandBar extends StatelessWidget {
   Widget build(BuildContext context) => SliverAppBar(
     pinned: true,
     automaticallyImplyLeading: false,
-    backgroundColor: AppColors.surface,
+    backgroundColor: AppColors.background,
     surfaceTintColor: Colors.transparent,
     titleSpacing: gutter,
-    toolbarHeight: 58,
+    toolbarHeight: 60,
     centerTitle: false,
     title: const NexoWordmark(),
     actions: [
+      // La sección ya la dice la pestaña encendida, y escrita en versalitas
+      // junto a la marca repetía el título de la página ("CONSOLA" arriba de
+      // "Consola de operador"). Queda para el lector de pantalla.
       if (section != null)
-        Text(
-          section!.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: AppColors.textSecondary,
-          ),
-        ),
+        Semantics(header: true, label: section, child: const SizedBox()),
       ...?actions,
       const SizedBox(width: AppSpacing.xs),
       const _SessionIdentity(),
@@ -256,8 +251,8 @@ class _SessionIdentity extends StatelessWidget {
           StatusBadge(
             key: const Key('session-role'),
             label: role,
-            color: AppColors.primarySurface,
-            foreground: AppColors.textOnBrandSurface,
+            color: AppColors.vinylLime,
+            foreground: AppColors.ink,
           ),
           const SizedBox(width: AppSpacing.xs),
         ],
@@ -270,7 +265,7 @@ class _SessionIdentity extends StatelessWidget {
             key: const Key('session-avatar'),
             name: user?.name ?? 'Invitado',
             size: AppSizes.avatarHeader,
-            ring: role != null ? AppColors.primaryDeep : null,
+            ring: role != null ? AppColors.vinylLime : null,
           ),
         ),
       ],

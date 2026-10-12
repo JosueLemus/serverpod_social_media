@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/errors/failures.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/domain/repositories/live_repository.dart';
 import '../../domain/entities/discovery.dart';
@@ -116,21 +117,30 @@ class ExploreCubit extends Cubit<ExploreState> {
     await _discovery.setFollowingTopic(topic.tag, following: following);
   }
 
+  ///
+  /// Si el servidor lo rechaza, el botón vuelve como estaba: un "Siguiendo"
+  /// que el servidor no registró es una mentira que se descubre al recargar.
   Future<void> toggleCreator(SuggestedCreator creator) async {
     final following = !creator.isFollowed;
-    emit(
-      state.copyWith(
-        creators: [
-          for (final item in state.creators)
-            item.username == creator.username
-                ? item.copyWith(isFollowed: following)
-                : item,
-        ],
-      ),
-    );
-    await _discovery.setFollowingCreator(
-      creator.username,
-      following: following,
-    );
+    _setCreatorFollowed(creator.username, following);
+    try {
+      await _discovery.setFollowingCreator(
+        creator.username,
+        following: following,
+      );
+    } on Failure {
+      if (!isClosed) _setCreatorFollowed(creator.username, !following);
+    }
   }
+
+  void _setCreatorFollowed(String username, bool following) => emit(
+    state.copyWith(
+      creators: [
+        for (final item in state.creators)
+          item.username == username
+              ? item.copyWith(isFollowed: following)
+              : item,
+      ],
+    ),
+  );
 }

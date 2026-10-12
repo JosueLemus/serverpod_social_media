@@ -11,4 +11,9 @@ fields:
   ### Público a propósito: una sanción que no se ve desde afuera no se puede
   ### demostrar.
   status: AccountStatus
+  followerCount: int, default=0
+  followingCount: int, default=0
+  ### Si quien pregunta sigue a esta cuenta. Siempre `false` para un
+  ### invitado y para el propio perfil.
+  viewerFollows: bool, default=false
   createdAt: DateTime

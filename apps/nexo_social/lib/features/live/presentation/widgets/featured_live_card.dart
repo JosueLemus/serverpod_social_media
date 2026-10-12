@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_tokens.dart';
-import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/user_avatar.dart';
 import '../../domain/entities/live_session.dart';
-import '../utils/live_status_ui.dart';
 import 'live_card.dart';
+import '../../../../core/share/share_sheet.dart';
+import '../utils/live_share_text.dart';
+import 'dart:async';
 
 /// La tarjeta destacada que abre el feed cuando alguien está transmitiendo.
 ///
@@ -17,131 +20,95 @@ class FeaturedLiveCard extends StatelessWidget {
     required this.session,
     required this.hostUsername,
     required this.onJoin,
+    this.isOwn = false,
   });
 
   final LiveSession session;
   final String hostUsername;
   final VoidCallback onJoin;
 
+  /// El vivo es de quien mira: el CTA lo devuelve a su Studio en vez de
+  /// invitarlo a unirse como audiencia de sí mismo.
+  final bool isOwn;
+
   @override
-  Widget build(BuildContext context) => Card(
-    key: Key('featured-live-${session.id}'),
-    clipBehavior: Clip.antiAlias,
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Wrap y no Row: a 320 las tres insignias no entran en una línea, y
-          // un Row recorta la última en silencio. Acá baja de renglón.
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              StatusBadge(label: session.status.label, pulse: true),
-              ViewerPill(viewers: session.viewers, isOnAir: true, light: true),
-              const StatusBadge(
-                label: 'Destacado',
-                color: AppColors.primarySurface,
-                foreground: AppColors.textOnBrandSurface,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    // Directo sobre el liner, sin tarjeta: el objeto es la media, un sticker
+    // grande con el borde de su estado (holo al aire) y EN VIVO pegado en la
+    // esquina. Una tarjeta alrededor sería un sticker dentro de otro.
+    return Column(
+      key: Key('featured-live-${session.id}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LiveThumbnail(session: session, featured: true),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          session.title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: text.titleLarge,
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            UserAvatar(
+              name: session.hostName,
+              imageUrl: session.hostAvatarUrl,
+              size: 28,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                // Sin handle (el mock no lo tiene) va el nombre: inventar
+                // un `@` puede nombrar a otra cuenta.
+                hostUsername.isEmpty
+                    ? 'por ${session.hostName}'
+                    : 'por @$hostUsername',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodySmall,
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: AppRadii.small,
-                child: SizedBox(
-                  width: 96,
-                  // Sin el chrome de la miniatura de lista: los badges ya
-                  // están arriba y repetirlos sobre una imagen de 96 px los
-                  // deja ilegibles.
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [AppColors.primaryDeep, AppColors.primary],
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.play_circle_fill_rounded,
-                        color: Colors.white.withValues(alpha: .9),
-                        size: 30,
-                      ),
-                    ),
-                  ),
+            ),
+            const SizedBox(width: 4),
+            const NexoIcon(
+              NexoGlyph.verified,
+              size: 14,
+              color: AppColors.primary,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                key: const Key('join-featured-live'),
+                onPressed: onJoin,
+                icon: NexoIcon(
+                  isOwn ? NexoGlyph.studio : NexoGlyph.live,
+                  size: 18,
+                ),
+                label: Text(isOwn ? 'Volver a tu vivo' : 'Unirme al Live'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(0, AppSizes.buttonHeightDense),
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      session.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleLarge?.copyWith(fontSize: 16),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            // Sin handle (el mock no lo tiene) va el nombre:
-                            // inventar un `@` puede nombrar a otra cuenta.
-                            hostUsername.isEmpty
-                                ? 'por ${session.hostName}'
-                                : 'por @$hostUsername',
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(
-                          Icons.verified_rounded,
-                          size: 13,
-                          color: AppColors.primary,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  key: const Key('join-featured-live'),
-                  onPressed: onJoin,
-                  icon: const Icon(Icons.sensors_rounded, size: 18),
-                  label: const Text('Unirme al Live'),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, AppSizes.buttonHeightDense),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.xs),
-              IconButton(
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Builder(
+              builder: (buttonContext) => IconButton(
+                key: Key('share-live-${session.id}'),
                 tooltip: 'Compartir',
-                onPressed: () {},
-                icon: const Icon(Icons.ios_share_rounded, size: 20),
+                onPressed: () => unawaited(
+                  openShareSheet(buttonContext, text: liveShareText(session)),
+                ),
+                icon: const NexoIcon(NexoGlyph.share, size: 22),
               ),
-            ],
-          ),
-        ],
-      ),
-    ),
-  );
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }

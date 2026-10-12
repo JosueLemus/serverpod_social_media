@@ -28,14 +28,19 @@ abstract class AccountProfile
     required this.authUserId,
     required this.username,
     this.bio,
+    this.avatarKey,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
     DateTime? createdAt,
     this.updatedAt,
   }) : isCreator = isCreator ?? false,
        verification = verification ?? _il3i3d2n.VerificationStatus.none,
        status = status ?? _ijvat8p8.AccountStatus.active,
+       followerCount = followerCount ?? 0,
+       followingCount = followingCount ?? 0,
        createdAt = createdAt ?? DateTime.now();
 
   factory AccountProfile({
@@ -43,9 +48,12 @@ abstract class AccountProfile
     required _is.UuidValue authUserId,
     required String username,
     String? bio,
+    String? avatarKey,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) = _AccountProfileImpl;
@@ -58,6 +66,7 @@ abstract class AccountProfile
       ),
       username: jsonSerialization['username'] as String,
       bio: jsonSerialization['bio'] as String?,
+      avatarKey: jsonSerialization['avatarKey'] as String?,
       isCreator: jsonSerialization['isCreator'] == null
           ? null
           : _is.BoolJsonExtension.fromJson(jsonSerialization['isCreator']),
@@ -71,6 +80,8 @@ abstract class AccountProfile
           : _ijvat8p8.AccountStatus.fromJson(
               (jsonSerialization['status'] as String),
             ),
+      followerCount: jsonSerialization['followerCount'] as int?,
+      followingCount: jsonSerialization['followingCount'] as int?,
       createdAt: jsonSerialization['createdAt'] == null
           ? null
           : _is.DateTimeJsonExtension.fromJson(jsonSerialization['createdAt']),
@@ -94,12 +105,24 @@ abstract class AccountProfile
 
   String? bio;
 
+  /// La clave del avatar en el storage público (`avatars/<userId>/…`). La
+  /// clave y no la URL: la URL la arma el storage y cambia de servidor a
+  /// servidor.
+  String? avatarKey;
+
   /// "Creador" no es un scope: es un dato del perfil.
   bool isCreator;
 
   _il3i3d2n.VerificationStatus verification;
 
   _ijvat8p8.AccountStatus status;
+
+  /// Desnormalizados: contar seguidores en cada vista de perfil sería un
+  /// `COUNT` por pedido. Los mantiene `FollowService` con las filas
+  /// bloqueadas, como `likeCount` en `post`.
+  int followerCount;
+
+  int followingCount;
 
   DateTime createdAt;
 
@@ -116,9 +139,12 @@ abstract class AccountProfile
     _is.UuidValue? authUserId,
     String? username,
     String? bio,
+    String? avatarKey,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -130,9 +156,12 @@ abstract class AccountProfile
       'authUserId': authUserId.toJson(),
       'username': username,
       if (bio != null) 'bio': bio,
+      if (avatarKey != null) 'avatarKey': avatarKey,
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
+      'followerCount': followerCount,
+      'followingCount': followingCount,
       'createdAt': createdAt.toJson(),
       if (updatedAt != null) 'updatedAt': updatedAt?.toJson(),
     };
@@ -179,9 +208,12 @@ class _AccountProfileImpl extends AccountProfile {
     required _is.UuidValue authUserId,
     required String username,
     String? bio,
+    String? avatarKey,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) : super._(
@@ -189,9 +221,12 @@ class _AccountProfileImpl extends AccountProfile {
          authUserId: authUserId,
          username: username,
          bio: bio,
+         avatarKey: avatarKey,
          isCreator: isCreator,
          verification: verification,
          status: status,
+         followerCount: followerCount,
+         followingCount: followingCount,
          createdAt: createdAt,
          updatedAt: updatedAt,
        );
@@ -205,9 +240,12 @@ class _AccountProfileImpl extends AccountProfile {
     _is.UuidValue? authUserId,
     String? username,
     Object? bio = _Undefined,
+    Object? avatarKey = _Undefined,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
+    int? followerCount,
+    int? followingCount,
     DateTime? createdAt,
     Object? updatedAt = _Undefined,
   }) {
@@ -216,9 +254,12 @@ class _AccountProfileImpl extends AccountProfile {
       authUserId: authUserId ?? this.authUserId,
       username: username ?? this.username,
       bio: bio is String? ? bio : this.bio,
+      avatarKey: avatarKey is String? ? avatarKey : this.avatarKey,
       isCreator: isCreator ?? this.isCreator,
       verification: verification ?? this.verification,
       status: status ?? this.status,
+      followerCount: followerCount ?? this.followerCount,
+      followingCount: followingCount ?? this.followingCount,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt is DateTime? ? updatedAt : this.updatedAt,
     );
@@ -245,6 +286,11 @@ class AccountProfileUpdateTable extends _is.UpdateTable<AccountProfileTable> {
     value,
   );
 
+  _is.ColumnValue<String, String> avatarKey(String? value) => _is.ColumnValue(
+    table.avatarKey,
+    value,
+  );
+
   _is.ColumnValue<bool, bool> isCreator(bool value) => _is.ColumnValue(
     table.isCreator,
     value,
@@ -260,6 +306,16 @@ class AccountProfileUpdateTable extends _is.UpdateTable<AccountProfileTable> {
     _ijvat8p8.AccountStatus value,
   ) => _is.ColumnValue(
     table.status,
+    value,
+  );
+
+  _is.ColumnValue<int, int> followerCount(int value) => _is.ColumnValue(
+    table.followerCount,
+    value,
+  );
+
+  _is.ColumnValue<int, int> followingCount(int value) => _is.ColumnValue(
+    table.followingCount,
     value,
   );
 
@@ -292,6 +348,10 @@ class AccountProfileTable extends _is.Table<int?> {
       'bio',
       this,
     );
+    avatarKey = _is.ColumnString(
+      'avatarKey',
+      this,
+    );
     isCreator = _is.ColumnBool(
       'isCreator',
       this,
@@ -307,6 +367,16 @@ class AccountProfileTable extends _is.Table<int?> {
       'status',
       this,
       _is.EnumSerialization.byName,
+      hasDefault: true,
+    );
+    followerCount = _is.ColumnInt(
+      'followerCount',
+      this,
+      hasDefault: true,
+    );
+    followingCount = _is.ColumnInt(
+      'followingCount',
+      this,
       hasDefault: true,
     );
     createdAt = _is.ColumnDateTime(
@@ -329,12 +399,24 @@ class AccountProfileTable extends _is.Table<int?> {
 
   late final _is.ColumnString bio;
 
+  /// La clave del avatar en el storage público (`avatars/<userId>/…`). La
+  /// clave y no la URL: la URL la arma el storage y cambia de servidor a
+  /// servidor.
+  late final _is.ColumnString avatarKey;
+
   /// "Creador" no es un scope: es un dato del perfil.
   late final _is.ColumnBool isCreator;
 
   late final _is.ColumnEnum<_il3i3d2n.VerificationStatus> verification;
 
   late final _is.ColumnEnum<_ijvat8p8.AccountStatus> status;
+
+  /// Desnormalizados: contar seguidores en cada vista de perfil sería un
+  /// `COUNT` por pedido. Los mantiene `FollowService` con las filas
+  /// bloqueadas, como `likeCount` en `post`.
+  late final _is.ColumnInt followerCount;
+
+  late final _is.ColumnInt followingCount;
 
   late final _is.ColumnDateTime createdAt;
 
@@ -346,9 +428,12 @@ class AccountProfileTable extends _is.Table<int?> {
     authUserId,
     username,
     bio,
+    avatarKey,
     isCreator,
     verification,
     status,
+    followerCount,
+    followingCount,
     createdAt,
     updatedAt,
   ];

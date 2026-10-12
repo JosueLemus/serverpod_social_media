@@ -42,6 +42,7 @@ class Post extends Equatable {
     this.allowComments = true,
     this.visibility = PostVisibility.public,
     this.editedAt,
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -89,6 +90,9 @@ class Post extends Equatable {
   final PostVisibility visibility;
   final DateTime? editedAt;
 
+  /// La foto del autor. Null: se dibuja la inicial.
+  final String? authorAvatarUrl;
+
   int get displayLikes => likes;
 
   Post copyWith({
@@ -125,6 +129,7 @@ class Post extends Equatable {
     allowComments: allowComments ?? this.allowComments,
     visibility: visibility ?? this.visibility,
     editedAt: editedAt ?? this.editedAt,
+    authorAvatarUrl: authorAvatarUrl,
   );
 
   @override
@@ -151,6 +156,7 @@ class Post extends Equatable {
     allowComments,
     visibility,
     editedAt,
+    authorAvatarUrl,
   ];
 
   Map<String, Object?> toJson() => {
@@ -175,6 +181,7 @@ class Post extends Equatable {
     'canDelete': canDelete,
     'allowComments': allowComments,
     'visibility': visibility.name,
+    'authorAvatarUrl': authorAvatarUrl,
   };
 
   factory Post.fromJson(Map<String, dynamic> json) => Post(
@@ -208,5 +215,6 @@ class Post extends Equatable {
     visibility:
         PostVisibility.values.asNameMap()[json['visibility']] ??
         PostVisibility.public,
+    authorAvatarUrl: json['authorAvatarUrl'] as String?,
   );
 }

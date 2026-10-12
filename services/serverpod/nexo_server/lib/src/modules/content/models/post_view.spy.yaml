@@ -6,6 +6,7 @@ fields:
   authorId: UuidValue
   authorUsername: String?
   authorName: String?
+  authorAvatarUrl: String?
   body: String
   tags: List<String>
   visibility: PostVisibility

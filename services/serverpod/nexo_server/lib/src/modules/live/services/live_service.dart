@@ -5,10 +5,14 @@ import '../../../shared/audit/audit_service.dart';
 import '../../../shared/auth/auth_context.dart';
 import '../../../shared/gateways/agora/agora_live_media_gateway.dart';
 import '../../../shared/gateways/live_media_gateway.dart';
+import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import '../../identity/services/identity_service.dart';
+import '../../notifications/services/notification_service.dart';
+import '../../social/services/follow_service.dart';
 import 'live_presence.dart';
 import 'live_rules.dart';
+import 'show_scheduler.dart';
 
 /// Reglas de negocio de los vivos: programar, iniciar, terminar, mirar y
 /// chatear.
@@ -20,6 +24,9 @@ class LiveService {
   LiveService({
     this._identity = const IdentityService(),
     this._audit = const AuditService(),
+    this._notifications = const NotificationService(),
+    this._follows = const FollowService(),
+    this._scheduler = const FutureCallShowScheduler(),
     LivePresence? presence,
     LiveChatThrottle? throttle,
     LiveMediaGateway Function(Session session)? mediaGateway,
@@ -33,6 +40,11 @@ class LiveService {
 
   final IdentityService _identity;
   final AuditService _audit;
+  final NotificationService _notifications;
+  final FollowService _follows;
+
+  /// Recordatorio, expiración y replay automático (S15 del SDD 0008).
+  final ShowScheduler _scheduler;
   final LivePresence _presence;
   final LiveChatThrottle _throttle;
 
@@ -75,6 +87,31 @@ class LiveService {
           : (b.startedAt ?? b.startsAt).compareTo(a.startedAt ?? a.startsAt);
     });
     return _toViews(session, shows);
+  }
+
+  /// Los shows al aire, con los de [prioritize] (las cuentas que sigue quien
+  /// pide) primero y después los de más espectadores. La sección `liveNow`
+  /// del feed de inicio.
+  Future<List<LiveShowView>> onAir(
+    Session session, {
+    Set<UuidValue> prioritize = const {},
+    int limit = 10,
+  }) async {
+    final shows = await LiveShow.db.find(
+      session,
+      where: (t) =>
+          t.status.inSet({LiveShowStatus.live, LiveShowStatus.ending}),
+      orderByList: (t) => [t.startedAt.desc()],
+      limit: LiveRules.listLimit,
+    );
+    shows.sort((a, b) {
+      final followed = (prioritize.contains(a.hostId) ? 0 : 1).compareTo(
+        prioritize.contains(b.hostId) ? 0 : 1,
+      );
+      if (followed != 0) return followed;
+      return _viewerCount(b).compareTo(_viewerCount(a));
+    });
+    return _toViews(session, shows.take(limit).toList());
   }
 
   /// Los shows de la cuenta de la sesión, en cualquier estado.
@@ -166,6 +203,7 @@ class LiveService {
 
     final view = await _toView(session, show);
     await _publishStatus(session, view);
+    await _scheduler.scheduled(session, show);
     return view;
   }
 
@@ -191,6 +229,7 @@ class LiveService {
     _requireVerifiedCreator(await _identity.requireActive(session, hostId));
     final normalized = LiveRules.normalizeTitle(title);
 
+    late List<UserNotification> notices;
     final show = await session.db.transaction((tx) async {
       await _lockHost(session, hostId, tx);
       await _requireNoOtherLive(session, hostId, tx);
@@ -216,11 +255,13 @@ class LiveService {
         entityId: '${show.id}',
         transaction: tx,
       );
+      notices = await _notifyLiveStarted(session, show, tx);
       return show;
     });
 
     final view = await _toView(session, show);
     await _publishStatus(session, view);
+    await _notifications.publish(session, notices);
     return view;
   }
 
@@ -374,6 +415,105 @@ class LiveService {
     if (count != null) await _publishViewers(session, showId, count);
   }
 
+  // --- Tareas diferidas (Future Calls) -------------------------------------
+  //
+  // Corren sin sesión de usuario: el actor es el sistema. Cada una vuelve a
+  // mirar el estado del show y no hace nada si ya cambió, así que un
+  // reintento o un reinicio no duplica efectos.
+
+  /// `showStartingSoon` a los seguidores del host y a los invitados, si el
+  /// show sigue programado.
+  Future<void> remind(Session session, int showId) async {
+    final notices = await session.db.transaction((tx) async {
+      final show = await LiveShow.db.findById(
+        session,
+        showId,
+        transaction: tx,
+        lockMode: LockMode.forUpdate,
+      );
+      if (show == null || show.status != LiveShowStatus.scheduled) {
+        return const <UserNotification>[];
+      }
+      final guests = await LiveShowGuest.db.find(
+        session,
+        where: (t) => t.showId.equals(showId),
+        transaction: tx,
+      );
+      return _notifications.create(
+        session,
+        recipients: {
+          ...await _follows.followerIdsOf(
+            session,
+            show.hostId,
+            transaction: tx,
+          ),
+          for (final guest in guests) guest.userId,
+        },
+        kind: NotificationKind.showStartingSoon,
+        actorId: show.hostId,
+        showId: showId,
+        transaction: tx,
+      );
+    });
+    await _notifications.publish(session, notices);
+  }
+
+  /// Un show que a los 30 minutos de su inicio no arrancó se cancela (D11).
+  Future<void> expire(Session session, int showId) => _systemTransition(
+    session,
+    showId,
+    from: LiveShowStatus.scheduled,
+    to: LiveShowStatus.cancelled,
+    action: 'live.expire',
+  );
+
+  /// El replay se publica solo después de terminar, si el show lo guarda.
+  Future<void> autoPublish(Session session, int showId) => _systemTransition(
+    session,
+    showId,
+    from: LiveShowStatus.recorded,
+    to: LiveShowStatus.published,
+    action: 'live.autoPublish',
+    when: (show) => show.recordReplay,
+  );
+
+  Future<void> _systemTransition(
+    Session session,
+    int showId, {
+    required LiveShowStatus from,
+    required LiveShowStatus to,
+    required String action,
+    bool Function(LiveShow show)? when,
+  }) async {
+    final updated = await session.db.transaction((tx) async {
+      final show = await LiveShow.db.findById(
+        session,
+        showId,
+        transaction: tx,
+        lockMode: LockMode.forUpdate,
+      );
+      if (show == null || show.status != from) return null;
+      if (when != null && !when(show)) return null;
+      final saved = await LiveShow.db.updateRow(
+        session,
+        show.copyWith(status: to),
+        transaction: tx,
+      );
+      await _audit.record(
+        session,
+        actorId: null,
+        action: action,
+        entityType: 'liveShow',
+        entityId: '$showId',
+        metadata: {'from': from.name, 'to': to.name},
+        transaction: tx,
+      );
+      return saved;
+    });
+    if (updated == null) return;
+    await _publishStatus(session, await _toView(session, updated));
+  }
+
   // --- Internos ------------------------------------------------------------
 
   Future<LiveShowView> _transition(
@@ -399,6 +539,7 @@ class LiveService {
       );
     }
 
+    var notices = const <UserNotification>[];
     final updated = await session.db.transaction((tx) async {
       await _lockHost(session, current.hostId, tx);
       final show = (await LiveShow.db.findById(
@@ -446,13 +587,48 @@ class LiveService {
         metadata: {'from': show.status.name, 'to': to.name},
         transaction: tx,
       );
+      if (to == LiveShowStatus.live) {
+        notices = await _notifyLiveStarted(session, saved, tx);
+      }
       return saved;
     });
 
     final view = await _toView(session, updated);
     await _publishStatus(session, view);
+    await _notifications.publish(session, notices);
+    await _afterTransition(session, updated);
     return view;
   }
+
+  /// Las tareas diferidas siguen al estado nuevo: un show que arrancó o se
+  /// canceló ya no necesita recordatorio ni expiración; uno que terminó
+  /// publica su replay solo.
+  Future<void> _afterTransition(Session session, LiveShow show) =>
+      switch (show.status) {
+        LiveShowStatus.live => _scheduler.started(session, show.id!),
+        LiveShowStatus.cancelled => _scheduler.cancelled(session, show.id!),
+        LiveShowStatus.recorded => _scheduler.ended(session, show),
+        LiveShowStatus.published => _scheduler.published(session, show.id!),
+        _ => Future<void>.value(),
+      };
+
+  /// `liveStarted` para cada seguidor del host (S12), dentro de [tx].
+  Future<List<UserNotification>> _notifyLiveStarted(
+    Session session,
+    LiveShow show,
+    Transaction tx,
+  ) async => _notifications.create(
+    session,
+    recipients: await _follows.followerIdsOf(
+      session,
+      show.hostId,
+      transaction: tx,
+    ),
+    kind: NotificationKind.liveStarted,
+    actorId: show.hostId,
+    showId: show.id,
+    transaction: tx,
+  );
 
   /// Con el lock por host, dos toques seguidos de "Iniciar" (o de
   /// "Transmitir ahora") no abren dos vivos: el segundo espera y ve el
@@ -568,6 +744,7 @@ class LiveService {
   ) async {
     if (shows.isEmpty) return const [];
     final profiles = await profilesOf(session, shows.map((s) => s.hostId));
+    final avatars = await avatarsOf(session, shows.map((s) => s.hostId));
     final guests = await LiveShowGuest.db.find(
       session,
       where: (t) => t.showId.inSet(shows.map((s) => s.id!).toSet()),
@@ -580,6 +757,7 @@ class LiveService {
           hostId: show.hostId,
           hostUsername: profiles[show.hostId]?.userName,
           hostName: profiles[show.hostId]?.fullName,
+          hostAvatarUrl: avatars[show.hostId],
           title: show.title,
           description: show.description,
           startsAt: show.startsAt,
@@ -606,6 +784,7 @@ class LiveService {
   ) async {
     if (messages.isEmpty) return const [];
     final profiles = await profilesOf(session, messages.map((m) => m.authorId));
+    final avatars = await avatarsOf(session, messages.map((m) => m.authorId));
     return [
       for (final m in messages)
         LiveChatMessageView(
@@ -614,6 +793,7 @@ class LiveService {
           authorId: m.authorId,
           authorUsername: profiles[m.authorId]?.userName,
           authorName: profiles[m.authorId]?.fullName,
+          authorAvatarUrl: avatars[m.authorId],
           body: m.body,
           createdAt: m.createdAt,
         ),

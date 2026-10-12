@@ -33,6 +33,7 @@ class LiveSession extends Equatable {
     this.recordReplay = true,
     this.startedAt,
     this.endedAt,
+    this.hostAvatarUrl,
   });
   final String id;
   final String title;
@@ -68,6 +69,9 @@ class LiveSession extends Equatable {
   /// mirando hasta el final.
   final DateTime? endedAt;
 
+  /// La foto del host. Null: se dibuja la inicial.
+  final String? hostAvatarUrl;
+
   LiveSession copyWith({
     LiveStatus? status,
     int? viewers,
@@ -90,6 +94,7 @@ class LiveSession extends Equatable {
     recordReplay: recordReplay,
     startedAt: startedAt,
     endedAt: endedAt,
+    hostAvatarUrl: hostAvatarUrl,
   );
   @override
   List<Object?> get props => [
@@ -110,5 +115,6 @@ class LiveSession extends Equatable {
     recordReplay,
     startedAt,
     endedAt,
+    hostAvatarUrl,
   ];
 }

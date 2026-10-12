@@ -6,5 +6,6 @@ fields:
   authorId: UuidValue
   authorUsername: String?
   authorName: String?
+  authorAvatarUrl: String?
   body: String
   createdAt: DateTime

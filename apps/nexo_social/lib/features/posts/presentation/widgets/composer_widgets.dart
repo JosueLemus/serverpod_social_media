@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/animations/app_motion.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
-import '../../../../core/widgets/user_avatar.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../feed/domain/entities/post_extras.dart';
 import '../bloc/post_composer_cubit.dart';
 
@@ -27,6 +30,9 @@ extension ComposerIssueCopy on ComposerIssue {
 
 /// Vista previa de lo adjuntado, con su botón de quitar. La foto se ve tal
 /// cual; un video muestra su nombre y su peso.
+///
+/// Es un sticker troquelado: lo que se va a publicar ya tiene el borde blanco
+/// de lo despegado, igual que en el feed.
 class ComposerMediaPreview extends StatelessWidget {
   const ComposerMediaPreview({
     super.key,
@@ -47,31 +53,20 @@ class ComposerMediaPreview extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: AppRadii.medium,
+  Widget build(BuildContext context) => StickerFrame(
+    fill: AppColors.linerHigh,
     child: AspectRatio(
       aspectRatio: 16 / 9,
       child: Stack(
         fit: StackFit.expand,
         children: [
           if (_isVideo)
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.primarySurface,
-                    AppColors.primarySurfaceDeep,
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.play_circle_fill_rounded,
-                  size: 40,
-                  color: AppColors.primary,
-                ),
+            const Center(
+              child: NexoIcon(
+                NexoGlyph.play,
+                filled: true,
+                size: 44,
+                color: AppColors.textSecondary,
               ),
             )
           else
@@ -82,27 +77,36 @@ class ComposerMediaPreview extends StatelessWidget {
               // Se decodifica al tamaño en que se muestra, no a la
               // resolución nativa de la foto.
               cacheWidth: 1280,
-              errorBuilder: (context, error, stack) =>
-                  const ColoredBox(color: AppColors.primarySurface),
+              errorBuilder: (context, error, stack) => const Center(
+                child: NexoIcon(
+                  NexoGlyph.media,
+                  size: 36,
+                  color: AppColors.textTertiary,
+                ),
+              ),
             ),
           Positioned(
             top: AppSpacing.xs,
             right: AppSpacing.xs,
-            child: InkResponse(
-              key: const Key('composer-remove-media'),
-              onTap: onRemove,
-              radius: 22,
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: AppColors.neutral.withValues(alpha: .6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  size: 17,
-                  color: Colors.white,
+            child: Tooltip(
+              message: 'Quitar adjunto',
+              child: Material(
+                color: AppColors.stageScrim,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  key: const Key('composer-remove-media'),
+                  onTap: onRemove,
+                  child: const SizedBox.square(
+                    dimension: 34,
+                    child: Center(
+                      child: NexoIcon(
+                        NexoGlyph.close,
+                        size: 15,
+                        color: AppColors.sticker,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -113,15 +117,50 @@ class ComposerMediaPreview extends StatelessWidget {
             right: AppSpacing.xl,
             child: Align(
               alignment: Alignment.centerLeft,
-              child: StatusBadge(
+              child: _FileTag(
+                glyph: _isVideo ? NexoGlyph.play : NexoGlyph.media,
                 label: '${attachment.fileName} · $_size',
-                color: AppColors.neutral.withValues(alpha: .6),
-                icon: Icons.attach_file_rounded,
               ),
             ),
           ),
         ],
       ),
+    ),
+  );
+}
+
+/// Nombre y peso del archivo, sobre el velo para leerse encima de la foto.
+/// Sin mayúsculas forzadas: es un nombre de archivo, no una insignia.
+class _FileTag extends StatelessWidget {
+  const _FileTag({required this.glyph, required this.label});
+
+  final NexoGlyph glyph;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    decoration: const BoxDecoration(
+      color: AppColors.stageScrim,
+      borderRadius: AppRadii.pill,
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        NexoIcon(glyph, size: 13, color: AppColors.sticker),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.sticker,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -188,86 +227,107 @@ class _ComposerPollEditorState extends State<ComposerPollEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.poll_outlined,
-                size: 17,
-                color: AppColors.primaryDeep,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Encuesta interactiva',
-                  style: Theme.of(context).textTheme.titleMedium,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const NexoIcon(
+                  NexoGlyph.stats,
+                  size: 18,
+                  color: AppColors.primary,
                 ),
-              ),
-              IconButton(
-                key: const Key('composer-remove-poll'),
-                tooltip: 'Quitar encuesta',
-                visualDensity: VisualDensity.compact,
-                onPressed: widget.onRemove,
-                icon: const Icon(Icons.close_rounded, size: 18),
-              ),
-            ],
-          ),
-          Text(
-            'Tu audiencia votará al instante en tiempo real',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          for (final (index, controller) in _controllers.indexed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-              child: TextField(
-                key: Key('poll-option-$index'),
-                controller: controller,
-                onChanged: (value) => widget.onChanged(index, value),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: 'Opción ${index + 1}',
-                  prefixIcon: const Icon(
-                    Icons.radio_button_unchecked_rounded,
-                    size: 17,
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(
+                  child: Text('Encuesta interactiva', style: text.titleSmall),
+                ),
+                IconButton(
+                  key: const Key('composer-remove-poll'),
+                  tooltip: 'Quitar encuesta',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: widget.onRemove,
+                  icon: const NexoIcon(NexoGlyph.close, size: 16),
+                ),
+              ],
+            ),
+            Text(
+              'Tu audiencia votará al instante en tiempo real',
+              style: text.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            for (final (index, controller) in _controllers.indexed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                child: TextField(
+                  key: Key('poll-option-$index'),
+                  controller: controller,
+                  onChanged: (value) => widget.onChanged(index, value),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: 'Opción ${index + 1}',
+                    prefixIcon: const Center(child: _OptionRing()),
+                    prefixIconConstraints: const BoxConstraints.tightFor(
+                      width: 40,
+                      height: 20,
+                    ),
                   ),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 38),
                 ),
               ),
-            ),
-          if (widget.poll.canAddOption)
-            TextButton.icon(
-              key: const Key('poll-add-option'),
-              onPressed: widget.onAddOption,
-              icon: const Icon(Icons.add_rounded, size: 17),
-              label: const Text('Añadir opción'),
-            ),
-          Row(
-            children: [
-              const Icon(
-                Icons.schedule_rounded,
-                size: 14,
-                color: AppColors.textSecondary,
+            if (widget.poll.canAddOption)
+              TextButton.icon(
+                key: const Key('poll-add-option'),
+                onPressed: widget.onAddOption,
+                icon: const NexoIcon(NexoGlyph.add, size: 15),
+                label: const Text('Añadir opción'),
               ),
-              const SizedBox(width: 5),
-              Text(
-                'Duración: ${widget.poll.durationHours} horas',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ],
+            const SizedBox(height: AppSpacing.xxs),
+            Row(
+              children: [
+                const NexoIcon(
+                  NexoGlyph.clock,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Duración: ${widget.poll.durationHours} horas',
+                  style: text.bodySmall?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// El círculo vacío de una opción de encuesta: dónde va a caer el voto.
+class _OptionRing extends StatelessWidget {
+  const _OptionRing();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 16,
+    height: 16,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      border: Border.all(color: AppColors.textSecondary, width: 2),
     ),
   );
 }
 
-/// Fila de adjuntos: foto, video, encuesta, enlace, emoción.
+/// Fila de herramientas: foto, video, encuesta, enlace, emoción.
+///
+/// Cada una es un sticker en reposo, todavía pegado a la plancha. Al activarse
+/// se despega: blanco con tinta, como un filtro elegido.
 class ComposerAttachments extends StatelessWidget {
   const ComposerAttachments({
     super.key,
@@ -282,16 +342,16 @@ class ComposerAttachments extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       _Attachment(
-        icon: Icons.photo_library_outlined,
+        glyph: NexoGlyph.media,
         label: 'Foto',
         buttonKey: const Key('composer-attach-photo'),
         onTap: () => onAttach(PostMedia.image),
       ),
       _Attachment(
-        icon: Icons.videocam_outlined,
+        glyph: NexoGlyph.play,
         label: 'Video',
         buttonKey: const Key('composer-attach-video'),
         onTap: () => onAttach(PostMedia.video),
@@ -301,7 +361,7 @@ class ComposerAttachments extends StatelessWidget {
       // diseño los tiene; antes la encuesta se componía entera y se
       // descartaba en silencio al publicar (SDD 0007, F11).
       _Attachment(
-        icon: Icons.poll_outlined,
+        glyph: NexoGlyph.stats,
         label: 'Encuesta',
         buttonKey: const Key('composer-attach-poll'),
         active: pollActive,
@@ -309,14 +369,14 @@ class ComposerAttachments extends StatelessWidget {
         onTap: null,
       ),
       const _Attachment(
-        icon: Icons.link_rounded,
+        glyph: NexoGlyph.link,
         label: 'Enlace',
         buttonKey: Key('composer-attach-link'),
         tooltip: 'Enlaces: muy pronto',
         onTap: null,
       ),
       const _Attachment(
-        icon: Icons.emoji_emotions_outlined,
+        glyph: NexoGlyph.emoji,
         label: 'Emoción',
         buttonKey: Key('composer-attach-mood'),
         tooltip: 'Emociones: muy pronto',
@@ -328,7 +388,7 @@ class ComposerAttachments extends StatelessWidget {
 
 class _Attachment extends StatelessWidget {
   const _Attachment({
-    required this.icon,
+    required this.glyph,
     required this.label,
     required this.onTap,
     required this.buttonKey,
@@ -336,7 +396,7 @@ class _Attachment extends StatelessWidget {
     this.tooltip,
   });
 
-  final IconData icon;
+  final NexoGlyph glyph;
   final String label;
 
   /// Null deshabilita: se dibuja apagado y el tooltip dice por qué.
@@ -345,32 +405,34 @@ class _Attachment extends StatelessWidget {
   final bool active;
   final String? tooltip;
 
+  static const _side = 48.0;
+
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final button = InkResponse(
-      key: buttonKey,
-      onTap: onTap,
-      radius: 28,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.primaryDeep
-              : enabled
-              ? AppColors.primarySurface
-              : AppColors.border,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 19,
-          color: active
-              ? Colors.white
-              : enabled
-              ? AppColors.textOnBrandSurface
-              : AppColors.textSecondary,
+    // Despegado (activo), en reposo sobre la plancha, o todavía no
+    // disponible: un paso más hundido y con el trazo apagado.
+    final (fill, tint) = active
+        ? (AppColors.sticker, AppColors.ink)
+        : enabled
+        ? (AppColors.linerHigh, AppColors.textPrimary)
+        : (AppColors.surface, AppColors.textTertiary);
+    final button = AnimatedContainer(
+      duration: AppMotion.feedbackDuration,
+      curve: Curves.easeOutCubic,
+      width: _side,
+      height: _side,
+      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+      child: Material(
+        type: MaterialType.transparency,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: buttonKey,
+          onTap: onTap,
+          child: Center(
+            child: NexoIcon(glyph, size: 21, filled: active, color: tint),
+          ),
         ),
       ),
     );
@@ -382,15 +444,17 @@ class _Attachment extends StatelessWidget {
             Tooltip(message: message, child: button)
           else
             button,
-          const SizedBox(height: 5),
+          const SizedBox(height: 6),
           Text(
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 10.5,
-              color: AppColors.textSecondary,
-              fontWeight: FontWeight.w600,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: active
+                  ? AppColors.textPrimary
+                  : enabled
+                  ? AppColors.textSecondary
+                  : AppColors.textTertiary,
             ),
           ),
         ],
@@ -403,147 +467,67 @@ class _Attachment extends StatelessWidget {
 ///
 /// Está apagado a propósito y lo dice: el Notion pone la IA en P2 detrás de
 /// una interfaz, y un botón que parece funcionar y no hace nada es peor que
-/// uno que declara que todavía no existe.
+/// uno que declara que todavía no existe. Por lo mismo no muestra una lista
+/// de espera: no existe, y una fila de avatares con "+48" la inventaba.
 class ComposerAiTeaser extends StatelessWidget {
   const ComposerAiTeaser({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.primarySurface,
-      borderRadius: AppRadii.medium,
-      border: Border.all(color: AppColors.primarySurfaceDeep),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Flexible(
-              child: StatusBadge(
-                label: 'Asistente IA · Próximamente',
-                color: AppColors.primaryDeep,
-                icon: Icons.auto_awesome,
-              ),
-            ),
-            const Spacer(),
-            Container(
-              width: 26,
-              height: 26,
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.lock_outline_rounded,
-                size: 14,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          'Optimiza tu alcance en segundos',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          'Genera ganchos creativos, títulos de impacto y hashtags '
-          'optimizados con IA en la versión Pro.',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            const _WaitlistAvatars(),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: SizedBox(
-                height: 36,
-                child: FilledButton.icon(
-                  // Apagado como el resto del bloque: no hay lista todavía.
-                  onPressed: null,
-                  iconAlignment: IconAlignment.end,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 15),
-                  label: const Text(
-                    'Unirme a la lista',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: AppRadii.medium,
+      ),
+      child: Row(
+        children: [
+          const MascotIllustration(NexoMascot.lock, size: 60),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Wrap y no Row: a 320 el título y la insignia no entran
+                // juntos, y una fila recortaría la insignia.
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text('Asistente IA', style: text.titleSmall),
+                    const StatusBadge(
+                      label: 'Próximamente',
+                      color: AppColors.vinylViolet,
+                      foreground: AppColors.ink,
                     ),
-                    textStyle: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                  ],
                 ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _WaitlistAvatars extends StatelessWidget {
-  const _WaitlistAvatars();
-
-  static const _names = ['Marcos', 'Lucía', 'Sofía'];
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 26 + 16.0 * _names.length,
-    height: 28,
-    child: Stack(
-      children: [
-        for (final (index, name) in _names.indexed)
-          Positioned(
-            left: index * 16,
-            child: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.fromBorderSide(
-                  BorderSide(color: AppColors.primarySurface, width: 2),
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  'Genera ganchos creativos, títulos de impacto y hashtags '
+                  'optimizados con IA en la versión Pro.',
+                  style: text.bodySmall,
                 ),
-              ),
-              child: UserAvatar(name: name, size: 24),
+              ],
             ),
           ),
-        Positioned(
-          left: _names.length * 16,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryDeep,
-              shape: BoxShape.circle,
-              border: Border.fromBorderSide(
-                BorderSide(color: AppColors.primarySurface, width: 2),
-              ),
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              '+48',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
-/// Los dos interruptores de publicación.
+/// Los dos interruptores de publicación, como sección agrupada de ajustes.
+///
+/// Es una lista de ajustes y se ve como tal, no como un sticker: relleno sin
+/// filete y filas separadas por un divisor con sangría.
 class ComposerToggles extends StatelessWidget {
   const ComposerToggles({
     super.key,
@@ -558,25 +542,35 @@ class ComposerToggles extends StatelessWidget {
   final ValueChanged<bool> onAllowComments;
   final ValueChanged<bool> onNotifyVip;
 
+  static const _radius = BorderRadius.all(Radius.circular(22));
+
+  /// Donde arranca el texto de la fila: el divisor empieza ahí, como en una
+  /// lista agrupada de iOS.
+  static const _dividerIndent = AppSpacing.md + 22 + AppSpacing.sm;
+
   @override
-  Widget build(BuildContext context) => Card(
+  Widget build(BuildContext context) => Material(
+    // Material y no una caja pintada: la reacción del Switch se dibuja en el
+    // Material más cercano, y con el del Scaffold quedaría debajo del relleno.
+    color: AppColors.surface,
+    borderRadius: _radius,
+    clipBehavior: Clip.antiAlias,
     child: Column(
       children: [
         _ToggleRow(
           switchKey: const Key('composer-allow-comments'),
-          icon: Icons.chat_bubble_outline_rounded,
+          glyph: NexoGlyph.comment,
           title: 'Permitir comentarios',
           detail: 'Tu audiencia podrá responder e interactuar',
           value: allowComments,
           onChanged: onAllowComments,
         ),
-        const Divider(height: 1),
+        const Divider(height: 1, indent: _dividerIndent),
         // Apagado hasta que existan las notificaciones (M5): el interruptor
         // se guardaba en el borrador y no se enviaba a nadie.
-        _ToggleRow(
-          switchKey: const Key('composer-notify-vip'),
-          icon: Icons.notifications_active_outlined,
-          iconColor: AppColors.secondary,
+        const _ToggleRow(
+          switchKey: Key('composer-notify-vip'),
+          glyph: NexoGlyph.activity,
           title: 'Notificar a suscriptores VIP',
           detail: 'Llega con las notificaciones push',
           badge: 'Pronto',
@@ -591,60 +585,72 @@ class ComposerToggles extends StatelessWidget {
 class _ToggleRow extends StatelessWidget {
   const _ToggleRow({
     required this.switchKey,
-    required this.icon,
+    required this.glyph,
     required this.title,
     required this.detail,
     required this.value,
     required this.onChanged,
     this.badge,
-    this.iconColor = AppColors.primaryDeep,
   });
 
   final Key switchKey;
-  final IconData icon;
+  final NexoGlyph glyph;
   final String title;
   final String detail;
   final bool value;
   final ValueChanged<bool>? onChanged;
   final String? badge;
-  final Color iconColor;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(AppSpacing.sm),
-    child: Row(
-      children: [
-        CircleAvatar(
-          radius: 17,
-          backgroundColor: AppColors.primarySurface,
-          child: Icon(icon, size: 17, color: iconColor),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                  ),
-                  if (badge != null) ...[
-                    const SizedBox(width: 6),
-                    StatusBadge(label: badge!),
-                  ],
-                ],
-              ),
-              Text(detail, style: Theme.of(context).textTheme.bodySmall),
-            ],
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final enabled = onChanged != null;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.sm,
+      ),
+      child: Row(
+        children: [
+          NexoIcon(
+            glyph,
+            size: 22,
+            color: enabled ? AppColors.textSecondary : AppColors.textTertiary,
           ),
-        ),
-        Switch(key: switchKey, value: value, onChanged: onChanged),
-      ],
-    ),
-  );
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Fila y no Wrap: el título llena el renglón, y en un Wrap (o
+                // dentro del texto) la insignia bajaba sola y quedaba entre
+                // título y detalle. Así el título se parte en renglones y la
+                // insignia sigue al lado de la primera línea.
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Flexible(child: Text(title, style: text.titleSmall)),
+                    if (badge case final label?) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      StatusBadge(
+                        label: label,
+                        color: AppColors.vinylViolet,
+                        foreground: AppColors.ink,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(detail, style: text.bodySmall),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Switch(key: switchKey, value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
 }

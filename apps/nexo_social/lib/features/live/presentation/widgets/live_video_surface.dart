@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../bloc/live_media_cubit.dart';
 
 /// El video del vivo, o [fallback] cuando no hay video que mostrar.
@@ -80,9 +81,59 @@ class _StatusCaption extends StatelessWidget {
           text,
           key: const Key('live-video-status'),
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white70, fontSize: 13),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
         ),
       ),
     );
   }
+}
+
+/// El escenario sin imagen: el escenario oscuro con el gato de la marca
+/// chico en el centro.
+///
+/// Plano, sin degradé: no es una transmisión ni pretende parecerlo. Con el
+/// motor simulado lo dice con [caption]; con Agora es la sala antes de que
+/// llegue la señal, y la leyenda la pone [LiveVideoSurface].
+class LiveStagePlaceholder extends StatelessWidget {
+  const LiveStagePlaceholder({
+    super.key,
+    this.mascot = NexoMascot.camera,
+    this.size = 96,
+    this.caption,
+    this.alignment = Alignment.center,
+  });
+
+  final NexoMascot mascot;
+  final double size;
+  final String? caption;
+
+  /// Dónde va el gato. El Studio lo sube: la mitad de abajo del escenario es
+  /// del chat.
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: AppColors.stageDark,
+    child: Align(
+      alignment: alignment,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          MascotIllustration(mascot, size: size),
+          if (caption != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              caption!,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }

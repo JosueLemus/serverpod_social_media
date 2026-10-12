@@ -1,0 +1,20 @@
+### Un aviso para una cuenta. Se crea en la misma transacción que la acción
+### que lo origina y se publica después del commit (SDD 0008, S11). No
+### `Notification`: en la app chocaría con la clase de Flutter.
+class: UserNotification
+table: user_notification
+serverOnly: true
+fields:
+  userId: UuidValue
+  kind: NotificationKind
+  ### Quién lo causó. `null` para los avisos del sistema.
+  actorId: UuidValue?
+  postId: int?
+  showId: int?
+  readAt: DateTime?
+  createdAt: DateTime, default=now
+indexes:
+  user_notification_feed_idx:
+    fields: userId, createdAt
+  user_notification_unread_idx:
+    fields: userId, readAt

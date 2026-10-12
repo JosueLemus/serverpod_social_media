@@ -5,14 +5,19 @@ import '../../../shared/auth/auth_context.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import '../../content/services/post_rules.dart';
 import '../../content/services/post_service.dart';
+import '../../notifications/services/notification_service.dart';
 
 /// Likes de posts. Dar y quitar son idempotentes: repetir la llamada deja el
 /// mismo estado, así que un doble toque o un reintento de red no descuadra el
 /// contador.
 class LikeService {
-  const LikeService({this._posts = const PostService()});
+  const LikeService({
+    this._posts = const PostService(),
+    this._notifications = const NotificationService(),
+  });
 
   final PostService _posts;
+  final NotificationService _notifications;
 
   Future<LikeState> like(Session session, int postId) =>
       _set(session, postId, liked: true);
@@ -74,7 +79,8 @@ class LikeService {
   }) async {
     final userId = session.requireUserId;
 
-    return session.db.transaction((tx) async {
+    var notices = const <UserNotification>[];
+    final state = await session.db.transaction((tx) async {
       final post = await _posts.loadVisible(session, postId, transaction: tx);
       final existing = await PostLike.db.findFirstRow(
         session,
@@ -97,6 +103,16 @@ class LikeService {
       if (delta != 0) {
         await _posts.adjustCounts(session, post, likes: delta, transaction: tx);
       }
+      if (delta > 0) {
+        notices = await _notifications.create(
+          session,
+          recipients: [post.authorId],
+          kind: NotificationKind.postLiked,
+          actorId: userId,
+          postId: postId,
+          transaction: tx,
+        );
+      }
 
       return LikeState(
         postId: postId,
@@ -104,5 +120,7 @@ class LikeService {
         likeCount: post.likeCount + delta,
       );
     });
+    await _notifications.publish(session, notices);
+    return state;
   }
 }

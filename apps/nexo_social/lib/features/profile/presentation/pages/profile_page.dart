@@ -10,18 +10,25 @@ import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/app_state_views.dart';
-import '../../../../core/widgets/nexo_logo.dart';
+import '../../../../core/widgets/nexo_icon.dart';
+import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../../feed/domain/entities/post.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/utils/live_status_ui.dart';
+import '../../domain/entities/follow.dart';
 import '../../domain/entities/public_profile.dart';
-import '../bloc/profile_cubit.dart';
 import '../bloc/profile_status_cubit.dart';
 import '../bloc/public_profile_cubit.dart';
+import '../utils/profile_notice_ui.dart';
+import '../widgets/follow_list_sheet.dart';
+import '../../../live/presentation/utils/live_navigation.dart';
+import '../../../../core/share/share_sheet.dart';
+import '../utils/profile_share_text.dart';
 
 part 'account_profile_view.dart';
 
@@ -66,6 +73,10 @@ class ProfilePage extends StatelessWidget {
     // contenido de Elena: el operador abría "su" perfil y leía @elena_ux.
     if (!user.isCreator) return _AccountProfileView(user: user);
     return _PublicProfileView(
+      // Con otra key si cambia el nombre de usuario: el cubit del perfil se
+      // crea una vez con el username, y renombrarse lo dejaba buscando una
+      // cuenta que ya no existe.
+      key: ValueKey(user.username),
       username: user.username,
       isOwn: true,
       canAct: true,
@@ -80,6 +91,7 @@ class ProfilePage extends StatelessWidget {
 /// visitante, que puede mirar pero no seguir ni suscribirse.
 class _PublicProfileView extends StatelessWidget {
   const _PublicProfileView({
+    super.key,
     required this.username,
     required this.isOwn,
     required this.canAct,
@@ -95,7 +107,6 @@ class _PublicProfileView extends StatelessWidget {
       BlocProvider(
         create: (_) => sl<PublicProfileCubit>(param1: username)..load(),
       ),
-      BlocProvider(create: (_) => ProfileCubit(sl(), username)),
       BlocProvider(create: (_) => ProfileStatusCubit(sl(), username)..load()),
     ],
     // La pantalla se muestra en dos lugares: como pestaña Perfil dentro del
@@ -105,14 +116,26 @@ class _PublicProfileView extends StatelessWidget {
     // porque la portada sangra igual.
     child: Scaffold(
       backgroundColor: AppColors.background,
-      body: BlocBuilder<PublicProfileCubit, PublicProfileState>(
+      body: BlocConsumer<PublicProfileCubit, PublicProfileState>(
+        // Un seguir rechazado vuelve atrás solo; el aviso dice por qué.
+        listenWhen: (previous, current) =>
+            current is PublicProfileLoaded &&
+            current.notice != null &&
+            (previous is! PublicProfileLoaded ||
+                previous.noticeSerial != current.noticeSerial),
+        listener: (context, state) =>
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text((state as PublicProfileLoaded).notice!.message),
+              ),
+            ),
         builder: (context, state) => switch (state) {
           PublicProfileLoading() => const _ProfileStatusFrame(
             child: Center(child: CircularProgressIndicator()),
           ),
           PublicProfileNotFound() => _ProfileStatusFrame(
             child: AppEmptyView(
-              icon: Icons.person_off_outlined,
+              mascot: NexoMascot.search,
               title: 'Esta cuenta no existe',
               message:
                   'Puede que haya cambiado de nombre de usuario o que ya no '
@@ -153,7 +176,7 @@ class _ProfileStatusFrame extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: Navigator.of(context).canPop()
-              ? const BackButton()
+              ? const _BackGlyphButton()
               : const SizedBox(height: kMinInteractiveDimension),
         ),
         Expanded(
@@ -186,11 +209,19 @@ class _LoadedProfile extends StatelessWidget {
     // error de carga.
     final tabs = profile.isCreator;
     final posts = _PostsTab(state: state, isOwn: isOwn);
+    // Al aire ahora: el avatar lleva el foil holo, la marca de "está pasando"
+    // en toda la app.
+    final onAir = state.lives.any((live) => live.status.isOnAir);
     return DefaultTabController(
       length: 3,
       child: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          _ProfileHeader(profile: profile, isOwn: isOwn, canAct: canAct),
+          _ProfileHeader(
+            profile: profile,
+            isOwn: isOwn,
+            canAct: canAct,
+            onAir: onAir,
+          ),
           if (tabs)
             SliverPersistentHeader(
               pinned: true,
@@ -227,8 +258,10 @@ class _GuestProfileView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Enter(child: NexoLogo(size: 108)),
-              const SizedBox(height: AppSpacing.lg),
+              // El gato saluda: un perfil vacío lo acompaña la mascota, no
+              // el logo solo.
+              const Enter(child: MascotIllustration(NexoMascot.wave)),
+              const SizedBox(height: AppSpacing.md),
               Enter(
                 index: 1,
                 child: Text(
@@ -302,70 +335,56 @@ class _ProfileHeader extends StatelessWidget {
     required this.profile,
     required this.isOwn,
     required this.canAct,
+    required this.onAir,
   });
 
   final PublicProfile profile;
   final bool isOwn;
   final bool canAct;
+  final bool onAir;
 
   static const _coverHeight = 150.0;
 
   @override
-  Widget build(BuildContext context) => SliverToBoxAdapter(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: _coverHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _CoverBackground(isCreator: profile.isCreator),
-              SafeArea(
-                bottom: false,
-                child: _CoverToolbar(username: profile.username, isOwn: isOwn),
-              ),
-            ],
-          ),
-        ),
-        const _SanctionBanner(),
-        _ProfileSummary(profile: profile, isOwn: isOwn, canAct: canAct),
-      ],
-    ),
-  );
-}
-
-/// Una sanción que no se ve desde afuera no se puede demostrar. El banner va
-/// arriba del resumen, donde se lee antes que cualquier otra cosa del perfil.
-class _SanctionBanner extends StatelessWidget {
-  const _SanctionBanner();
-
-  @override
   Widget build(BuildContext context) {
-    final status = context.watch<ProfileStatusCubit>().state.status;
-    if (status == AccountStatus.active) return const SizedBox.shrink();
-    return Container(
-      key: const Key('profile-sanctioned'),
-      width: double.infinity,
-      color: AppColors.error,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      child: Row(
+    final cover = vinylFor(profile.username);
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.gpp_bad_outlined, color: Colors.white, size: 18),
-          const SizedBox(width: AppSpacing.xs),
-          Expanded(
-            child: Text(
-              status == AccountStatus.banned
-                  ? 'Esta cuenta fue dada de baja por incumplir las normas.'
-                  : 'Esta cuenta está suspendida por incumplir las normas.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
+          SizedBox(
+            height: _coverHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _CoverBackground(color: cover),
+                // La insignia de creador va pegada sobre la portada, apenas
+                // torcida, como un sticker puesto a mano.
+                if (profile.isCreator)
+                  Positioned(
+                    right: AppSpacing.md,
+                    bottom: AppSpacing.sm,
+                    child: StatusBadge(
+                      label: 'Creador',
+                      color: cover == AppColors.vinylLime
+                          ? AppColors.vinylCyan
+                          : AppColors.vinylLime,
+                      foreground: AppColors.ink,
+                      tilt: -.06,
+                    ),
+                  ),
+                SafeArea(
+                  bottom: false,
+                  child: _CoverToolbar(isOwn: isOwn, profile: profile),
+                ),
+              ],
             ),
+          ),
+          _ProfileSummary(
+            profile: profile,
+            isOwn: isOwn,
+            canAct: canAct,
+            onAir: onAir,
           ),
         ],
       ),
@@ -373,111 +392,185 @@ class _SanctionBanner extends StatelessWidget {
   }
 }
 
-class _CoverToolbar extends StatelessWidget {
-  const _CoverToolbar({required this.username, required this.isOwn});
+/// Una sanción que no se ve desde afuera no se puede demostrar. Va pegada a
+/// la identidad, antes que la bio y las métricas.
+///
+/// Antes iba entre la portada y el resumen, y el avatar, que se monta sobre
+/// esa costura, tapaba el principio del aviso.
+class _SanctionBanner extends StatelessWidget {
+  const _SanctionBanner();
 
-  final String username;
+  @override
+  Widget build(BuildContext context) {
+    final status = context.watch<ProfileStatusCubit>().state.status;
+    if (status == AccountStatus.active) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm),
+      child: Container(
+        key: const Key('profile-sanctioned'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: AppRadii.medium,
+          border: Border.all(color: AppColors.error, width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: const BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
+              child: const NexoIcon(
+                NexoGlyph.moderation,
+                size: 17,
+                color: AppColors.sticker,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                status == AccountStatus.banned
+                    ? 'Esta cuenta fue dada de baja por incumplir las normas.'
+                    : 'Esta cuenta está suspendida por incumplir las normas.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// La flecha de volver con el glifo de Nexo. La de Material es otro trazo.
+class _BackGlyphButton extends StatelessWidget {
+  const _BackGlyphButton({this.color});
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+    color: color,
+    onPressed: () => unawaited(Navigator.of(context).maybePop()),
+    icon: const NexoIcon(NexoGlyph.back),
+  );
+}
+
+/// La barra sobre la portada. Va en tinta: la portada es un vinilo claro, y
+/// todos los vinilos llevan tinta encima.
+///
+/// Sin título: el `@usuario` ya está en el resumen, justo debajo, y repetirlo
+/// sobre la portada tapaba la plancha.
+class _CoverToolbar extends StatelessWidget {
+  const _CoverToolbar({required this.isOwn, required this.profile});
+
   final bool isOwn;
+  final PublicProfile profile;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(top: AppSpacing.xs),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.xxs,
+      AppSpacing.xxs,
+      AppSpacing.xxs,
+      0,
+    ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // La flecha aparece sólo si hay algo que popear, que es exactamente el
         // caso empujado. Como raíz de la pestaña Perfil no hay a dónde volver.
         if (Navigator.of(context).canPop())
-          const BackButton(color: Colors.white)
-        else
-          const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(top: AppSpacing.sm),
-            child: Text(
-              '@$username',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(color: Colors.white),
+          const _BackGlyphButton(color: AppColors.ink),
+        const Spacer(),
+        Builder(
+          builder: (buttonContext) => IconButton(
+            key: const Key('share-profile'),
+            tooltip: 'Compartir perfil',
+            // Tinta sobre la portada, igual que volver y las opciones.
+            color: AppColors.ink,
+            onPressed: () => unawaited(
+              openShareSheet(buttonContext, text: profileShareText(profile)),
             ),
+            icon: const NexoIcon(NexoGlyph.share, size: 22),
           ),
-        ),
-        // Deshabilitado y no escondido: el diseño lo tiene, y un botón activo
-        // que no responde se lee como una app rota (SDD 0007, F11).
-        IconButton(
-          tooltip: 'Compartir perfil: muy pronto',
-          disabledColor: Colors.white.withValues(alpha: .45),
-          onPressed: null,
-          icon: const Icon(Icons.ios_share_rounded, size: 20),
         ),
         // Las opciones son de la cuenta en sesión: en un perfil ajeno ofrecían
         // Creator Studio y "Cerrar sesión", como si fuera el propio.
         if (isOwn)
           IconButton(
             tooltip: 'Opciones del perfil',
-            color: Colors.white,
+            color: AppColors.ink,
             onPressed: () => unawaited(_showProfileActions(context)),
-            icon: const Icon(Icons.more_vert_rounded),
+            icon: const NexoIcon(NexoGlyph.more),
           ),
-        const SizedBox(width: AppSpacing.xxs),
       ],
     ),
   );
 }
 
+/// La portada: un vinilo plano del color de la cuenta, con la trama de
+/// stickers chicos de la marca impresa encima.
+///
+/// Plano a propósito. El degradado de marca de antes era el único degradado
+/// de la app que no era el foil holo, y el holo dice "al aire".
 class _CoverBackground extends StatelessWidget {
-  const _CoverBackground({required this.isCreator});
+  const _CoverBackground({required this.color});
 
-  final bool isCreator;
+  final Color color;
+
+  /// Una tesela de la trama: posición (fracción de la tesela), glifo, tamaño
+  /// y giro. Las teselas impares se espejan en vertical para que la
+  /// repetición no se lea como una grilla.
+  static const _tile = [
+    (x: .08, y: .22, glyph: NexoGlyph.star, size: 18.0, turn: -.35),
+    (x: .42, y: .62, glyph: NexoGlyph.heart, size: 22.0, turn: .28),
+    (x: .74, y: .18, glyph: NexoGlyph.hashtag, size: 16.0, turn: .12),
+    (x: .22, y: .82, glyph: NexoGlyph.emoji, size: 17.0, turn: -.18),
+    (x: .86, y: .70, glyph: NexoGlyph.comment, size: 15.0, turn: -.4),
+  ];
+  static const _tileWidth = 190.0;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      const DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.primary, AppColors.primaryDeep],
-          ),
-        ),
-      ),
-      if (isCreator)
-        Positioned(
-          right: AppSpacing.md,
-          bottom: AppSpacing.sm,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: 5,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: .18),
-              borderRadius: AppRadii.pill,
-              border: Border.all(color: Colors.white.withValues(alpha: .3)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_awesome, size: 12, color: Colors.white),
-                SizedBox(width: 5),
-                Text(
-                  'CREADOR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: .7,
+  Widget build(BuildContext context) => ColoredBox(
+    color: color,
+    child: IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tint = AppColors.ink.withValues(alpha: .14);
+          final tiles = (constraints.maxWidth / _tileWidth).ceil();
+          final height = constraints.maxHeight;
+          return Stack(
+            clipBehavior: Clip.hardEdge,
+            children: [
+              for (var t = 0; t < tiles; t++)
+                for (final mark in _tile)
+                  Positioned(
+                    left: (t + mark.x) * _tileWidth,
+                    top: (t.isOdd ? 1 - mark.y : mark.y) * (height - mark.size),
+                    child: Transform.rotate(
+                      angle: t.isOdd ? -mark.turn : mark.turn,
+                      child: NexoIcon(
+                        mark.glyph,
+                        filled: true,
+                        size: mark.size,
+                        color: tint,
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-    ],
+            ],
+          );
+        },
+      ),
+    ),
   );
 }
 
@@ -503,7 +596,7 @@ Future<void> _showProfileActions(BuildContext context) async {
           children: [
             if (user?.isCreator ?? false)
               ListTile(
-                leading: const Icon(Icons.dashboard_outlined),
+                leading: const NexoIcon(NexoGlyph.studio, size: 22),
                 title: const Text('Creator Studio'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -514,7 +607,7 @@ Future<void> _showProfileActions(BuildContext context) async {
             // cinco entradas, así que la consola se alcanza desde acá.
             if (user?.canModerate ?? false)
               ListTile(
-                leading: const Icon(Icons.shield_outlined),
+                leading: const NexoIcon(NexoGlyph.moderation, size: 22),
                 title: const Text('Moderación'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -524,7 +617,7 @@ Future<void> _showProfileActions(BuildContext context) async {
             if (user?.isOperator ?? false)
               ListTile(
                 key: const Key('profile-admin'),
-                leading: const Icon(Icons.admin_panel_settings_outlined),
+                leading: const NexoIcon(NexoGlyph.console, size: 22),
                 title: const Text('Consola de operador'),
                 onTap: () {
                   Navigator.pop(sheetContext);
@@ -532,7 +625,7 @@ Future<void> _showProfileActions(BuildContext context) async {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.settings_outlined),
+              leading: const NexoIcon(NexoGlyph.settings, size: 22),
               title: const Text('Ajustes'),
               onTap: () {
                 Navigator.pop(sheetContext);
@@ -541,7 +634,11 @@ Future<void> _showProfileActions(BuildContext context) async {
             ),
             const Divider(),
             ListTile(
-              leading: const Icon(Icons.logout_rounded, color: AppColors.error),
+              leading: const NexoIcon(
+                NexoGlyph.logout,
+                size: 22,
+                color: AppColors.error,
+              ),
               title: const Text(
                 'Cerrar sesión',
                 style: TextStyle(
@@ -571,22 +668,33 @@ class _ProfileSummary extends StatelessWidget {
     required this.profile,
     required this.isOwn,
     required this.canAct,
+    required this.onAir,
   });
 
   final PublicProfile profile;
   final bool isOwn;
   final bool canAct;
+  final bool onAir;
+
+  /// El avatar es el sticker grande de la plancha.
+  static const _avatarSize = 96.0;
+
+  /// Al aire, `UserAvatar` suma el foil y su aire alrededor del sticker
+  /// (2.5 + 1.5 por lado).
+  static const _holoExtra = 8.0;
 
   @override
   Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
     final bio = profile.bio;
+    final extent = _avatarSize + (onAir ? _holoExtra : 0);
     return Stack(
       clipBehavior: Clip.none,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.md,
-            52,
+            _avatarSize / 2 + _holoExtra / 2 + AppSpacing.sm,
             AppSpacing.md,
             AppSpacing.md,
           ),
@@ -598,37 +706,37 @@ class _ProfileSummary extends StatelessWidget {
                   Flexible(
                     child: Text(
                       profile.name,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: text.headlineMedium,
                     ),
                   ),
                   if (profile.isVerified) ...[
-                    const SizedBox(width: AppSpacing.xxs),
-                    const Icon(
-                      Icons.verified_rounded,
+                    const SizedBox(width: 6),
+                    const NexoIcon(
+                      NexoGlyph.verified,
                       key: Key('profile-verified'),
                       color: AppColors.primary,
-                      size: 19,
+                      size: 20,
+                      semanticLabel: 'Cuenta verificada',
                     ),
                   ],
                 ],
               ),
-              const SizedBox(height: AppSpacing.xxs),
+              const SizedBox(height: 2),
               Text(
                 '@${profile.username}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textOnBrandSurface,
-                  fontWeight: FontWeight.w600,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: text.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              const _SanctionBanner(),
               if (bio != null) ...[
                 const SizedBox(height: AppSpacing.sm),
-                Text(
-                  bio,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(height: 1.45),
-                ),
+                Text(bio, style: text.bodyMedium?.copyWith(height: 1.45)),
               ],
               if (_ProfileMetrics.hasAny(profile)) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -638,63 +746,47 @@ class _ProfileSummary extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 _ProfileActions(profile: profile),
               ],
-              if (profile.isCreator && canAct && !isOwn) ...[
+              if (isOwn) ...[
                 const SizedBox(height: AppSpacing.md),
+                OutlinedButton(
+                  key: const Key('profile-edit'),
+                  onPressed: () => unawaited(_edit(context)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, AppSizes.buttonHeightDense),
+                  ),
+                  child: const Text('Editar perfil'),
+                ),
+              ],
+              if (profile.isCreator && canAct && !isOwn) ...[
+                const SizedBox(height: AppSpacing.lg),
                 _VipCard(creatorName: profile.name),
               ],
             ],
           ),
         ),
+        // A caballo entre la portada y el resumen, dentro de la misma caja:
+        // por eso el header no es un SliverAppBar.
         Positioned(
-          top: -44,
+          top: -extent / 2,
           left: AppSpacing.md,
-          child: _Avatar(profile: profile),
+          child: UserAvatar(
+            name: profile.name,
+            imageUrl: profile.avatarUrl,
+            size: _avatarSize,
+            onAir: onAir,
+          ),
         ),
       ],
     );
   }
 }
 
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.profile});
-
-  final PublicProfile profile;
-
-  @override
-  Widget build(BuildContext context) => Stack(
-    clipBehavior: Clip.none,
-    children: [
-      Container(
-        padding: const EdgeInsets.all(3),
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          shape: BoxShape.circle,
-        ),
-        child: UserAvatar(name: profile.name, size: 86),
-      ),
-      if (profile.isVerified)
-        Positioned(
-          right: 2,
-          bottom: 2,
-          child: Container(
-            width: 24,
-            height: 24,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryDeep,
-              shape: BoxShape.circle,
-              border: Border.fromBorderSide(
-                BorderSide(color: AppColors.background, width: 2),
-              ),
-            ),
-            child: const Icon(
-              Icons.check_rounded,
-              size: 14,
-              color: Colors.white,
-            ),
-          ),
-        ),
-    ],
-  );
+/// Abre "Editar perfil" y, si se guardó, relee el perfil: la bio y la foto
+/// no viajan en la sesión, así que no alcanza con que cambie la cuenta.
+Future<void> _edit(BuildContext context) async {
+  final cubit = context.read<PublicProfileCubit>();
+  final saved = await context.push<bool>(AppRoutes.editProfile);
+  if (saved ?? false) await cubit.load();
 }
 
 /// Seguidores · Siguiendo · Likes, en línea y sin tarjeta.
@@ -717,9 +809,31 @@ class _ProfileMetrics extends StatelessWidget {
     runSpacing: AppSpacing.xs,
     children: [
       if (profile.followers case final followers?)
-        _Metric(value: compactCount(followers), label: 'Seguidores'),
+        _Metric(
+          key: const Key('profile-followers'),
+          value: compactCount(followers),
+          label: 'Seguidores',
+          onTap: () => unawaited(
+            showFollowListSheet(
+              context,
+              userId: profile.id,
+              kind: FollowListKind.followers,
+            ),
+          ),
+        ),
       if (profile.following case final following?)
-        _Metric(value: compactCount(following), label: 'Siguiendo'),
+        _Metric(
+          key: const Key('profile-following'),
+          value: compactCount(following),
+          label: 'Siguiendo',
+          onTap: () => unawaited(
+            showFollowListSheet(
+              context,
+              userId: profile.id,
+              kind: FollowListKind.following,
+            ),
+          ),
+        ),
       if (profile.likes case final likes?)
         _Metric(value: compactCount(likes), label: 'Likes'),
     ],
@@ -727,23 +841,49 @@ class _ProfileMetrics extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label});
+  const _Metric({
+    super.key,
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
 
   final String value;
   final String label;
 
+  /// Seguidores y seguidos abren la lista; los likes no tienen a dónde ir.
+  final VoidCallback? onTap;
+
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        value,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 16),
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    // El número en la letra display, con cifras tabulares: al seguir, el
+    // contador cambia en el lugar sin que la fila baile.
+    final metric = ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: text.titleLarge?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: text.labelSmall?.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
       ),
-      const SizedBox(width: 5),
-      Text(label, style: Theme.of(context).textTheme.bodySmall),
-    ],
-  );
+    );
+    final tap = onTap;
+    if (tap == null) return metric;
+    return InkWell(onTap: tap, borderRadius: AppRadii.small, child: metric);
+  }
 }
 
 class _ProfileActions extends StatelessWidget {
@@ -751,62 +891,74 @@ class _ProfileActions extends StatelessWidget {
 
   final PublicProfile profile;
 
+  static const _dense = Size(0, AppSizes.buttonHeightDense);
+  static const _densePadding = EdgeInsets.symmetric(horizontal: AppSpacing.sm);
+
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Expanded(
-        child: BlocBuilder<ProfileCubit, bool>(
-          builder: (context, following) => SizedBox(
-            height: AppSizes.buttonHeightDense,
-            child: following
-                ? OutlinedButton.icon(
-                    key: const Key('profile-follow'),
-                    onPressed: () => context.read<ProfileCubit>().toggle(),
-                    icon: const Icon(Icons.check_rounded, size: 17),
-                    label: const Text('Siguiendo'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(0, AppSizes.buttonHeightDense),
-                      foregroundColor: AppColors.textSecondary,
-                    ),
-                  )
-                : FilledButton.icon(
-                    key: const Key('profile-follow'),
-                    onPressed: () => context.read<ProfileCubit>().toggle(),
-                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 17),
-                    label: const Text('Seguir'),
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, AppSizes.buttonHeightDense),
-                    ),
-                  ),
-          ),
-        ),
-      ),
-      if (profile.isCreator) ...[
-        const SizedBox(width: AppSpacing.xs),
+  Widget build(BuildContext context) {
+    void toggle() =>
+        unawaited(context.read<PublicProfileCubit>().toggleFollow());
+    return Row(
+      children: [
+        // Seguir es el sticker blanco; ya seguida, queda el contorno: la
+        // acción hecha pasa a segundo plano.
         Expanded(
-          child: SizedBox(
-            height: AppSizes.buttonHeightDense,
-            child: FilledButton.icon(
+          child: profile.viewerFollows
+              ? OutlinedButton(
+                  key: const Key('profile-follow'),
+                  onPressed: toggle,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: _dense,
+                    padding: _densePadding,
+                  ),
+                  child: const _ButtonLabel('Siguiendo'),
+                )
+              : FilledButton(
+                  key: const Key('profile-follow'),
+                  onPressed: toggle,
+                  style: FilledButton.styleFrom(
+                    minimumSize: _dense,
+                    padding: _densePadding,
+                  ),
+                  child: const _ButtonLabel('Seguir'),
+                ),
+        ),
+        if (profile.isCreator) ...[
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: OutlinedButton(
               onPressed: () => unawaited(context.push(AppRoutes.premium)),
-              icon: const Icon(Icons.star_rounded, size: 17),
-              label: const Text('Suscribirse'),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                minimumSize: const Size(0, AppSizes.buttonHeightDense),
+              style: OutlinedButton.styleFrom(
+                minimumSize: _dense,
+                padding: _densePadding,
               ),
+              child: const _ButtonLabel('Suscribirse'),
             ),
           ),
+        ],
+        const SizedBox(width: AppSpacing.xs),
+        // Sin mensajes directos todavía. Deshabilitado, no escondido (F11).
+        const IconButton.outlined(
+          tooltip: 'Mensajes directos: muy pronto',
+          onPressed: null,
+          icon: NexoIcon(NexoGlyph.send, size: 20),
         ),
       ],
-      const SizedBox(width: AppSpacing.xxs),
-      // Sin mensajes directos todavía. Deshabilitado, no escondido (F11).
-      const IconButton.outlined(
-        tooltip: 'Mensajes directos: muy pronto',
-        onPressed: null,
-        icon: Icon(Icons.mail_outline_rounded, size: 19),
-      ),
-    ],
-  );
+    );
+  }
+}
+
+/// La etiqueta de un botón que comparte la fila con otros. A 320 de ancho
+/// dos botones y el de mensajes dejan ~116 px a cada uno: la etiqueta se
+/// achica apenas en vez de partirse en dos renglones o recortarse.
+class _ButtonLabel extends StatelessWidget {
+  const _ButtonLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) =>
+      FittedBox(fit: BoxFit.scaleDown, child: Text(label, maxLines: 1));
 }
 
 class _VipCard extends StatelessWidget {
@@ -820,101 +972,105 @@ class _VipCard extends StatelessWidget {
     'Canal de chat privado en vivo con ${creatorName.split(' ').first}',
   ];
 
+  /// Cuánto asoma la insignia por encima del borde de la tarjeta.
+  static const _badgeOverhang = 10.0;
+
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(AppSpacing.md),
-    decoration: BoxDecoration(
-      color: AppColors.primarySurface,
-      borderRadius: AppRadii.medium,
-      border: Border.all(color: AppColors.primarySurfaceDeep),
-    ),
-    child: Column(
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(top: _badgeOverhang),
+        // El pase es un objeto: el sticker del logo, con el contenido en
+        // tinta.
+        child: StickerCard(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.md,
+          ),
+          child: _VipBody(perks: _perks),
+        ),
+      ),
+      // Pegada sobre el borde, apenas torcida.
+      const Positioned(
+        top: 0,
+        right: AppSpacing.md,
+        child: StatusBadge(
+          label: 'VIP',
+          color: AppColors.vinylLime,
+          foreground: AppColors.ink,
+          tilt: .05,
+        ),
+      ),
+    ],
+  );
+}
+
+/// El contenido del pase. Un widget aparte para leer el tema **dentro** de
+/// la [StickerCard], que lo invierte a tinta: leído desde afuera, el texto
+/// saldría claro sobre blanco.
+class _VipBody extends StatelessWidget {
+  const _VipBody({required this.perks});
+
+  final List<String> perks;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.surface,
-              child: Icon(
-                Icons.workspace_premium_rounded,
-                size: 18,
-                color: AppColors.primaryDeep,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Pase Creador VIP',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleLarge?.copyWith(fontSize: 16),
-                  ),
-                  const Text(
-                    'MEMBRESÍA EXCLUSIVA',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              'Desde \$4.99/mes',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textOnBrandSurface,
-              ),
-            ),
-          ],
+        Text('Pase Creador VIP', style: text.titleLarge),
+        const SizedBox(height: 2),
+        Text(
+          'Desde \$4.99/mes',
+          style: text.bodySmall?.copyWith(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: AppSpacing.sm),
-        for (final perk in _perks)
+        for (final perk in perks)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 15,
-                  color: AppColors.tertiary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    perk,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: NexoIcon(
+                    NexoGlyph.star,
+                    size: 15,
+                    color: AppColors.ink,
                   ),
                 ),
+                const SizedBox(width: AppSpacing.xs),
+                Expanded(child: Text(perk, style: text.bodyMedium)),
               ],
             ),
           ),
         const SizedBox(height: AppSpacing.xs),
+        // Dentro de la tarjeta el CTA del tema es relleno de tinta; la corona
+        // va en lima, el vinilo de las membresías.
         SizedBox(
           width: double.infinity,
-          child: FilledButton(
+          child: FilledButton.icon(
             key: const Key('profile-join-vip'),
             onPressed: () => unawaited(context.push(AppRoutes.premium)),
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.primaryDeep,
               minimumSize: const Size(0, AppSizes.buttonHeightDense),
             ),
-            child: const Text('Unirme por \$4.99'),
+            icon: const NexoIcon(
+              NexoGlyph.crown,
+              filled: true,
+              size: 18,
+              color: AppColors.vinylLime,
+            ),
+            label: const Text('Unirme por \$4.99'),
           ),
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
@@ -931,7 +1087,12 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) => const Material(
     color: AppColors.background,
+    // Desplazable y alineada al inicio: con tres pestañas de ancho fijo, a
+    // 320 "Publicaciones" se recortaba a "Publicacione". Así cada etiqueta
+    // mide lo que mide.
     child: TabBar(
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
       tabs: [
         Tab(text: 'Publicaciones'),
         Tab(text: 'En vivos'),
@@ -940,11 +1101,10 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
         Tab(
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Flexible(child: Text('Premium', overflow: TextOverflow.ellipsis)),
-              SizedBox(width: 5),
-              Icon(Icons.lock_outline_rounded, size: 13),
+              Text('Premium'),
+              SizedBox(width: 6),
+              NexoIcon(NexoGlyph.lock, size: 14),
             ],
           ),
         ),
@@ -976,7 +1136,7 @@ class _PostsTab extends StatelessWidget {
     children: [
       if (state.posts.isEmpty)
         _EmptyTab(
-          icon: Icons.grid_view_rounded,
+          mascot: NexoMascot.empty,
           message: isOwn
               ? 'Todavía no publicaste nada.'
               : '${state.profile.name} todavía no publicó nada.',
@@ -1006,30 +1166,31 @@ class _PostsTab extends StatelessWidget {
   );
 }
 
+/// Una pestaña vacía: el gato y qué falta.
 class _EmptyTab extends StatelessWidget {
   const _EmptyTab({
-    required this.icon,
+    required this.mascot,
     required this.message,
     this.actionLabel,
     this.onAction,
   });
 
-  final IconData icon;
+  final NexoMascot mascot;
   final String message;
   final String? actionLabel;
   final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
     child: Column(
       children: [
-        Icon(icon, size: 36, color: AppColors.textSecondary),
+        MascotIllustration(mascot, size: 128),
         const SizedBox(height: AppSpacing.sm),
         Text(
           message,
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         if (actionLabel case final label?) ...[
           const SizedBox(height: AppSpacing.md),
@@ -1056,7 +1217,9 @@ class _PostGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: AppSpacing.sm,
       crossAxisSpacing: AppSpacing.sm,
-      childAspectRatio: .78,
+      // Lo justo para que el sticker de media quede casi cuadrado con el
+      // texto debajo.
+      childAspectRatio: .72,
     ),
     itemCount: posts.length,
     itemBuilder: (context, index) => _GridTile(post: posts[index]),
@@ -1068,6 +1231,97 @@ class _GridTile extends StatelessWidget {
 
   final Post post;
 
+  static const _captionLineHeight = 1.25;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final caption = text.bodySmall?.copyWith(
+      color: AppColors.textPrimary,
+      fontWeight: FontWeight.w600,
+      height: _captionLineHeight,
+    );
+    final count = text.labelSmall?.copyWith(
+      color: AppColors.textSecondary,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+    // Dos renglones siempre, aunque el texto ocupe uno: si no, el sticker de
+    // arriba crece y la fila de la grilla queda con dos alturas.
+    final captionHeight =
+        MediaQuery.textScalerOf(context).scale(caption?.fontSize ?? 12.5) *
+            _captionLineHeight *
+            2 +
+        1;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // La media es un sticker troquelado, sobre el liner.
+        Expanded(
+          child: StickerFrame(
+            radius: 14,
+            fill: AppColors.linerHigh,
+            child: _TileMedia(post: post),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        SizedBox(
+          height: captionHeight,
+          child: Text(
+            post.body,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: caption,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        Row(
+          children: [
+            const NexoIcon(
+              NexoGlyph.heart,
+              filled: true,
+              size: 13,
+              color: AppColors.secondary,
+            ),
+            const SizedBox(width: 3),
+            Text(compactCount(post.likes), style: count),
+            const SizedBox(width: AppSpacing.xs),
+            const NexoIcon(
+              NexoGlyph.comment,
+              size: 13,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 3),
+            Text(compactCount(post.comments), style: count),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                RelativeTime.format(post.createdAt),
+                maxLines: 1,
+                textAlign: TextAlign.end,
+                overflow: TextOverflow.ellipsis,
+                style: text.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Lo que va dentro del sticker de una publicación.
+///
+/// Sin degradados: la foto si la hay; si no, el `linerHigh` del sticker con
+/// el glifo de lo que falta. Una publicación de sólo texto se imprime como un
+/// vinilo plano con su primera etiqueta, para que la plancha no sea una fila
+/// de cuadros grises.
+class _TileMedia extends StatelessWidget {
+  const _TileMedia({required this.post});
+
+  final Post post;
+
   /// Una miniatura, no la foto entera: Flutter decodifica a resolución nativa
   /// y se queda con ese bitmap, y una grilla de fotos de cámara son decenas
   /// de megas para dibujar cuadros de 180 px.
@@ -1076,102 +1330,59 @@ class _GridTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = post.mediaUrl;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primarySurface,
-                        AppColors.primarySurfaceDeep,
-                      ],
-                    ),
-                  ),
-                ),
-                if (post.media == PostMedia.image && url != null)
-                  Image.network(
-                    url,
-                    fit: BoxFit.cover,
-                    cacheWidth: _thumbnailWidth,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  )
-                else if (post.media == PostMedia.video)
-                  const Center(
-                    child: Icon(
-                      Icons.play_circle_fill_rounded,
-                      color: AppColors.primaryDeep,
-                      size: 36,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  post.body,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    height: 1.25,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.favorite_rounded,
-                      size: 11,
-                      color: AppColors.secondary,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      compactCount(post.likes),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    const Icon(
-                      Icons.chat_bubble_outline_rounded,
-                      size: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 3),
-                    Text(
-                      compactCount(post.comments),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Expanded(
-                      child: Text(
-                        RelativeTime.format(post.createdAt),
-                        maxLines: 1,
-                        textAlign: TextAlign.end,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    const missing = Center(
+      child: NexoIcon(NexoGlyph.media, size: 30, color: AppColors.textTertiary),
     );
+    switch (post.media) {
+      case PostMedia.image when url != null:
+        return Image.network(
+          url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          cacheWidth: _thumbnailWidth,
+          errorBuilder: (_, _, _) => missing,
+        );
+      case PostMedia.image:
+        return missing;
+      case PostMedia.video:
+        return const Center(
+          child: NexoIcon(
+            NexoGlyph.play,
+            filled: true,
+            size: 34,
+            color: AppColors.textSecondary,
+          ),
+        );
+      case null:
+        final tag = post.tags.firstOrNull;
+        if (tag == null) {
+          return const Center(
+            child: NexoIcon(
+              NexoGlyph.comment,
+              size: 30,
+              color: AppColors.textTertiary,
+            ),
+          );
+        }
+        return ColoredBox(
+          color: vinylFor(tag),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Text(
+                '#$tag',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: AppColors.ink),
+              ),
+            ),
+          ),
+        );
+    }
   }
 }
 
@@ -1193,10 +1404,7 @@ class _LivesTab extends StatelessWidget {
     ),
     children: [
       if (lives.isEmpty)
-        const _EmptyTab(
-          icon: Icons.videocam_outlined,
-          message: 'Sin vivos por ahora.',
-        )
+        const _EmptyTab(mascot: NexoMascot.mic, message: 'Sin vivos por ahora.')
       else
         for (final live in lives)
           Padding(
@@ -1212,42 +1420,137 @@ class _LiveTile extends StatelessWidget {
 
   final LiveSession live;
 
+  /// Cuánto asoma la insignia por encima del borde del sticker.
+  static const _badgeOverhang = 10.0;
+
+  /// El borde dice el estado, con el vocabulario de toda la app: holo al
+  /// aire, punteado programado, troquel el replay y el dorso lo cerrado.
+  StickerEdge get _edge => switch (live.status) {
+    LiveStatus.live || LiveStatus.ending => StickerEdge.holo,
+    LiveStatus.scheduled || LiveStatus.draft => StickerEdge.dashed,
+    LiveStatus.recorded || LiveStatus.published => StickerEdge.kissCut,
+    LiveStatus.cancelled ||
+    LiveStatus.failed ||
+    LiveStatus.removed => StickerEdge.none,
+  };
+
+  NexoGlyph get _glyph => switch (live.status) {
+    LiveStatus.scheduled || LiveStatus.draft => NexoGlyph.calendar,
+    LiveStatus.recorded || LiveStatus.published => NexoGlyph.play,
+    _ => NexoGlyph.live,
+  };
+
+  /// Rojo con blanco sólo para lo que está al aire; el resto, vinilo con
+  /// tinta o el gris de lo que ya no está.
+  (Color, Color) get _badge => switch (live.status) {
+    LiveStatus.live ||
+    LiveStatus.ending => (AppColors.secondary, AppColors.sticker),
+    LiveStatus.scheduled => (AppColors.vinylCyan, AppColors.ink),
+    LiveStatus.recorded ||
+    LiveStatus.published => (AppColors.tertiary, AppColors.ink),
+    _ => (AppColors.linerHigh, AppColors.textSecondary),
+  };
+
   @override
   Widget build(BuildContext context) {
     final scheduledAt = live.scheduledAt;
-    return Card(
-      child: InkWell(
-        // La sala vive en el branch de Explorar: se cambia de pestaña, no se
-        // empuja una ruta de otro branch encima de esta.
-        onTap: live.status.isClosed
-            ? null
-            : () => context.go(AppRoutes.liveRoom(live.id)),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              StatusBadge(
-                label: live.status.label,
-                color: live.status.color,
-                pulse: live.status.isOnAir,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(live.title, style: Theme.of(context).textTheme.titleMedium),
-              if (scheduledAt != null &&
-                  live.status == LiveStatus.scheduled) ...[
-                const SizedBox(height: AppSpacing.xxs),
-                Text(
-                  MaterialLocalizations.of(
-                    context,
-                  ).formatMediumDate(scheduledAt),
-                  style: Theme.of(context).textTheme.bodySmall,
+    final status = live.status;
+    final text = Theme.of(context).textTheme;
+    final (badgeColor, badgeForeground) = _badge;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: _badgeOverhang),
+          child: StickerFrame(
+            edge: _edge,
+            fill: status.isClosed ? AppColors.linerHigh : AppColors.surface,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                // La sala vive en el branch de Explorar: se cambia de pestaña, no se
+                // empuja una ruta de otro branch encima de esta.
+                onTap: live.status.isClosed
+                    ? null
+                    : () => openLive(context, live),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: status.isOnAir
+                              ? AppColors.secondary
+                              : status.isClosed
+                              ? AppColors.surface
+                              : AppColors.linerHigh,
+                          shape: BoxShape.circle,
+                        ),
+                        child: NexoIcon(
+                          _glyph,
+                          filled: status.isOnAir,
+                          size: 20,
+                          color: status.isOnAir
+                              ? AppColors.sticker
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              live.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: text.titleMedium?.copyWith(
+                                color: status.isClosed
+                                    ? AppColors.textSecondary
+                                    : null,
+                              ),
+                            ),
+                            if (scheduledAt != null &&
+                                status == LiveStatus.scheduled) ...[
+                              const SizedBox(height: AppSpacing.xxs),
+                              Text(
+                                MaterialLocalizations.of(
+                                  context,
+                                ).formatMediumDate(scheduledAt),
+                                style: text.bodySmall,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ],
+              ),
+            ),
           ),
         ),
-      ),
+        // El estado pegado sobre la esquina, apenas torcido.
+        Positioned(
+          top: 0,
+          left: AppSpacing.md,
+          child: StatusBadge(
+            label: status.label,
+            color: badgeColor,
+            foreground: badgeForeground,
+            pulse: status.isOnAir,
+            tilt: -.05,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1268,66 +1571,39 @@ class _PremiumTab extends StatelessWidget {
       96,
     ),
     children: [
-      Card(
-        clipBehavior: Clip.antiAlias,
+      // Cerrado, no escondido: el gato del candado dice que hay algo y que
+      // se abre con la membresía.
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              color: AppColors.primarySurface,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xs,
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline_rounded,
-                    size: 14,
-                    color: AppColors.textOnBrandSurface,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'EXCLUSIVO SUSCRIPTORES',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: .7,
-                      color: AppColors.textOnBrandSurface,
-                    ),
-                  ),
-                ],
+            const MascotIllustration(NexoMascot.lock, size: 128),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Lo exclusivo de ${profile.name}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                'Lo que publica sólo para miembros aparece acá cuando te '
+                'suscribís.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lo exclusivo de ${profile.name}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(
-                    'Lo que publica sólo para miembros aparece acá cuando te '
-                    'suscribís.',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (canUnlock) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton(
-                        onPressed: () =>
-                            unawaited(context.push(AppRoutes.premium)),
-                        child: const Text('Desbloquear'),
-                      ),
-                    ),
-                  ],
-                ],
+            if (canUnlock) ...[
+              const SizedBox(height: AppSpacing.md),
+              FilledButton.icon(
+                onPressed: () => unawaited(context.push(AppRoutes.premium)),
+                icon: const NexoIcon(NexoGlyph.lock, filled: true, size: 18),
+                label: const Text('Desbloquear'),
               ),
-            ),
+            ],
           ],
         ),
       ),

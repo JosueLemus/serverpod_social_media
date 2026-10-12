@@ -24,6 +24,7 @@ abstract class LiveShowView
     required this.hostId,
     this.hostUsername,
     this.hostName,
+    this.hostAvatarUrl,
     required this.title,
     required this.description,
     required this.startsAt,
@@ -44,6 +45,7 @@ abstract class LiveShowView
     required _isc.UuidValue hostId,
     String? hostUsername,
     String? hostName,
+    String? hostAvatarUrl,
     required String title,
     required String description,
     required DateTime startsAt,
@@ -65,6 +67,7 @@ abstract class LiveShowView
       hostId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['hostId']),
       hostUsername: jsonSerialization['hostUsername'] as String?,
       hostName: jsonSerialization['hostName'] as String?,
+      hostAvatarUrl: jsonSerialization['hostAvatarUrl'] as String?,
       title: jsonSerialization['title'] as String,
       description: jsonSerialization['description'] as String,
       startsAt: _isc.DateTimeJsonExtension.fromJson(
@@ -107,6 +110,8 @@ abstract class LiveShowView
 
   String? hostName;
 
+  String? hostAvatarUrl;
+
   String title;
 
   String description;
@@ -143,6 +148,7 @@ abstract class LiveShowView
     _isc.UuidValue? hostId,
     String? hostUsername,
     String? hostName,
+    String? hostAvatarUrl,
     String? title,
     String? description,
     DateTime? startsAt,
@@ -165,6 +171,7 @@ abstract class LiveShowView
       'hostId': hostId.toJson(),
       if (hostUsername != null) 'hostUsername': hostUsername,
       if (hostName != null) 'hostName': hostName,
+      if (hostAvatarUrl != null) 'hostAvatarUrl': hostAvatarUrl,
       'title': title,
       'description': description,
       'startsAt': startsAt.toJson(),
@@ -189,6 +196,7 @@ abstract class LiveShowView
       'hostId': hostId.toJson(),
       if (hostUsername != null) 'hostUsername': hostUsername,
       if (hostName != null) 'hostName': hostName,
+      if (hostAvatarUrl != null) 'hostAvatarUrl': hostAvatarUrl,
       'title': title,
       'description': description,
       'startsAt': startsAt.toJson(),
@@ -219,6 +227,7 @@ class _LiveShowViewImpl extends LiveShowView {
     required _isc.UuidValue hostId,
     String? hostUsername,
     String? hostName,
+    String? hostAvatarUrl,
     required String title,
     required String description,
     required DateTime startsAt,
@@ -237,6 +246,7 @@ class _LiveShowViewImpl extends LiveShowView {
          hostId: hostId,
          hostUsername: hostUsername,
          hostName: hostName,
+         hostAvatarUrl: hostAvatarUrl,
          title: title,
          description: description,
          startsAt: startsAt,
@@ -261,6 +271,7 @@ class _LiveShowViewImpl extends LiveShowView {
     _isc.UuidValue? hostId,
     Object? hostUsername = _Undefined,
     Object? hostName = _Undefined,
+    Object? hostAvatarUrl = _Undefined,
     String? title,
     String? description,
     DateTime? startsAt,
@@ -280,6 +291,9 @@ class _LiveShowViewImpl extends LiveShowView {
       hostId: hostId ?? this.hostId,
       hostUsername: hostUsername is String? ? hostUsername : this.hostUsername,
       hostName: hostName is String? ? hostName : this.hostName,
+      hostAvatarUrl: hostAvatarUrl is String?
+          ? hostAvatarUrl
+          : this.hostAvatarUrl,
       title: title ?? this.title,
       description: description ?? this.description,
       startsAt: startsAt ?? this.startsAt,

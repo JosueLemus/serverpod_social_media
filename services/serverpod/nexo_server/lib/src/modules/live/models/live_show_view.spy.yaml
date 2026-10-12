@@ -6,6 +6,7 @@ fields:
   hostId: UuidValue
   hostUsername: String?
   hostName: String?
+  hostAvatarUrl: String?
   title: String
   description: String
   startsAt: DateTime

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/auth/presentation/bloc/auth_cubit.dart';
+import '../features/notifications/presentation/bloc/unread_activity_cubit.dart';
 import 'di/injection.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -25,7 +26,9 @@ class _NexoAppState extends State<NexoApp> {
     // history, so rebuilding it — which a hot reload or any ancestor rebuild
     // would do — resets the user to the initial location mid-session.
     _auth = sl<AuthCubit>();
-    _router = createRouter(_auth);
+    // El conteo de la campana sigue a la sesión desde que arranca la app, no
+    // desde que alguien abre Actividad.
+    _router = createRouter(_auth, unread: sl<UnreadActivityCubit>());
     // Not awaited: the redirect keeps the user on the splash while the state
     // is AuthLoading and moves them on by itself once the session resolves.
     _auth.restore();
@@ -43,9 +46,9 @@ class _NexoAppState extends State<NexoApp> {
     // read one session.
     value: _auth,
     child: MaterialApp.router(
-      title: 'Nexo Social',
+      title: 'Nexo',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
+      theme: AppTheme.nexo,
       routerConfig: _router,
     ),
   );

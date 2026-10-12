@@ -1,0 +1,16 @@
+### Un aviso tal como lo ve su destinatario. [postExcerpt] y [showTitle]
+### alcanzan para dibujarlo sin otra consulta.
+class: NotificationView
+fields:
+  id: int
+  kind: NotificationKind
+  actorId: UuidValue?
+  actorUsername: String?
+  actorName: String?
+  actorAvatarUrl: String?
+  postId: int?
+  postExcerpt: String?
+  showId: int?
+  showTitle: String?
+  isRead: bool
+  createdAt: DateTime

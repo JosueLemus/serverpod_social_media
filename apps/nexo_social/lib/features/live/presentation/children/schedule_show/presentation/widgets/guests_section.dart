@@ -1,9 +1,7 @@
-import 'dart:ui' show PathMetric;
-
 import 'package:flutter/material.dart';
 
 import '../../../../../../../app/theme/app_tokens.dart';
-import '../../../../../../../core/widgets/pills.dart';
+import '../../../../../../../core/widgets/nexo_icon.dart';
 import '../../../../../../../core/widgets/user_avatar.dart';
 import '../bloc/schedule_show_cubit.dart';
 import 'show_section.dart';
@@ -32,30 +30,42 @@ class GuestsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final full = guests.length >= ShowDraft.maxGuests;
     return ShowSection(
-      icon: Icons.person_add_alt_outlined,
       title: 'Invitados y Co-hosts',
+      subtitle: guests.isEmpty
+          ? 'Hasta ${ShowDraft.maxGuests} personas pueden subir al '
+                'escenario contigo.'
+          : null,
       trailing: ShowHintPill(
         label: '${guests.length} de ${ShowDraft.maxGuests} cupos',
       ),
-      child: ShowCard(
-        padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final guest in guests) ...[
-              _GuestTile(guest: guest, onRemove: () => onRemove(guest.id)),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-            _AddGuestButton(full: full, onTap: full ? null : onAdd),
-          ],
-        ),
+      // Wrap y no Row: tres stickers más el de añadir no entran a 320, y un
+      // Row recortaría justo el último.
+      child: Wrap(
+        spacing: AppSpacing.xs,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final guest in guests)
+            _GuestSticker(guest: guest, onRemove: () => onRemove(guest.id)),
+          _AddGuestSlot(full: full, onTap: full ? null : onAdd),
+        ],
       ),
     );
   }
 }
 
-class _GuestTile extends StatelessWidget {
-  const _GuestTile({required this.guest, required this.onRemove});
+/// El ancho de cada lugar en el escenario: avatar, nombre y handle.
+const _slotWidth = 84.0;
+
+/// El avatar de cada lugar.
+const _avatar = 56.0;
+
+/// La caja del avatar. Más alta y ancha que el avatar para que el botón de
+/// quitar, pegado en su esquina, tenga 44 de área táctil sin salirse de la
+/// caja: lo que asoma fuera de un Stack se ve pero no recibe toques.
+const _stage = Size(_slotWidth, 68);
+
+class _GuestSticker extends StatelessWidget {
+  const _GuestSticker({required this.guest, required this.onRemove});
 
   final ShowGuest guest;
   final VoidCallback onRemove;
@@ -63,63 +73,70 @@ class _GuestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Container(
+    return SizedBox(
       key: Key('schedule-guest-${guest.id}'),
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.sm,
-        AppSpacing.sm,
-        AppSpacing.xxs,
-        AppSpacing.sm,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.primarySurface,
-        borderRadius: AppRadii.large,
-      ),
-      child: Row(
+      width: _slotWidth,
+      child: Column(
         children: [
-          UserAvatar(name: guest.name, size: 40),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox.fromSize(
+            size: _stage,
+            child: Stack(
               children: [
-                Wrap(
-                  spacing: AppSpacing.xs,
-                  runSpacing: AppSpacing.xxs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      guest.name,
-                      style: text.titleMedium?.copyWith(fontSize: 14),
-                    ),
-                    // TODO(backend): mostrar "Confirmado" cuando exista el
-                    // flujo para que el invitado acepte.
-                    const StatusBadge(
-                      label: 'Invitado',
-                      color: AppColors.successSurface,
-                      foreground: AppColors.tertiary,
-                    ),
-                  ],
+                Positioned(
+                  left: (_slotWidth - _avatar) / 2,
+                  bottom: 0,
+                  child: UserAvatar(name: guest.name, size: _avatar),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '@${guest.username} · Co-host',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall,
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: IconButton(
+                    key: Key('schedule-guest-remove-${guest.id}'),
+                    tooltip: 'Quitar a ${guest.name}',
+                    onPressed: onRemove,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 44,
+                      height: 44,
+                    ),
+                    icon: Container(
+                      width: 24,
+                      height: 24,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: AppColors.linerHigh,
+                        shape: BoxShape.circle,
+                        border: Border.fromBorderSide(
+                          BorderSide(color: AppColors.background, width: 2),
+                        ),
+                      ),
+                      child: const NexoIcon(
+                        NexoGlyph.close,
+                        size: 11,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            key: Key('schedule-guest-remove-${guest.id}'),
-            tooltip: 'Quitar a ${guest.name}',
-            onPressed: onRemove,
-            icon: const Icon(
-              Icons.close_rounded,
-              size: 18,
-              color: AppColors.textSecondary,
-            ),
+          const SizedBox(height: AppSpacing.xs),
+          // TODO(backend): mostrar "Confirmado" cuando exista el flujo para
+          // que el invitado acepte.
+          Text(
+            guest.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: text.labelMedium,
+          ),
+          Text(
+            '@${guest.username}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: text.labelSmall?.copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -127,99 +144,72 @@ class _GuestTile extends StatelessWidget {
   }
 }
 
-class _AddGuestButton extends StatelessWidget {
-  const _AddGuestButton({required this.full, required this.onTap});
+/// El lugar libre: un control en reposo con el "+", del mismo tamaño que un
+/// invitado para que la fila se lea como el escenario con sus cupos.
+class _AddGuestSlot extends StatelessWidget {
+  const _AddGuestSlot({required this.full, required this.onTap});
 
   final bool full;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = full ? AppColors.textSecondary : AppColors.primaryDeep;
-    return CustomPaint(
-      painter: _DashedPillPainter(
-        color: full ? AppColors.border : AppColors.primary,
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: AppRadii.pill,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const Key('schedule-add-guest'),
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              minHeight: AppSizes.buttonHeightDense,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xs,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_rounded, size: 18, color: color),
-                  const SizedBox(width: AppSpacing.xs),
-                  Flexible(
-                    child: Text(
-                      full
-                          ? 'Cupos completos'
-                          : 'Añadir invitado o co-host por @usuario',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: color,
-                      ),
+    final text = Theme.of(context).textTheme;
+    final color = full ? AppColors.textTertiary : AppColors.textPrimary;
+    return Semantics(
+      button: true,
+      enabled: !full,
+      label: full ? 'Cupos completos' : 'Añadir invitado o co-host',
+      excludeSemantics: true,
+      child: InkWell(
+        key: const Key('schedule-add-guest'),
+        onTap: onTap,
+        borderRadius: AppRadii.medium,
+        child: SizedBox(
+          width: _slotWidth,
+          child: Column(
+            children: [
+              SizedBox.fromSize(
+                size: _stage,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Container(
+                    width: _avatar,
+                    height: _avatar,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.linerHigh,
+                      shape: BoxShape.circle,
                     ),
+                    child: NexoIcon(NexoGlyph.add, size: 22, color: color),
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                full ? 'Completo' : 'Añadir',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: text.labelMedium?.copyWith(color: color),
+              ),
+              Text(
+                'por @usuario',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: text.labelSmall?.copyWith(
+                  color: full
+                      ? AppColors.textTertiary
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-}
-
-class _DashedPillPainter extends CustomPainter {
-  const _DashedPillPainter({required this.color});
-
-  final Color color;
-
-  static const _dash = 5.0;
-  static const _gap = 4.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          rect.deflate(.75),
-          Radius.circular(size.height / 2),
-        ),
-      );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    for (final PathMetric metric in path.computeMetrics()) {
-      for (
-        var distance = 0.0;
-        distance < metric.length;
-        distance += _dash + _gap
-      ) {
-        canvas.drawPath(metric.extractPath(distance, distance + _dash), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedPillPainter oldDelegate) =>
-      oldDelegate.color != color;
 }
 
 class _AddGuestSheet extends StatefulWidget {
@@ -279,7 +269,15 @@ class _AddGuestSheetState extends State<_AddGuestSheet> {
               onSubmitted: (_) => _submit(),
               decoration: const InputDecoration(
                 hintText: 'usuario',
-                prefixIcon: Icon(Icons.alternate_email_rounded, size: 18),
+                prefixIcon: Center(
+                  widthFactor: 1,
+                  child: NexoIcon(
+                    NexoGlyph.mention,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                prefixIconConstraints: BoxConstraints(minWidth: 44),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

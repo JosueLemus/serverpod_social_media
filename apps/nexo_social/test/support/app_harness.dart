@@ -46,7 +46,7 @@ abstract final class AppHarness {
   static Widget wrap(Widget child, {AuthCubit? auth}) => BlocProvider.value(
     value: auth ?? sl<AuthCubit>(),
     child: MaterialApp(
-      theme: AppTheme.light,
+      theme: AppTheme.nexo,
       home: Scaffold(body: child),
     ),
   );

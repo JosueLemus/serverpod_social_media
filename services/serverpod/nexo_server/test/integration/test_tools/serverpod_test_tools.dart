@@ -13,6 +13,13 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
+import 'package:nexo_server/src/generated/future_calls.dart' as _ioktuqdc;
+import 'package:nexo_server/src/generated/future_calls_generated_models/live_show_future_call_expire_model.dart'
+    as _i0pgbahh;
+import 'package:nexo_server/src/generated/future_calls_generated_models/live_show_future_call_publish_replay_model.dart'
+    as _il42zyw3;
+import 'package:nexo_server/src/generated/future_calls_generated_models/live_show_future_call_remind_model.dart'
+    as _idoph5ks;
 import 'package:nexo_server/src/generated/modules/content/models/media_upload_ticket.dart'
     as _ipladaxb;
 import 'package:nexo_server/src/generated/modules/content/models/post_draft.dart'
@@ -25,6 +32,10 @@ import 'package:nexo_server/src/generated/modules/content/models/post_page.dart'
     as _iv0no0cn;
 import 'package:nexo_server/src/generated/modules/content/models/post_view.dart'
     as _ixuk06b6;
+import 'package:nexo_server/src/generated/modules/feed/models/home_feed_cursor.dart'
+    as _i678tz4r;
+import 'package:nexo_server/src/generated/modules/feed/models/home_feed_page.dart'
+    as _ierdpwfy;
 import 'package:nexo_server/src/generated/modules/identity/models/account_view.dart'
     as _ig7gnzdo;
 import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.dart'
@@ -51,6 +62,14 @@ import 'package:nexo_server/src/generated/modules/moderation/models/report_queue
     as _im11zuld;
 import 'package:nexo_server/src/generated/modules/moderation/models/report_target_type.dart'
     as _ixsrdbzg;
+import 'package:nexo_server/src/generated/modules/notifications/models/notification_page.dart'
+    as _ipub6cbi;
+import 'package:nexo_server/src/generated/modules/notifications/models/notification_view.dart'
+    as _inq3pu5l;
+import 'package:nexo_server/src/generated/modules/social/models/follow_page.dart'
+    as _idfdyb7z;
+import 'package:nexo_server/src/generated/modules/social/models/follow_state.dart'
+    as _i91hdy2f;
 import 'package:nexo_server/src/generated/modules/social/models/like_state.dart'
     as _ir5izcmv;
 import 'package:nexo_server/src/generated/modules/social/models/post_comment_page.dart'
@@ -198,11 +217,15 @@ void withServerpod(
 }
 
 class TestEndpoints {
+  late final futureCalls = _FutureCalls();
+
   late final _EmailIdpEndpoint emailIdp;
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
   late final _PostsEndpoint posts;
+
+  late final _FeedEndpoint feed;
 
   late final _ProfilesEndpoint profiles;
 
@@ -210,7 +233,11 @@ class TestEndpoints {
 
   late final _ModerationEndpoint moderation;
 
+  late final _NotificationsEndpoint notifications;
+
   late final _CommentsEndpoint comments;
+
+  late final _FollowsEndpoint follows;
 
   late final _LikesEndpoint likes;
 
@@ -236,6 +263,10 @@ class _InternalTestEndpoints extends TestEndpoints
       endpoints,
       serializationManager,
     );
+    feed = _FeedEndpoint(
+      endpoints,
+      serializationManager,
+    );
     profiles = _ProfilesEndpoint(
       endpoints,
       serializationManager,
@@ -248,7 +279,15 @@ class _InternalTestEndpoints extends TestEndpoints
       endpoints,
       serializationManager,
     );
+    notifications = _NotificationsEndpoint(
+      endpoints,
+      serializationManager,
+    );
     comments = _CommentsEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    follows = _FollowsEndpoint(
       endpoints,
       serializationManager,
     );
@@ -261,6 +300,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
   }
+}
+
+class _FutureCalls {
+  late final liveShow = _LiveShowFutureCall();
 }
 
 class _EmailIdpEndpoint {
@@ -829,6 +872,48 @@ class _PostsEndpoint {
   }
 }
 
+class _FeedEndpoint {
+  _FeedEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ierdpwfy.HomeFeedPage> home(
+    _ist.TestSessionBuilder sessionBuilder, {
+    _i678tz4r.HomeFeedCursor? cursor,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'feed',
+            method: 'home',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'feed',
+          methodName: 'home',
+          parameters: _ist.testObjectToJson({'cursor': cursor}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ierdpwfy.HomeFeedPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
 class _ProfilesEndpoint {
   _ProfilesEndpoint(
     this._endpointDispatch,
@@ -885,6 +970,72 @@ class _ProfilesEndpoint {
           endpointPath: 'profiles',
           methodName: 'update',
           parameters: _ist.testObjectToJson({'edit': edit}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig7gnzdo.AccountView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ipladaxb.MediaUploadTicket> requestAvatarUpload(
+    _ist.TestSessionBuilder sessionBuilder, {
+    required String contentType,
+    required int sizeBytes,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'requestAvatarUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'requestAvatarUpload',
+          parameters: _ist.testObjectToJson({
+            'contentType': contentType,
+            'sizeBytes': sizeBytes,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ipladaxb.MediaUploadTicket>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ig7gnzdo.AccountView> setAvatar(
+    _ist.TestSessionBuilder sessionBuilder,
+    String? key,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'setAvatar',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'setAvatar',
+          parameters: _ist.testObjectToJson({'key': key}),
           serializationManager: _serializationManager,
         );
         var _localReturnValue =
@@ -1593,6 +1744,171 @@ class _ModerationEndpoint {
   }
 }
 
+class _NotificationsEndpoint {
+  _NotificationsEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ipub6cbi.NotificationPage> list(
+    _ist.TestSessionBuilder sessionBuilder, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'notifications',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'notifications',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ipub6cbi.NotificationPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<int> unreadCount(_ist.TestSessionBuilder sessionBuilder) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'notifications',
+            method: 'unreadCount',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'notifications',
+          methodName: 'unreadCount',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<int>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<int> markRead(
+    _ist.TestSessionBuilder sessionBuilder,
+    List<int> ids,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'notifications',
+            method: 'markRead',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'notifications',
+          methodName: 'markRead',
+          parameters: _ist.testObjectToJson({'ids': ids}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<int>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<int> markAllRead(_ist.TestSessionBuilder sessionBuilder) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'notifications',
+            method: 'markAllRead',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'notifications',
+          methodName: 'markAllRead',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<int>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Stream<_inq3pu5l.NotificationView> watch(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) {
+    var _localTestStreamManager =
+        _ist.TestStreamManager<_inq3pu5l.NotificationView>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'notifications',
+              method: 'watch',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'notifications',
+              methodName: 'watch',
+              arguments: {},
+              requestedInputStreams: [],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
+  }
+}
+
 class _CommentsEndpoint {
   _CommentsEndpoint(
     this._endpointDispatch,
@@ -1699,6 +2015,184 @@ class _CommentsEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _FollowsEndpoint {
+  _FollowsEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_i91hdy2f.FollowState> follow(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue userId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'follows',
+            method: 'follow',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'follows',
+          methodName: 'follow',
+          parameters: _ist.testObjectToJson({'userId': userId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i91hdy2f.FollowState>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i91hdy2f.FollowState> unfollow(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue userId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'follows',
+            method: 'unfollow',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'follows',
+          methodName: 'unfollow',
+          parameters: _ist.testObjectToJson({'userId': userId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i91hdy2f.FollowState>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_idfdyb7z.FollowPage> followers(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue userId, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'follows',
+            method: 'followers',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'follows',
+          methodName: 'followers',
+          parameters: _ist.testObjectToJson({
+            'userId': userId,
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_idfdyb7z.FollowPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_idfdyb7z.FollowPage> following(
+    _ist.TestSessionBuilder sessionBuilder,
+    _is.UuidValue userId, {
+    _iwd7ajf0.PageCursor? after,
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'follows',
+            method: 'following',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'follows',
+          methodName: 'following',
+          parameters: _ist.testObjectToJson({
+            'userId': userId,
+            'after': after,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_idfdyb7z.FollowPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i43ck6sm.ProfileView>> suggestions(
+    _ist.TestSessionBuilder sessionBuilder, {
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'follows',
+            method: 'suggestions',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'follows',
+          methodName: 'suggestions',
+          parameters: _ist.testObjectToJson({'limit': limit}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i43ck6sm.ProfileView>>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();
@@ -1853,5 +2347,58 @@ class _HealthEndpoint {
         await _localUniqueSession.close();
       }
     });
+  }
+}
+
+class _LiveShowFutureCall {
+  Future<void> remind(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    var object = _idoph5ks.LiveShowFutureCallRemindModel(showId: showId);
+    var _localUniqueSession =
+        (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild();
+    try {
+      await _ioktuqdc.LiveShowRemindFutureCall().invoke(
+        _localUniqueSession,
+        object,
+      );
+    } finally {
+      await _localUniqueSession.close();
+    }
+  }
+
+  Future<void> expire(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    var object = _i0pgbahh.LiveShowFutureCallExpireModel(showId: showId);
+    var _localUniqueSession =
+        (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild();
+    try {
+      await _ioktuqdc.LiveShowExpireFutureCall().invoke(
+        _localUniqueSession,
+        object,
+      );
+    } finally {
+      await _localUniqueSession.close();
+    }
+  }
+
+  Future<void> publishReplay(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    var object = _il42zyw3.LiveShowFutureCallPublishReplayModel(showId: showId);
+    var _localUniqueSession =
+        (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild();
+    try {
+      await _ioktuqdc.LiveShowPublishReplayFutureCall().invoke(
+        _localUniqueSession,
+        object,
+      );
+    } finally {
+      await _localUniqueSession.close();
+    }
   }
 }
