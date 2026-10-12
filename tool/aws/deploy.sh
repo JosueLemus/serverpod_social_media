@@ -14,6 +14,17 @@
 #   SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SMTP_FROM SMTP_FROM_NAME
 #                    email de los códigos de verificación (Gmail o Brevo).
 #                    Sin ellos, el código va al log del servidor.
+#   AGORA_APP_ID AGORA_APP_CERTIFICATE
+#                    en lugar de leerlos de config/passwords.yaml (CI)
+#   NEXO_DB_PASSWORD NEXO_SERVICE_SECRET NEXO_JWT_PRIVATE_KEY
+#   NEXO_JWT_REFRESH_PEPPER NEXO_EMAIL_PEPPER
+#                    los secretos del servidor. En CI salen de GitHub Secrets
+#                    y son la fuente de verdad; en local, sin ellos, el
+#                    primer deploy los genera en la VM
+#   NEXO_SSH_KNOWN_HOSTS  la huella del servidor: con ella, una huella
+#                    distinta corta el deploy en vez de aceptarse
+#   NEXO_IMAGE_TAR   imagen ya construida (docker save | gzip): no compila
+#   NEXO_WEB_DIR     build web ya hecho: con --web, no corre flutter
 #
 # Secretos: el primer deploy genera /opt/nexo/.env EN LA VM con valores
 # aleatorios nuevos. Los de Agora salen de
@@ -62,7 +73,15 @@ for tool in docker ssh scp curl; do
   command -v "$tool" >/dev/null || fail "Falta $tool."
 done
 
-ssh_opts=(-i "$ssh_key" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
+ssh_opts=(-i "$ssh_key" -o ConnectTimeout=15)
+if [[ -n "${NEXO_SSH_KNOWN_HOSTS:-}" ]]; then
+  known_hosts="$(mktemp)"
+  trap 'rm -f "$known_hosts"' EXIT
+  printf '%s\n' "$NEXO_SSH_KNOWN_HOSTS" > "$known_hosts"
+  ssh_opts+=(-o StrictHostKeyChecking=yes -o UserKnownHostsFile="$known_hosts")
+else
+  ssh_opts+=(-o StrictHostKeyChecking=accept-new)
+fi
 remote() { ssh "${ssh_opts[@]}" "$ssh_user@$target_host" "$@"; }
 
 say "Probando la conexión con $ssh_user@$target_host"
@@ -72,12 +91,17 @@ remote 'docker info >/dev/null' \
 # --- Imagen ---------------------------------------------------------------------
 # Se compila acá: Dart AOT en una VM de 1 GB se queda sin memoria. Apple
 # Silicon compila linux/arm64 en nativo, igual que la t4g.
-say "Construyendo la imagen del servidor (linux/arm64)"
-docker build --platform linux/arm64 -f "$SERVERPOD/nexo_server/Dockerfile" \
-  -t nexo-server:latest "$SERVERPOD"
-
-say "Copiando la imagen a la VM"
-docker save nexo-server:latest | gzip | remote 'gunzip | docker load'
+if [[ -n "${NEXO_IMAGE_TAR:-}" ]]; then
+  [[ -f "$NEXO_IMAGE_TAR" ]] || fail "No existe la imagen $NEXO_IMAGE_TAR (NEXO_IMAGE_TAR)."
+  say "Copiando la imagen ya construida a la VM"
+  remote 'gunzip | docker load' < "$NEXO_IMAGE_TAR"
+else
+  say "Construyendo la imagen del servidor (linux/arm64)"
+  docker build --platform linux/arm64 -f "$SERVERPOD/nexo_server/Dockerfile" \
+    -t nexo-server:latest "$SERVERPOD"
+  say "Copiando la imagen a la VM"
+  docker save nexo-server:latest | gzip | remote 'gunzip | docker load'
+fi
 
 # --- Archivos -------------------------------------------------------------------
 say "Subiendo compose.yaml, Caddyfile y backup.sh a $REMOTE_DIR"
@@ -95,8 +119,18 @@ yaml_value() {
 }
 local_secrets() {
   local agora_id agora_cert
-  agora_id="$(yaml_value agoraAppId)"
-  agora_cert="$(yaml_value agoraAppCertificate)"
+  agora_id="${AGORA_APP_ID:-$(yaml_value agoraAppId)}"
+  agora_cert="${AGORA_APP_CERTIFICATE:-$(yaml_value agoraAppCertificate)}"
+  # Los del servidor sólo viajan si vienen de afuera (CI). Postgres y el
+  # servidor comparten la contraseña de la base.
+  if [[ -n "${NEXO_DB_PASSWORD:-}" ]]; then
+    printf 'POSTGRES_PASSWORD=%s\n' "$NEXO_DB_PASSWORD"
+    printf 'SERVERPOD_PASSWORD_database=%s\n' "$NEXO_DB_PASSWORD"
+  fi
+  [[ -n "${NEXO_SERVICE_SECRET:-}" ]] && printf 'SERVERPOD_PASSWORD_serviceSecret=%s\n' "$NEXO_SERVICE_SECRET"
+  [[ -n "${NEXO_JWT_PRIVATE_KEY:-}" ]] && printf 'SERVERPOD_PASSWORD_jwtHmacSha512PrivateKey=%s\n' "$NEXO_JWT_PRIVATE_KEY"
+  [[ -n "${NEXO_JWT_REFRESH_PEPPER:-}" ]] && printf 'SERVERPOD_PASSWORD_jwtRefreshTokenHashPepper=%s\n' "$NEXO_JWT_REFRESH_PEPPER"
+  [[ -n "${NEXO_EMAIL_PEPPER:-}" ]] && printf 'SERVERPOD_PASSWORD_emailSecretHashPepper=%s\n' "$NEXO_EMAIL_PEPPER"
   [[ -n "$agora_id" ]] && printf 'SERVERPOD_PASSWORD_agoraAppId=%s\n' "$agora_id"
   [[ -n "$agora_cert" ]] && printf 'SERVERPOD_PASSWORD_agoraAppCertificate=%s\n' "$agora_cert"
   [[ -n "${SMTP_HOST:-}" ]] && printf 'SERVERPOD_PASSWORD_smtpHost=%s\n' "$SMTP_HOST"
@@ -109,8 +143,8 @@ local_secrets() {
 }
 
 say "Preparando los secretos en la VM"
-[[ -n "$(yaml_value agoraAppCertificate)" ]] \
-  || echo "  Sin agoraAppCertificate local: el video queda en modo de prueba de Agora."
+[[ -n "${AGORA_APP_CERTIFICATE:-$(yaml_value agoraAppCertificate)}" ]] \
+  || echo "  Sin certificado de Agora: el video queda en modo de prueba."
 [[ -n "${SMTP_HOST:-}" ]] \
   || echo "  Sin SMTP_HOST: los códigos de verificación van al log del servidor."
 local_secrets | remote "umask 077 && cat > $REMOTE_DIR/.env.incoming"
@@ -163,19 +197,23 @@ echo "  API lista: https://$api_host/"
 
 # --- Web ------------------------------------------------------------------------
 if $with_web; then
-  command -v flutter >/dev/null || fail "Falta Flutter para construir la web."
-  say "Construyendo la app web contra https://$api_host/"
-  (cd "$APP" && flutter build web --release \
-    --dart-define=AUTH_SOURCE=serverpod \
-    --dart-define=API_BASE_URL="https://$api_host/" \
-    --dart-define=DEMO_PASSWORD="$DEMO_PASSWORD" \
-    --dart-define=SHARE_BASE_URL="https://$nexo_host")
+  web_dir="${NEXO_WEB_DIR:-$APP/build/web}"
+  if [[ -z "${NEXO_WEB_DIR:-}" ]]; then
+    command -v flutter >/dev/null || fail "Falta Flutter para construir la web."
+    say "Construyendo la app web contra https://$api_host/"
+    (cd "$APP" && flutter build web --release \
+      --dart-define=AUTH_SOURCE=serverpod \
+      --dart-define=API_BASE_URL="https://$api_host/" \
+      --dart-define=DEMO_PASSWORD="$DEMO_PASSWORD" \
+      --dart-define=SHARE_BASE_URL="https://$nexo_host")
+  fi
+  [[ -f "$web_dir/index.html" ]] || fail "No hay un build web en $web_dir."
   say "Copiando la web a $REMOTE_DIR/web"
   # Se vacía el directorio en vez de reemplazarlo: Caddy lo tiene montado, y
   # un directorio nuevo con el mismo nombre no le llega al contenedor.
   # Sin los atributos extendidos de macOS: el tar de Linux los rechaza con un
   # aviso por archivo.
-  COPYFILE_DISABLE=1 tar --no-xattrs -C "$APP/build/web" -czf - . \
+  COPYFILE_DISABLE=1 tar --no-xattrs -C "$web_dir" -czf - . \
     | remote "find $REMOTE_DIR/web -mindepth 1 -delete && tar -xzf - -C $REMOTE_DIR/web"
   echo "  Web lista: https://$nexo_host/"
 fi

@@ -1,0 +1,163 @@
+name: Deploy
+
+# Cada push a main se verifica y, si pasa, se despliega en la VM de AWS
+# (SDD 0009). Nada se despliega sin que pasen los tests del backend y de la
+# app.
+#
+# Credenciales: ninguna vive en el repo.
+# - AWS: sin claves. El job asume el rol `nexo-github-deploy` por OIDC, que
+#   sólo puede abrir y cerrar el puerto 22 del security group de Nexo.
+# - Todo lo demás está en GitHub Secrets (ver tool/aws/setup-github-deploy.sh).
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+# Dos merges seguidos no despliegan a la vez: el segundo espera al primero.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    uses: ./.github/workflows/backend.yml
+
+  app:
+    uses: ./.github/workflows/app.yml
+
+  # La VM es ARM (t4g). Un runner ARM compila la imagen en nativo, sin
+  # emular: en x64 con QEMU, la compilación AOT de Dart tarda varias veces más.
+  server-image:
+    needs: backend
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          docker build -f services/serverpod/nexo_server/Dockerfile \
+            -t nexo-server:latest services/serverpod
+          docker save nexo-server:latest | gzip > nexo-server.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexo-server-image
+          path: nexo-server.tar.gz
+          retention-days: 1
+
+  web:
+    needs: app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/nexo_social
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+      - run: flutter pub get
+      - name: Build
+        run: |
+          host="${NEXO_VM_IP//./-}.sslip.io"
+          flutter build web --release \
+            --dart-define=AUTH_SOURCE=serverpod \
+            --dart-define=API_BASE_URL="https://api.$host/" \
+            --dart-define=SHARE_BASE_URL="https://$host" \
+            --dart-define=DEMO_PASSWORD=nexo-demo-2026
+        env:
+          NEXO_VM_IP: ${{ vars.NEXO_VM_IP }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexo-web
+          path: apps/nexo_social/build/web
+          retention-days: 1
+
+  deploy:
+    needs: [server-image, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC con AWS
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      NEXO_VM_IP: ${{ vars.NEXO_VM_IP }}
+      NEXO_SG_ID: ${{ vars.NEXO_SG_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: nexo-server-image
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: nexo-web
+          path: artifacts/web
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # El SSH está cerrado al mundo. Se abre sólo para la IP de este runner y
+      # se cierra al terminar, falle o no el deploy.
+      - name: Abrir SSH para este runner
+        run: |
+          ip="$(curl -fsS https://checkip.amazonaws.com | tr -d '[:space:]')"
+          echo "RUNNER_IP=$ip" >> "$GITHUB_ENV"
+          aws ec2 authorize-security-group-ingress --group-id "$NEXO_SG_ID" \
+            --ip-permissions "IpProtocol=tcp,FromPort=22,ToPort=22,IpRanges=[{CidrIp=$ip/32,Description=github-actions-${{ github.run_id }}}]"
+
+      - name: Deploy
+        env:
+          NEXO_SSH_PRIVATE_KEY: ${{ secrets.NEXO_SSH_PRIVATE_KEY }}
+          NEXO_SSH_KNOWN_HOSTS: ${{ secrets.NEXO_SSH_KNOWN_HOSTS }}
+          NEXO_DB_PASSWORD: ${{ secrets.NEXO_DB_PASSWORD }}
+          NEXO_SERVICE_SECRET: ${{ secrets.NEXO_SERVICE_SECRET }}
+          NEXO_JWT_PRIVATE_KEY: ${{ secrets.NEXO_JWT_PRIVATE_KEY }}
+          NEXO_JWT_REFRESH_PEPPER: ${{ secrets.NEXO_JWT_REFRESH_PEPPER }}
+          NEXO_EMAIL_PEPPER: ${{ secrets.NEXO_EMAIL_PEPPER }}
+          AGORA_APP_ID: ${{ secrets.AGORA_APP_ID }}
+          AGORA_APP_CERTIFICATE: ${{ secrets.AGORA_APP_CERTIFICATE }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+        run: |
+          # Sin los secretos del servidor, deploy.sh generaría unos nuevos y
+          # el servidor dejaría de poder entrar a su propia base.
+          for name in NEXO_SSH_PRIVATE_KEY NEXO_SSH_KNOWN_HOSTS NEXO_DB_PASSWORD \
+            NEXO_SERVICE_SECRET NEXO_JWT_PRIVATE_KEY NEXO_JWT_REFRESH_PEPPER NEXO_EMAIL_PEPPER; do
+            [[ -n "${!name}" ]] || { echo "::error::Falta el secreto $name"; exit 1; }
+          done
+          key="$RUNNER_TEMP/nexo-aws.pem"
+          ( umask 077; printf '%s\n' "$NEXO_SSH_PRIVATE_KEY" > "$key" )
+          NEXO_SSH_KEY="$key" \
+          NEXO_IMAGE_TAR=artifacts/nexo-server.tar.gz \
+          NEXO_WEB_DIR=artifacts/web \
+            tool/aws/deploy.sh "$NEXO_VM_IP" --web
+
+      - name: Cerrar SSH
+        if: always()
+        run: |
+          [[ -n "${RUNNER_IP:-}" ]] || exit 0
+          aws ec2 revoke-security-group-ingress --group-id "$NEXO_SG_ID" \
+            --protocol tcp --port 22 --cidr "$RUNNER_IP/32" || true
+
+      - name: Humo
+        run: |
+          host="${NEXO_VM_IP//./-}.sslip.io"
+          curl -fsS -X POST "https://api.$host/live/list" \
+            -H 'content-type: application/json' -d '{}' -o /dev/null
+          curl -fsS "https://$host/" -o /dev/null
+          {
+            echo "### Desplegado"
+            echo "- Web: https://$host/"
+            echo "- API: https://api.$host/"
+          } >> "$GITHUB_STEP_SUMMARY"

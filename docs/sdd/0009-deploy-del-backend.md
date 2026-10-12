@@ -94,6 +94,7 @@ desarrollo, `us-east-1`), en la opción más barata que cumple §2.
 | Q5 | ¿Dominio? | **sslip.io**, gratis |
 | Q6 | ¿Cuenta de AWS? | **La configurada en la máquina de desarrollo** |
 | Q7 | ¿Email? | **SMTP gratis** (Gmail o Brevo); sin credenciales, al log |
+| Q8 | ¿Cómo llegan los cambios de `main` a AWS? | **GitHub Actions** (`deploy.yml`): tests → imagen ARM → web → `deploy.sh` → humo. AWS por **OIDC** (rol con permiso sólo para abrir y cerrar el SSH del runner) y todo lo demás en **GitHub Secrets** |
 
 ---
 
@@ -110,6 +111,7 @@ desarrollo, `us-east-1`), en la opción más barata que cumple §2.
 | 7 | APK | Release `arm64` con la misma `API_BASE_URL` y `SHARE_BASE_URL=https://<ip>.sslip.io`; reemplaza el APK de Drive que apunta a la Mac (R4) | Con datos móviles y sin Wi-Fi: login, vivo entre dos teléfonos, chat, notificación |
 | 8 | Backups | `pg_dump` diario por cron en la VM, con 7 días de retención | Aparece el archivo del día |
 | 9 | Docs | README: "Producción en AWS" (provisionar, desplegar, secretos, costo y cómo apagarlo) | Otra persona redespliega siguiendo el README |
+| 10 | Deploy continuo | `tool/aws/setup-github-deploy.sh` crea el rol OIDC y carga secretos y variables; `deploy.yml` despliega cada push a `main` | Un merge a `main` aparece en producción sin intervención |
 
 Para apagarlo después de la hackathon: `tool/aws/teardown.sh` termina la VM,
 libera la Elastic IP y borra el security group. Una Elastic IP sin VM también

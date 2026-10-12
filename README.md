@@ -85,6 +85,35 @@ tool/aws/deploy.sh <ip> --web        # además, la app web de Flutter
 - **Backups:** `pg_dump` diario a `/opt/nexo/backups`, con 7 días de
   retención.
 
+### Deploy automático: cada push a `main`
+
+`.github/workflows/deploy.yml` hace esto en cada push a `main`:
+
+1. Corre los tests del backend y de la app (los mismos workflows `Backend` y `App` de los PR). Si alguno falla, no se despliega nada.
+2. Compila la imagen del servidor en un runner **ARM**, que es la arquitectura de la VM, y la web de Flutter contra la API pública.
+3. Despliega con el mismo `tool/aws/deploy.sh` que se usa a mano, y después prueba que la API y la web respondan. El resumen de la corrida muestra los links.
+
+Dos deploys nunca corren a la vez: el segundo espera al primero.
+
+**Credenciales: ninguna vive en el repo.**
+
+| Dónde | Qué |
+|---|---|
+| AWS | **Sin claves.** El workflow asume el rol `nexo-github-deploy` por OIDC. Sólo lo asumen los workflows de la rama `main` de este repo, y su único permiso es abrir y cerrar el puerto 22 del security group de Nexo |
+| SSH | Cerrado al mundo. Cada corrida abre el 22 sólo para la IP del runner y lo cierra al terminar, falle o no. La huella del servidor está fijada: si cambia, el deploy se corta |
+| GitHub Secrets | `NEXO_SSH_PRIVATE_KEY`, `NEXO_SSH_KNOWN_HOSTS`, los secretos del servidor (`NEXO_DB_PASSWORD`, `NEXO_SERVICE_SECRET`, `NEXO_JWT_PRIVATE_KEY`, `NEXO_JWT_REFRESH_PEPPER`, `NEXO_EMAIL_PEPPER`), `AGORA_APP_ID`, `AGORA_APP_CERTIFICATE` y, opcionales, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM` |
+| GitHub Variables | `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `NEXO_VM_IP` y `NEXO_SG_ID`. No son secretos |
+
+**Configurarlo desde cero** (después de `provision.sh` y del primer `deploy.sh`):
+
+```bash
+tool/aws/setup-github-deploy.sh   # crea el rol y carga secretos y variables, sin imprimir valores
+```
+
+Los secretos del servidor se copian de la VM: desde ese momento, GitHub Secrets es la fuente de verdad y cada deploy los vuelve a escribir.
+
+**Para activar el email**, cargá `SMTP_*` como secretos (`gh secret set SMTP_PASSWORD`) y corré el workflow a mano (`gh workflow run deploy.yml`) o esperá el próximo push.
+
 ### Email de los códigos de verificación
 
 Sin SMTP, el código de una cuenta nueva aparece en
