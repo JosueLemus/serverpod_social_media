@@ -19,6 +19,13 @@ typedef CreateCredentials =
       Transaction transaction,
     );
 
+/// Dónde se puede sembrar la demo: en la máquina de desarrollo y en el
+/// deploy de demostración (`staging`, SDD 0009). Nunca en `production`: ahí
+/// una variable de entorno no puede crear una cuenta con el scope `admin`.
+bool demoSeedAllowedIn(String runMode) =>
+    runMode == ServerpodRunMode.development ||
+    runMode == ServerpodRunMode.staging;
+
 class DemoAccount {
   const DemoAccount({
     required this.email,

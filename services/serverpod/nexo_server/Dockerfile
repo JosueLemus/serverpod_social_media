@@ -54,5 +54,7 @@ EXPOSE 8080
 EXPOSE 8081
 EXPOSE 8082
 
-# Define the entrypoint command
-ENTRYPOINT ./bin/server --mode=$runmode --server-id=$serverid --logging=$logging --role=$role
+# Define the entrypoint command. Los argumentos del `command` del contenedor
+# (por ejemplo `--apply-migrations`) se agregan al final; el run mode y el
+# resto salen del entorno.
+ENTRYPOINT ["/bin/sh", "-c", "exec ./bin/server --mode=$runmode --server-id=$serverid --logging=$logging --role=$role \"$@\"", "--"]

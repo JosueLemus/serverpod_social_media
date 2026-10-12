@@ -1,0 +1,23 @@
+# HTTPS de la demo con sslip.io (SDD 0009): NEXO_HOST es la IP de la VM con
+# guiones, por ejemplo 3-80-12-5.sslip.io. Caddy saca y renueva solo los
+# certificados de Let's Encrypt para los dos nombres.
+
+# La API de Serverpod, con los WebSockets de los vivos y las notificaciones.
+api.{$NEXO_HOST} {
+	encode zstd gzip
+	reverse_proxy server:8080
+}
+
+# La app web de Flutter (`deploy.sh --web` la copia a /opt/nexo/web).
+{$NEXO_HOST} {
+	encode zstd gzip
+	root * /srv/web
+
+	# El shell de la app y el service worker no se cachean: si no, un deploy
+	# nuevo tarda en llegar a quien ya la abrió.
+	@shell path / /index.html /flutter_service_worker.js /flutter_bootstrap.js
+	header @shell Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}

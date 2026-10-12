@@ -1,67 +1,52 @@
-# This is the configuration file for your staging environment. The staging
-# environment is meant to resemble the production environment as much as
-# possible and may connect to production databases services and data. You use it
-# for final testing before deploying the production server.
+# Configuración del deploy de demostración en AWS (SDD 0009): una VM con
+# `docker compose` (este servidor, Postgres y Caddy) en
+# services/serverpod/deploy/aws/. Caddy termina el HTTPS y pasa todo al 8080:
+# ningún otro puerto sale de la VM.
 #
-# Typically, you will want to route the traffic through a load balancer
-# which adds SSL security through https. If you use Serverpod's standard
-# Terraform scripts to deploy your server, all you need to change in
-# this file is the examplepod.com domain name.
+# Los valores que dependen de la máquina vienen del entorno, no de este
+# archivo:
+#   SERVERPOD_API_SERVER_PUBLIC_HOST  api.<ip>.sslip.io (las URLs de archivos)
+#   SERVERPOD_PASSWORD_<clave>        cada secreto (database, serviceSecret…)
+# Ver services/serverpod/deploy/aws/.env.example.
 
-# Configuration for the main API server.
+# El servidor de la API. El host público lo pone el entorno: es el que usan
+# las URLs de fotos y avatares que arma el almacenamiento.
 apiServer:
   port: 8080
-  publicHost: api-staging.examplepod.com
+  publicHost: api.nexo.invalid
   publicPort: 443
   publicScheme: https
 
-# Configuration for the Insights server.
+# Insights corre adentro de la VM y no se publica: Caddy no lo enruta.
 insightsServer:
   port: 8081
-  publicHost: insights-staging.examplepod.com
-  publicPort: 443
-  publicScheme: https
+  publicHost: localhost
+  publicPort: 8081
+  publicScheme: http
 
-
-# This is the database setup for your servers. The default for the Google Cloud
-# Engine Terraform configuration is to connect on a private IP address.
-# If you are connecting on a public IP (e.g. on AWS or Google Cloud Run), you
-# connect on the public IP of the database e.g. database-staging.examplepod.com.
+# Postgres es el servicio `postgres` del mismo compose, en la red interna de
+# Docker: sin SSL porque el tráfico nunca sale de la VM.
 database:
-  host: database.private-staging.examplepod.com
+  host: postgres
   port: 5432
-  name: serverpod
+  name: nexo
   user: postgres
-  requireSsl: true
-  #isUnixSocket: true # defaults to false
-  #maxConnectionCount: 10 # Defaults to 10, a negative or null value removes the limit
-
+  requireSsl: false
+  maxConnectionCount: 10
 
 maxRequestSize: 524288 # The maximum size of requests allowed in bytes
 
+# Los logs van a la consola (`docker compose logs server`), en texto. Sin
+# persistirlos en la base: en una VM de 1 GB, una tabla de logs que crece en
+# cada request es memoria y disco que le falta a Postgres.
 sessionLogs:
-# persistentEnabled: true
-# consoleEnabled: true
-# consoleLogFormat: json # Defaults to "json", options are "text" or "json"
+  persistentEnabled: false
+  consoleEnabled: true
+  consoleLogFormat: text
 
-#futureCall:
-#  enabled: true # Defaults to true, set to false to disable scheduling and running future calls
-#  executionEnabled: true # Defaults to true
-#  concurrencyLimit: 1 # Defaults to 1, a negative or null value removes the limit
-#  scanInterval: 5000 # Unit in milliseconds, defaults to 5000
-
-# Recommended when serving web clients: keeps auth tokens in httpOnly
-# cookies. Without this, web tokens live in JavaScript-readable storage,
-# where any XSS can steal them. Web clients opt in with
-# `client.cookieAuth = true`. Requires `allowedOrigins`; browsers from
-# origins not in the list lose cross-origin access, including to public
-# endpoints.
-#authCookie:
-#  sameSite: lax # Defaults to "lax", options are "strict" or "none"
-#  #name: serverpod_auth # Defaults to "serverpod_auth"
-#  #refreshName: serverpod_auth_refresh # Defaults to "<name>_refresh"
-#  #domain: examplepod.com # Defaults to host-only; set to share across subdomains
-#  #path: / # Defaults to "/"
-#  #secure: true # Defaults to true; the cookie is only sent over https
-#allowedOrigins:
-#  - https://app-staging.examplepod.com # The origin serving your Flutter web app
+# Recordatorio, expiración y replay automático de los shows (SDD 0008).
+futureCall:
+  enabled: true
+  executionEnabled: true
+  concurrencyLimit: 1
+  scanInterval: 5000
