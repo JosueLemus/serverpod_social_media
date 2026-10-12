@@ -199,8 +199,16 @@ class AuthCubit extends Cubit<AuthState> {
         // as a retry credential; request another code instead.
         if (failure.reason != AuthFailureReason.invalidCode) {
           _registration = null;
+          _formFailure(failure.reason);
+        } else {
+          // Un dígito mal tipeado no invalida el pedido: el servidor permite
+          // reintentar hasta su tope. Volver al formulario inicial obligaba a
+          // pedir otro código y descartaba el que la persona ya tenía.
+          _formFailure(
+            failure.reason,
+            operation: AuthOperation.awaitingRegistrationCode,
+          );
         }
-        _formFailure(failure.reason);
       }
     } on Failure {
       if (_isCurrent(version)) {
@@ -252,8 +260,13 @@ class AuthCubit extends Cubit<AuthState> {
       if (_isCurrent(version)) {
         if (failure.reason != AuthFailureReason.invalidCode) {
           _passwordReset = null;
+          _formFailure(failure.reason);
+        } else {
+          _formFailure(
+            failure.reason,
+            operation: AuthOperation.awaitingResetCode,
+          );
         }
-        _formFailure(failure.reason);
       }
     } on Failure {
       if (_isCurrent(version)) {
@@ -287,8 +300,10 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> acknowledgeSuspension() => signOut();
 
-  void _formFailure(AuthFailureReason reason) =>
-      _emit(AuthUnauthenticated(failure: reason));
+  void _formFailure(
+    AuthFailureReason reason, {
+    AuthOperation operation = AuthOperation.idle,
+  }) => _emit(AuthUnauthenticated(operation: operation, failure: reason));
 
   Future<void> _onSessionChanged(AppUser? user) async {
     final current = state;
