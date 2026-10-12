@@ -51,11 +51,18 @@ if ! aws iam get-open-id-connect-provider --open-id-connect-provider-arn "$OIDC"
     --client-id-list sts.amazonaws.com >/dev/null
 fi
 
+# El `sub` que manda GitHub depende del repo: con sujetos inmutables lleva los
+# IDs del dueño y del repo (`repo:Dueño@123/repo@456:…`), que no se pueden
+# reusar renombrando una cuenta. Se lee el prefijo real y se acepta también el
+# clásico, siempre sólo para main.
+prefix="$(gh api "repos/$REPO/actions/oidc/customization/sub" --jq '.sub_claim_prefix // empty' 2>/dev/null || true)"
+subjects="\"repo:$REPO:ref:refs/heads/main\""
+[[ -n "$prefix" && "$prefix" != "repo:$REPO" ]] && subjects="$subjects,\"$prefix:ref:refs/heads/main\""
 trust="$(cat <<JSON
 {"Version":"2012-10-17","Statement":[{"Effect":"Allow",
  "Principal":{"Federated":"$OIDC"},"Action":"sts:AssumeRoleWithWebIdentity",
  "Condition":{"StringEquals":{"token.actions.githubusercontent.com:aud":"sts.amazonaws.com",
-   "token.actions.githubusercontent.com:sub":"repo:$REPO:ref:refs/heads/main"}}}]}
+   "token.actions.githubusercontent.com:sub":[$subjects]}}}]}
 JSON
 )"
 policy="$(cat <<JSON
