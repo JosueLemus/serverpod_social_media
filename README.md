@@ -116,9 +116,35 @@ Los secretos del servidor se copian de la VM: desde ese momento, GitHub Secrets 
 
 ### Email de los códigos de verificación
 
-Sin SMTP, el código de una cuenta nueva aparece en
-`docker compose logs server`. Para mandarlo por correo, el deploy toma estas
-variables:
+Registrarse y restablecer la contraseña mandan un código de 8 números, que
+vence a los 15 minutos. Sin SMTP, el código aparece en
+`docker compose logs server`, que es lo que pasa hasta cargar la contraseña de
+Gmail. Las cuentas de demo no lo necesitan.
+
+**Activarlo en producción, gratis, con Gmail (unos 500 mails por día):**
+
+1. En la cuenta de Google que envía, activá la **verificación en 2 pasos**
+   (https://myaccount.google.com/signinoptions/twosv). Sin eso Google no deja
+   crear contraseñas de aplicación.
+2. Creá una **contraseña de aplicación** en
+   https://myaccount.google.com/apppasswords, con el nombre "Nexo". Google
+   muestra 16 letras en cuatro grupos; los espacios no importan.
+3. Desde el repo, con `gh` logueado, corré:
+
+   ```bash
+   tool/aws/set-smtp-password.sh
+   ```
+
+   Pide la contraseña sin mostrarla, la guarda en GitHub Secrets
+   (`SMTP_PASSWORD`, junto con `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` y
+   `SMTP_FROM`) y dispara el deploy. Desde ese momento los códigos llegan por
+   mail, y el log sólo dice a quién se mandó, sin el código.
+
+Si el envío falla (contraseña revocada, límite diario de Gmail), el registro
+no se corta: el log dice `Failed to send verification email … via
+smtp.gmail.com` y la persona puede tocar **Solicitar un código nuevo**.
+
+Para un deploy a mano, sin CI, el script de deploy toma las mismas variables:
 
 ```bash
 # Gmail: una dirección con verificación en dos pasos y una contraseña de aplicación

@@ -1,5 +1,6 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -772,6 +773,10 @@ class _AuthFormState extends State<AuthForm> {
   final verificationCode = TextEditingController();
   bool _resetComplete = false;
 
+  /// La persona pidió otro código: se le confirma que salió, porque un
+  /// botón que no da señal se toca dos veces y manda dos correos.
+  bool _resent = false;
+
   @override
   void dispose() {
     email.dispose();
@@ -782,6 +787,7 @@ class _AuthFormState extends State<AuthForm> {
 
   Future<void> _submit(AuthOperation operation) async {
     final auth = context.read<AuthCubit>();
+    setState(() => _resent = false);
     if (widget.resetPassword) {
       if (operation == AuthOperation.awaitingResetCode) {
         await auth.finishPasswordReset(
@@ -808,6 +814,15 @@ class _AuthFormState extends State<AuthForm> {
     } else {
       await auth.signIn(email.text, password.text);
     }
+  }
+
+  Future<void> _resend(bool isReset) async {
+    final auth = context.read<AuthCubit>();
+    verificationCode.clear();
+    await (isReset
+        ? auth.startPasswordReset(email.text)
+        : auth.startRegistration(email.text));
+    if (mounted) setState(() => _resent = true);
   }
 
   @override
@@ -854,15 +869,39 @@ class _AuthFormState extends State<AuthForm> {
                   TextField(
                     key: const Key('auth-email'),
                     controller: email,
+                    // El código es de ese correo: cambiarlo a mitad de camino
+                    // verificaría un pedido con otra dirección.
+                    readOnly: awaitingCode,
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(labelText: 'Email'),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   if (awaitingCode) ...[
+                    Text(
+                      key: const Key('auth-code-hint'),
+                      'Te enviamos un código de 8 números a '
+                      '${email.text.trim()}. Puede tardar un minuto: '
+                      'revisa también Spam o Promociones.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (_resent && authState?.failure == null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        key: const Key('auth-code-resent'),
+                        'Listo: te mandamos un código nuevo.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
                     TextField(
                       key: const Key('auth-verification-code'),
                       controller: verificationCode,
                       keyboardType: TextInputType.number,
+                      autofillHints: const [AutofillHints.oneTimeCode],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(8),
+                      ],
                       decoration: const InputDecoration(
                         labelText: 'Código de verificación',
                       ),
@@ -909,15 +948,8 @@ class _AuthFormState extends State<AuthForm> {
                   if ((widget.signUp && awaitingCode) ||
                       (isReset && awaitingCode))
                     TextButton(
-                      onPressed: busy
-                          ? null
-                          : () => isReset
-                                ? context.read<AuthCubit>().startPasswordReset(
-                                    email.text,
-                                  )
-                                : context.read<AuthCubit>().startRegistration(
-                                    email.text,
-                                  ),
+                      key: const Key('auth-resend-code'),
+                      onPressed: busy ? null : () => _resend(isReset),
                       child: const Text('Solicitar un código nuevo'),
                     ),
                   if (!widget.signUp && !isReset)

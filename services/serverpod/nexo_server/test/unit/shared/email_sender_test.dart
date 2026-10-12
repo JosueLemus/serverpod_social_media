@@ -66,6 +66,37 @@ void main() {
     });
   });
 
+  group('Given an SMTP password', () {
+    test('then the Gmail app password loses the spaces Google shows', () {
+      expect(
+        normalizeSmtpPassword(
+          host: 'smtp.gmail.com',
+          password: 'abcd efgh ijkl mnop',
+        ),
+        'abcdefghijklmnop',
+      );
+    });
+
+    test('then another provider keeps the password untouched', () {
+      expect(
+        normalizeSmtpPassword(
+          host: 'smtp-relay.brevo.com',
+          password: 'clave con espacio',
+        ),
+        'clave con espacio',
+      );
+    });
+
+    test('then a Gmail password with only spaces counts as missing', () {
+      final sender = emailSenderFrom({
+        'smtpHost': 'smtp.gmail.com',
+        'smtpUser': 'nexo@gmail.com',
+        'smtpPassword': '    ',
+      }, runMode: ServerpodRunMode.staging);
+      expect(sender, isA<LogEmailSender>());
+    });
+  });
+
   group('Given the copy of the email', () {
     test('then it says what the code is for and when it expires', () {
       expect(email.subject, 'Tu código de Nexo');

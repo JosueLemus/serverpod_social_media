@@ -136,6 +136,19 @@ class SmtpEmailSender implements EmailSender {
   }
 }
 
+/// La contraseña tal como la acepta el servidor SMTP.
+///
+/// Google muestra la contraseña de aplicación en cuatro grupos separados por
+/// espacios (`abcd efgh ijkl mnop`), y pegada así Gmail rechaza el login. Sólo
+/// se toca la de Gmail: en otro proveedor un espacio puede ser parte de la
+/// clave.
+String normalizeSmtpPassword({
+  required String host,
+  required String password,
+}) => host.trim().toLowerCase() == 'smtp.gmail.com'
+    ? password.replaceAll(RegExp(r'\s'), '')
+    : password;
+
 /// Elige cómo se mandan los códigos según el run mode y los secretos.
 ///
 /// En desarrollo y tests, siempre al log. En el resto, SMTP si están
@@ -150,7 +163,10 @@ EmailSender emailSenderFrom(
   }
   final host = passwords['smtpHost']?.trim() ?? '';
   final user = passwords['smtpUser']?.trim() ?? '';
-  final password = passwords['smtpPassword'] ?? '';
+  final password = normalizeSmtpPassword(
+    host: host,
+    password: passwords['smtpPassword'] ?? '',
+  );
   if (host.isEmpty || user.isEmpty || password.isEmpty) {
     return const LogEmailSender();
   }
