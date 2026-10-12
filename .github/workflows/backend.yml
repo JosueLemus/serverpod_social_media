@@ -1,0 +1,70 @@
+name: Backend
+
+# Antes vivía en services/serverpod/.github/, donde GitHub no lo lee: ningún
+# PR corría el CI. Los workflows tienen que estar en la raíz del repo.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'services/serverpod/**'
+      - '.github/workflows/backend.yml'
+
+defaults:
+  run:
+    working-directory: services/serverpod
+
+env:
+  SERVERPOD_VERSION: '4.0.3'
+  FLUTTER_VERSION: '3.47.5'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+
+      # La configuración de test define `database.dataPath`, así que los
+      # tests corren contra un PostgreSQL embebido que levanta Serverpod. Sin
+      # Docker. Los binarios se cachean entre corridas.
+      - name: Cache embedded PostgreSQL binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/serverpod/pg-binaries
+          key: serverpod-pg-binaries-${{ runner.os }}-${{ env.SERVERPOD_VERSION }}
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Install Serverpod CLI
+        run: |
+          dart install serverpod_cli@$SERVERPOD_VERSION
+          echo "${XDG_STATE_HOME:-$HOME/.local/state}/Dart/install/bin" >> "$GITHUB_PATH"
+
+      # El código generado se versiona. Si alguien cambió un modelo y no
+      # regeneró, el cliente de la app queda desfasado del servidor.
+      - name: Generated code is up to date
+        run: |
+          (cd nexo_server && serverpod generate)
+          git diff --exit-code -- nexo_server/lib/src/generated nexo_client
+
+      - name: Analyze
+        working-directory: services/serverpod/nexo_server
+        run: dart analyze --fatal-infos
+
+      - name: Format
+        working-directory: services/serverpod/nexo_server
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Tests
+        working-directory: services/serverpod/nexo_server
+        env:
+          # La base de test es efímera y se crea en cada corrida: la
+          # contraseña no protege nada.
+          SERVERPOD_PASSWORD_database: ci-only
+        run: dart test

@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
 import 'package:serverpod_cloud_storage/serverpod_cloud_storage.dart';
 
 import 'src/generated/serverpod.dart';
+import 'src/shared/demo/demo_seed.dart';
 
 /// The starting point of the Serverpod server.
 void run(List<String> args) async {
@@ -48,4 +51,40 @@ void run(List<String> args) async {
 
   // Start the server.
   await pod.start();
+
+  await _seedDemoIfAsked(pod);
+}
+
+/// Siembra las cuentas y el contenido de la demo local (`tool/demo.sh`).
+///
+/// Sólo en desarrollo y sólo si se pide: en producción, una variable de
+/// entorno nunca puede crear una cuenta con el scope `admin`.
+Future<void> _seedDemoIfAsked(Serverpod pod) async {
+  if (Platform.environment['NEXO_DEMO_SEED'] != '1') return;
+  if (pod.runMode != ServerpodRunMode.development) {
+    stderr.writeln('NEXO_DEMO_SEED ignorado: sólo se siembra en development.');
+    return;
+  }
+  final session = await pod.createSession(enableLogging: false);
+  try {
+    final email = AuthServices.getIdentityProvider<EmailIdp>();
+    final created = await DemoSeed(
+      (session, authUserId, address, password) async {
+        await email.admin.createEmailAuthentication(
+          session,
+          authUserId: authUserId,
+          email: address,
+          password: password,
+        );
+      },
+    ).run(session);
+    stdout.writeln(
+      created == 0
+          ? 'Demo: las cuentas ya estaban sembradas.'
+          : 'Demo: $created cuentas sembradas. Contraseña: '
+                '${DemoSeed.password}',
+    );
+  } finally {
+    await session.close();
+  }
 }

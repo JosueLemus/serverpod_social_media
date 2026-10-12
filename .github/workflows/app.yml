@@ -1,0 +1,41 @@
+name: App
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/nexo_social/**'
+      # La app depende del cliente generado por path.
+      - 'services/serverpod/nexo_client/**'
+      - '.github/workflows/app.yml'
+
+defaults:
+  run:
+    working-directory: apps/nexo_social
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # El piso es 3.47.5: con menos, `nexo_client` hace fallar el `pub get`
+      # (ver CLAUDE.md).
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      # Sin tubería: el exit code que importa es el de flutter test.
+      - name: Tests
+        run: flutter test --reporter=failures-only
