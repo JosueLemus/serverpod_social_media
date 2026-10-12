@@ -6,6 +6,11 @@ import 'package:serverpod_cloud_storage/serverpod_cloud_storage.dart';
 
 import 'src/generated/serverpod.dart';
 import 'src/shared/demo/demo_seed.dart';
+import 'src/shared/gateways/email/email_sender.dart';
+
+/// Cuánto vale un código de verificación. Es el default de Serverpod, escrito
+/// acá porque el correo le dice al usuario cuándo vence.
+const _codeLifetime = Duration(minutes: 15);
 
 /// The starting point of the Serverpod server.
 void run(List<String> args) async {
@@ -21,17 +26,7 @@ void run(List<String> args) async {
       // Use JWT for authentication keys towards the server.
       JwtConfigFromPasswords(),
     ],
-    identityProviderBuilders: [
-      // Configure the email identity provider for email/password authentication.
-      // The default setup works with Serverpod Cloud without configuration. In
-      // development the verification codes are logged to the console, and in
-      // staging and production they are sent through the Serverpod Cloud email
-      // service. If you want to use a custom provider for sending emails, use
-      // `EmailIdpConfigFromPasswords`.
-      ServerpodCloudEmailIdpConfig(
-        appDisplayName: 'Nexo Social',
-      ),
-    ],
+    identityProviderBuilders: [_emailIdpConfig(pod)],
   );
 
   // Configure cloud storage.
@@ -55,14 +50,84 @@ void run(List<String> args) async {
   await _seedDemoIfAsked(pod);
 }
 
-/// Siembra las cuentas y el contenido de la demo local (`tool/demo.sh`).
+/// Email y contraseña, con los códigos por SMTP (SDD 0009, H6).
 ///
-/// Sólo en desarrollo y sólo si se pide: en producción, una variable de
-/// entorno nunca puede crear una cuenta con el scope `admin`.
+/// No se usa `ServerpodCloudEmailIdpConfig`: fuera de Serverpod Cloud su
+/// envío no llega a nadie. Con `smtpHost`, `smtpUser` y `smtpPassword` en los
+/// secretos sale por SMTP (Gmail, Brevo…); sin ellos, y siempre en
+/// desarrollo, el código va al log.
+EmailIdpConfig _emailIdpConfig(Serverpod pod) {
+  const smtpKeys = [
+    'smtpHost',
+    'smtpPort',
+    'smtpUser',
+    'smtpPassword',
+    'smtpFrom',
+    'smtpFromName',
+  ];
+  final sender = emailSenderFrom({
+    for (final key in smtpKeys) key: ?pod.getPassword(key),
+  }, runMode: pod.runMode);
+
+  Future<void> send(
+    Session session,
+    String email,
+    String code,
+    VerificationPurpose purpose,
+  ) => sender.send(
+    VerificationEmail(
+      to: email,
+      code: code,
+      purpose: purpose,
+      validFor: _codeLifetime,
+    ),
+    log: session.alert,
+  );
+
+  return EmailIdpConfigFromPasswords(
+    registrationVerificationCodeLifetime: _codeLifetime,
+    passwordResetVerificationCodeLifetime: _codeLifetime,
+    sendRegistrationVerificationCode:
+        (
+          session, {
+          required email,
+          required accountRequestId,
+          required verificationCode,
+          required transaction,
+        }) => send(
+          session,
+          email,
+          verificationCode,
+          VerificationPurpose.registration,
+        ),
+    sendPasswordResetVerificationCode:
+        (
+          session, {
+          required email,
+          required passwordResetRequestId,
+          required verificationCode,
+          required transaction,
+        }) => send(
+          session,
+          email,
+          verificationCode,
+          VerificationPurpose.passwordReset,
+        ),
+  );
+}
+
+/// Siembra las cuentas y el contenido de la demo (`tool/demo.sh` y el
+/// deploy de AWS, que corre en `staging`).
+///
+/// Sólo si se pide y nunca en producción: ahí una variable de entorno no
+/// puede crear una cuenta con el scope `admin` (ver [demoSeedAllowedIn]).
 Future<void> _seedDemoIfAsked(Serverpod pod) async {
   if (Platform.environment['NEXO_DEMO_SEED'] != '1') return;
-  if (pod.runMode != ServerpodRunMode.development) {
-    stderr.writeln('NEXO_DEMO_SEED ignorado: sólo se siembra en development.');
+  if (!demoSeedAllowedIn(pod.runMode)) {
+    stderr.writeln(
+      'NEXO_DEMO_SEED ignorado: no se siembra en ${pod.runMode}, sólo en '
+      'development y staging.',
+    );
     return;
   }
   final session = await pod.createSession(enableLogging: false);

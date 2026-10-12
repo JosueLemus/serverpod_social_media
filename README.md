@@ -58,6 +58,91 @@ development:
   agoraAppCertificate: '<certificado>'
 ```
 
+## Producción en AWS
+
+Una sola VM con todo adentro (SDD 0009): el servidor Serverpod, Postgres y
+Caddy, con HTTPS gratis por [sslip.io](https://sslip.io). La API queda en
+`https://api.<ip-con-guiones>.sslip.io/` y la web en
+`https://<ip-con-guiones>.sslip.io/`.
+
+```bash
+tool/aws/provision.sh                # crea la VM (t4g.micro), la IP fija y el firewall
+tool/aws/deploy.sh <ip>              # imagen, compose, secretos, Caddy y backups
+tool/aws/deploy.sh <ip> --web        # además, la app web de Flutter
+```
+
+- **Imagen:** `deploy.sh` compila la imagen en la máquina de desarrollo para
+  `linux/arm64` y la carga en la VM con `docker save` / `docker load`. No
+  usa un registro.
+- **Secretos:** el primer deploy los genera en la VM, en `/opt/nexo/.env`
+  (`chmod 600`). Las claves están documentadas en
+  `services/serverpod/deploy/aws/.env.example`.
+  - Los de Agora salen del `passwords.yaml` local y viajan por SSH.
+  - `passwords.yaml` nunca entra a la imagen: lo excluye
+    `services/serverpod/.dockerignore`.
+- **Cuentas de demo:** el servidor corre en `staging`, donde el seed está
+  habilitado. En `production` no lo está.
+- **Backups:** `pg_dump` diario a `/opt/nexo/backups`, con 7 días de
+  retención.
+
+### Deploy automático: cada push a `main`
+
+`.github/workflows/deploy.yml` hace esto en cada push a `main`:
+
+1. Corre los tests del backend y de la app (los mismos workflows `Backend` y `App` de los PR). Si alguno falla, no se despliega nada.
+2. Compila la imagen del servidor en un runner **ARM**, que es la arquitectura de la VM, y la web de Flutter contra la API pública.
+3. Despliega con el mismo `tool/aws/deploy.sh` que se usa a mano, y después prueba que la API y la web respondan. El resumen de la corrida muestra los links.
+
+Dos deploys nunca corren a la vez: el segundo espera al primero.
+
+**Credenciales: ninguna vive en el repo.**
+
+| Dónde | Qué |
+|---|---|
+| AWS | **Sin claves.** El workflow asume el rol `nexo-github-deploy` por OIDC. Sólo lo asumen los workflows de la rama `main` de este repo, y su único permiso es abrir y cerrar el puerto 22 del security group de Nexo |
+| SSH | Cerrado al mundo. Cada corrida abre el 22 sólo para la IP del runner y lo cierra al terminar, falle o no. La huella del servidor está fijada: si cambia, el deploy se corta |
+| GitHub Secrets | `NEXO_SSH_PRIVATE_KEY`, `NEXO_SSH_KNOWN_HOSTS`, los secretos del servidor (`NEXO_DB_PASSWORD`, `NEXO_SERVICE_SECRET`, `NEXO_JWT_PRIVATE_KEY`, `NEXO_JWT_REFRESH_PEPPER`, `NEXO_EMAIL_PEPPER`), `AGORA_APP_ID`, `AGORA_APP_CERTIFICATE` y, opcionales, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` y `SMTP_FROM` |
+| GitHub Variables | `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `NEXO_VM_IP` y `NEXO_SG_ID`. No son secretos |
+
+**Configurarlo desde cero** (después de `provision.sh` y del primer `deploy.sh`):
+
+```bash
+tool/aws/setup-github-deploy.sh   # crea el rol y carga secretos y variables, sin imprimir valores
+```
+
+Los secretos del servidor se copian de la VM: desde ese momento, GitHub Secrets es la fuente de verdad y cada deploy los vuelve a escribir.
+
+**Para activar el email**, cargá `SMTP_*` como secretos (`gh secret set SMTP_PASSWORD`) y corré el workflow a mano (`gh workflow run deploy.yml`) o esperá el próximo push.
+
+### Email de los códigos de verificación
+
+Sin SMTP, el código de una cuenta nueva aparece en
+`docker compose logs server`. Para mandarlo por correo, el deploy toma estas
+variables:
+
+```bash
+# Gmail: una dirección con verificación en dos pasos y una contraseña de aplicación
+SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=tu.cuenta@gmail.com \
+SMTP_PASSWORD=<contraseña de aplicación> tool/aws/deploy.sh <ip>
+
+# Brevo: 300 correos por día gratis. El login y la clave SMTP están en su panel
+SMTP_HOST=smtp-relay.brevo.com SMTP_PORT=587 SMTP_USER=<login SMTP> \
+SMTP_PASSWORD=<clave SMTP> SMTP_FROM=<remitente verificado> tool/aws/deploy.sh <ip>
+```
+
+### Variables de entorno que sobreescriben la config
+
+El servidor lee `config/staging.yaml`, y el entorno pisa cualquier valor. Las
+que usa este deploy:
+- `SERVERPOD_API_SERVER_PUBLIC_HOST`: el host de las URLs de archivos.
+- `SERVERPOD_PASSWORD_<clave>`: cada secreto. Sirve para claves propias, como
+  `agoraAppCertificate` o `smtpHost`.
+
+Hay más, todas en `serverpod_shared` (`environment_variables.dart`):
+`SERVERPOD_DATABASE_HOST`, `_PORT`, `_NAME`, `_USER` y `_REQUIRE_SSL`;
+`SERVERPOD_FUTURE_CALL_ENABLED`; `SERVERPOD_SESSION_CONSOLE_LOG_ENABLED`;
+`SERVERPOD_MAX_REQUEST_SIZE`.
+
 ## Estructura
 
 ```text

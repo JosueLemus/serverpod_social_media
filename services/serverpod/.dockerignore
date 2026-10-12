@@ -1,0 +1,26 @@
+# Contexto de build de `nexo_server/Dockerfile` (`docker build -f
+# nexo_server/Dockerfile .` desde services/serverpod). Lo que no está acá
+# termina dentro de la imagen.
+
+# Secretos: los de la máquina de desarrollo incluyen el certificado de Agora.
+# En producción entran por SERVERPOD_PASSWORD_<clave> en tiempo de ejecución.
+**/config/passwords.yaml
+**/config/firebase_service_account_key.json
+**/.env
+**/.env.*
+
+# Salidas y estado local
+**/.dart_tool
+**/build
+**/.serverpod
+**/sp_*.db*
+**/*.log
+
+# Lo que el servidor no necesita para compilar ni para correr
+nexo_client
+deploy
+tool
+.vscode
+**/test
+**/*.md
+!nexo_server/migrations/**

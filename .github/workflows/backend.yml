@@ -3,8 +3,9 @@ name: Backend
 # Antes vivía en services/serverpod/.github/, donde GitHub no lo lee: ningún
 # PR corría el CI. Los workflows tienen que estar en la raíz del repo.
 on:
-  push:
-    branches: [main]
+  # En main corre dentro de deploy.yml, antes de desplegar: así un push no
+  # dispara la misma verificación dos veces y nada se despliega sin pasarla.
+  workflow_call:
   pull_request:
     branches: [main]
     paths:
@@ -43,7 +44,7 @@ jobs:
 
       - name: Install Serverpod CLI
         run: |
-          dart install serverpod_cli@$SERVERPOD_VERSION
+          dart install "serverpod_cli@$SERVERPOD_VERSION"
           echo "${XDG_STATE_HOME:-$HOME/.local/state}/Dart/install/bin" >> "$GITHUB_PATH"
 
       # El código generado se versiona. Si alguien cambió un modelo y no

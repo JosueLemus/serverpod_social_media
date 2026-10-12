@@ -1,0 +1,86 @@
+# El deploy de demostración de Nexo en una VM de AWS (SDD 0009): el servidor
+# Serverpod, Postgres y Caddy (HTTPS con sslip.io), todo en la misma máquina.
+#
+# Lo instala y lo levanta `tool/aws/deploy.sh` en /opt/nexo. A mano:
+#   cd /opt/nexo && docker compose up -d
+#
+# Los secretos viven en /opt/nexo/.env (chmod 600, nunca en el repo). Ver
+# .env.example. Sólo Caddy publica puertos: el 8080 y el 5432 no salen de la
+# red interna de Docker.
+name: nexo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nexo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+    # Para una VM de 1 GB: memoria acotada y pocas conexiones (el servidor
+    # usa hasta 10, ver config/staging.yaml).
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - effective_cache_size=192MB
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - wal_buffers=4MB
+      - -c
+      - max_connections=30
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nexo"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    mem_limit: 300m
+
+  server:
+    # La imagen de nexo_server/Dockerfile. `deploy.sh` la construye en la
+    # máquina de desarrollo y la carga acá con `docker load`.
+    image: nexo-server:latest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      runmode: staging
+      # El seed de la demo: corre en staging y nunca en production (H9).
+      NEXO_DEMO_SEED: "1"
+    command: ["--apply-migrations"]
+    expose:
+      - "8080"
+    mem_limit: 350m
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      NEXO_HOST: ${NEXO_HOST:?falta NEXO_HOST en .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 100m
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

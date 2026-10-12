@@ -13,6 +13,8 @@
 #                          de Agora con certificado). También se leen de
 #                          config/passwords.yaml: agoraAppId, agoraAppCertificate
 #   API_HOST               IP de esta máquina, para que un teléfono llegue
+#                          al servidor por Wi-Fi. También es el host de las
+#                          URLs que publica el servidor (fotos, avatares)
 #
 # Cuentas: elena@nexo.demo, operador@nexo.demo, moderador@nexo.demo,
 # tomas@nexo.demo, troll@nexo.demo, carlos@nexo.demo. Contraseña:
@@ -96,6 +98,12 @@ say "Instalando dependencias"
 (cd "$APP" && flutter pub get >/dev/null)
 
 # --- Servidor -----------------------------------------------------------------
+# Las URLs de fotos y avatares las arma el servidor con su host público. Con
+# `localhost`, un teléfono que entra por Wi-Fi recibe direcciones que apuntan
+# a sí mismo y no carga ninguna imagen.
+if [[ -n "${API_HOST:-}" ]]; then
+  export SERVERPOD_API_SERVER_PUBLIC_HOST="$API_HOST"
+fi
 say "Levantando el servidor (migraciones + datos de demo)"
 server_log="$(mktemp -t nexo-server.XXXX)"
 (cd "$SERVER" && NEXO_DEMO_SEED=1 dart run bin/main.dart --apply-migrations) \

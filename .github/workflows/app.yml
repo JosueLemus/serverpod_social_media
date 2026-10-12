@@ -1,8 +1,9 @@
 name: App
 
 on:
-  push:
-    branches: [main]
+  # En main corre dentro de deploy.yml, antes de desplegar: así un push no
+  # dispara la misma verificación dos veces y nada se despliega sin pasarla.
+  workflow_call:
   pull_request:
     branches: [main]
     paths:
