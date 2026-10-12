@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
@@ -15,11 +16,20 @@ class PostCard extends StatelessWidget {
     required this.post,
     required this.onLike,
     required this.onSave,
+    this.onComment,
+    this.onMore,
+    this.onShowLikers,
   });
 
   final Post post;
   final VoidCallback onLike;
   final VoidCallback onSave;
+
+  /// Null donde la tarjeta no puede abrir hojas (un test aislado, una vista
+  /// previa): el botón queda deshabilitado en vez de no hacer nada.
+  final VoidCallback? onComment;
+  final VoidCallback? onMore;
+  final VoidCallback? onShowLikers;
 
   @override
   Widget build(BuildContext context) => Card(
@@ -35,7 +45,7 @@ class PostCard extends StatelessWidget {
             AppSpacing.xs,
             0,
           ),
-          child: _PostHeader(post: post),
+          child: _PostHeader(post: post, onMore: onMore),
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(
@@ -53,7 +63,7 @@ class PostCard extends StatelessWidget {
         ),
         if (post.media != null) ...[
           const SizedBox(height: AppSpacing.sm),
-          _PostMedia(kind: post.media!),
+          _PostMedia(kind: post.media!, url: post.mediaUrl),
         ],
         if (post.tags.isNotEmpty)
           Padding(
@@ -71,7 +81,13 @@ class PostCard extends StatelessWidget {
           ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-          child: _PostActions(post: post, onLike: onLike, onSave: onSave),
+          child: _PostActions(
+            post: post,
+            onLike: onLike,
+            onSave: onSave,
+            onComment: onComment,
+            onShowLikers: onShowLikers,
+          ),
         ),
       ],
     ),
@@ -79,9 +95,10 @@ class PostCard extends StatelessWidget {
 }
 
 class _PostHeader extends StatelessWidget {
-  const _PostHeader({required this.post});
+  const _PostHeader({required this.post, this.onMore});
 
   final Post post;
+  final VoidCallback? onMore;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -141,22 +158,57 @@ class _PostHeader extends StatelessWidget {
       ),
       if (post.isLive) const StatusBadge(label: 'En vivo', pulse: true),
       IconButton(
+        key: Key('more-${post.id}'),
         tooltip: 'Más opciones',
         iconSize: 20,
-        onPressed: () {},
+        onPressed: onMore,
         icon: const Icon(Icons.more_horiz_rounded),
       ),
     ],
   );
 }
 
-/// Sustituto de media real. El build de hackathon no sube archivos, y un
-/// recuadro gris se lee como una imagen rota — una superficie de marca se lee
-/// como un placeholder.
+/// La foto o el video del post. Sin [url] (los posts del mock) dibuja una
+/// superficie de marca: un recuadro gris se lee como una imagen rota, una
+/// superficie de marca se lee como un placeholder.
 class _PostMedia extends StatelessWidget {
-  const _PostMedia({required this.kind});
+  const _PostMedia({required this.kind, this.url});
 
   final PostMedia kind;
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = url;
+    if (source != null && kind == PostMedia.image) {
+      return AspectRatio(
+        aspectRatio: 4 / 5,
+        child: Image.network(
+          source,
+          key: const Key('post-image'),
+          fit: BoxFit.cover,
+          // Se decodifica al ancho en que se muestra: Flutter guarda el
+          // bitmap a resolución nativa si no se le dice otra cosa.
+          cacheWidth: 1080,
+          loadingBuilder: (context, child, progress) =>
+              progress == null ? child : const _MediaPlaceholder(),
+          errorBuilder: (context, error, stack) =>
+              const _MediaPlaceholder(broken: true),
+        ),
+      );
+    }
+    if (source != null && kind == PostMedia.video) {
+      return _InlineVideo(url: source);
+    }
+    return _MediaPlaceholder(kind: kind);
+  }
+}
+
+class _MediaPlaceholder extends StatelessWidget {
+  const _MediaPlaceholder({this.kind = PostMedia.image, this.broken = false});
+
+  final PostMedia kind;
+  final bool broken;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
@@ -171,7 +223,9 @@ class _PostMedia extends StatelessWidget {
       ),
       child: Center(
         child: Icon(
-          kind == PostMedia.video
+          broken
+              ? Icons.broken_image_outlined
+              : kind == PostMedia.video
               ? Icons.play_circle_fill_rounded
               : Icons.image_outlined,
           size: kind == PostMedia.video ? 54 : 38,
@@ -180,6 +234,76 @@ class _PostMedia extends StatelessWidget {
       ),
     ),
   );
+}
+
+/// Un video del feed: se reproduce al tocarlo y se pausa al volver a tocar.
+/// No arranca solo: diez videos sonando a la vez en un feed no se miran, se
+/// cierran.
+class _InlineVideo extends StatefulWidget {
+  const _InlineVideo({required this.url});
+
+  final String url;
+
+  @override
+  State<_InlineVideo> createState() => _InlineVideoState();
+}
+
+class _InlineVideoState extends State<_InlineVideo> {
+  late final VideoPlayerController _controller =
+      VideoPlayerController.networkUrl(Uri.parse(widget.url));
+  var _ready = false;
+  var _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.initialize().then(
+      (_) {
+        if (mounted) setState(() => _ready = true);
+      },
+      onError: (Object _) {
+        if (mounted) setState(() => _failed = true);
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (!_ready) return;
+    setState(() {
+      _controller.value.isPlaying ? _controller.pause() : _controller.play();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) return const _MediaPlaceholder(broken: true);
+    if (!_ready) return const _MediaPlaceholder(kind: PostMedia.video);
+    return GestureDetector(
+      key: const Key('post-video'),
+      onTap: _toggle,
+      child: AspectRatio(
+        aspectRatio: _controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(_controller),
+            if (!_controller.value.isPlaying)
+              const Icon(
+                Icons.play_circle_fill_rounded,
+                size: 56,
+                color: Colors.white,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TagChip extends StatelessWidget {
@@ -210,11 +334,15 @@ class _PostActions extends StatelessWidget {
     required this.post,
     required this.onLike,
     required this.onSave,
+    this.onComment,
+    this.onShowLikers,
   });
 
   final Post post;
   final VoidCallback onLike;
   final VoidCallback onSave;
+  final VoidCallback? onComment;
+  final VoidCallback? onShowLikers;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -235,6 +363,8 @@ class _PostActions extends StatelessWidget {
         label: '${post.displayLikes}',
         tooltip: post.isLiked ? 'Quitar me gusta' : 'Me gusta',
         onTap: onLike,
+        // Mantener apretado muestra quién dio like: el toque ya es el like.
+        onLongPress: onShowLikers,
         emphasised: post.isLiked,
       ),
       _ActionButton(
@@ -246,7 +376,7 @@ class _PostActions extends StatelessWidget {
         ),
         label: '${post.comments}',
         tooltip: 'Comentar',
-        onTap: () {},
+        onTap: onComment,
       ),
       _ActionButton(
         buttonKey: Key('share-${post.id}'),
@@ -255,8 +385,10 @@ class _PostActions extends StatelessWidget {
           size: 19,
           color: AppColors.textSecondary,
         ),
-        tooltip: 'Compartir',
-        onTap: () {},
+        tooltip: 'Compartir (próximamente)',
+        // Deshabilitado y no un tap que no hace nada: un botón que no
+        // responde se lee como un bug.
+        onTap: null,
       ),
       const Spacer(),
       IconButton(
@@ -279,6 +411,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.onLongPress,
     this.label,
     this.emphasised = false,
   });
@@ -287,7 +420,8 @@ class _ActionButton extends StatelessWidget {
   final Widget icon;
   final String? label;
   final String tooltip;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   /// Tiñe también el número, no sólo el ícono: con el corazón rojo y el
   /// contador gris, el conteo se lee como si perteneciera a otra acción.
@@ -299,6 +433,7 @@ class _ActionButton extends StatelessWidget {
     child: InkWell(
       key: buttonKey,
       onTap: onTap,
+      onLongPress: onLongPress,
       borderRadius: AppRadii.pill,
       child: Padding(
         padding: const EdgeInsets.symmetric(

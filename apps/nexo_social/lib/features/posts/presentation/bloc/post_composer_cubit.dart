@@ -2,8 +2,14 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/storage/mock_social_store.dart';
+import '../../../../core/errors/failures.dart';
+import '../../../../core/media/media_picker.dart';
+import '../../../feed/domain/entities/media_rules.dart';
 import '../../../feed/domain/entities/post.dart';
+import '../../../feed/domain/entities/post_extras.dart';
+import '../../../feed/domain/repositories/post_repository.dart';
+
+export '../../../feed/domain/entities/post.dart' show PostMedia, PostVisibility;
 
 /// Qué se está componiendo. El diseño pone Post y En vivo en el mismo
 /// compositor porque la decisión es la misma —qué quiero contar y a quién—:
@@ -17,17 +23,13 @@ enum ComposerMode {
   final String label;
 }
 
-/// Quién puede verlo. Es una decisión del dominio, no un adorno: el backend
-/// filtra el feed por esto, y "todos" nunca puede ser un default accidental.
-enum PostVisibility {
-  public('Público', 'Todos'),
-  followers('Seguidores', 'Solo quien te sigue'),
-  members('Miembros', 'Solo suscriptores Pro');
-
-  const PostVisibility(this.label, this.detail);
-
-  final String label;
-  final String detail;
+/// Por qué no se pudo adjuntar o publicar. La View lo traduce.
+enum ComposerIssue {
+  fileTooLarge,
+  unsupportedFile,
+  publishFailed,
+  offline,
+  forbidden,
 }
 
 /// Una encuesta en edición.
@@ -68,19 +70,32 @@ class PostComposerIdle extends PostComposerState {
     this.text = '',
     this.mode = ComposerMode.post,
     this.visibility = PostVisibility.public,
-    this.media,
+    this.attachment,
     this.poll,
     this.allowComments = true,
     this.notifyVip = true,
+    this.isPublishing = false,
+    this.issue,
+    this.issueSerial = 0,
   });
 
   final String text;
   final ComposerMode mode;
   final PostVisibility visibility;
-  final PostMedia? media;
+
+  /// El archivo elegido, con sus bytes. Uno solo: el diseño muestra una
+  /// pieza de media.
+  final MediaAttachment? attachment;
+  PostMedia? get media => attachment?.kind;
   final DraftPoll? poll;
   final bool allowComments;
   final bool notifyVip;
+
+  /// Subiendo el archivo y publicando. Deshabilita el CTA: un doble toque no
+  /// puede publicar dos veces.
+  final bool isPublishing;
+  final ComposerIssue? issue;
+  final int issueSerial;
 
   int get length => text.characters.length;
 
@@ -88,6 +103,7 @@ class PostComposerIdle extends PostComposerState {
   /// re-derivaba inline, así que la regla vivía en dos lugares y podía
   /// separarse.
   bool get canPublish {
+    if (isPublishing) return false;
     if (text.trim().isEmpty || length > PostComposerCubit.maxLength) {
       return false;
     }
@@ -101,20 +117,26 @@ class PostComposerIdle extends PostComposerState {
     String? text,
     ComposerMode? mode,
     PostVisibility? visibility,
-    PostMedia? media,
+    MediaAttachment? attachment,
     DraftPoll? poll,
     bool? allowComments,
     bool? notifyVip,
+    bool? isPublishing,
+    ComposerIssue? issue,
+    int? issueSerial,
     bool clearMedia = false,
     bool clearPoll = false,
   }) => PostComposerIdle(
     text: text ?? this.text,
     mode: mode ?? this.mode,
     visibility: visibility ?? this.visibility,
-    media: clearMedia ? null : (media ?? this.media),
+    attachment: clearMedia ? null : (attachment ?? this.attachment),
     poll: clearPoll ? null : (poll ?? this.poll),
     allowComments: allowComments ?? this.allowComments,
     notifyVip: notifyVip ?? this.notifyVip,
+    isPublishing: isPublishing ?? this.isPublishing,
+    issue: issue ?? this.issue,
+    issueSerial: issueSerial ?? this.issueSerial,
   );
 
   @override
@@ -122,10 +144,13 @@ class PostComposerIdle extends PostComposerState {
     text,
     mode,
     visibility,
-    media,
+    attachment,
     poll,
     allowComments,
     notifyVip,
+    isPublishing,
+    issue,
+    issueSerial,
   ];
 }
 
@@ -134,9 +159,12 @@ class PostComposerPublished extends PostComposerState {
 }
 
 class PostComposerCubit extends Cubit<PostComposerState> {
-  PostComposerCubit(this._store) : super(const PostComposerIdle());
+  PostComposerCubit(this._posts, [MediaPicker? picker])
+    : _picker = picker ?? DeviceMediaPicker(),
+      super(const PostComposerIdle());
 
-  final MockSocialStore _store;
+  final PostRepository _posts;
+  final MediaPicker _picker;
 
   static const maxLength = 500;
 
@@ -157,13 +185,26 @@ class PostComposerCubit extends Cubit<PostComposerState> {
     emit(_draft.copyWith(visibility: visibility));
   }
 
-  void attach(PostMedia media) {
+  /// Abre el selector del dispositivo. Adjuntar reemplaza: el diseño muestra
+  /// una sola pieza de media, y una lista de adjuntos sin UI para
+  /// reordenarlos es una lista que no se puede corregir.
+  Future<void> attach(PostMedia kind) async {
     if (state is! PostComposerIdle) return;
-    // Adjuntar reemplaza: el diseño muestra una sola pieza de media, y una
-    // lista de adjuntos sin UI para reordenarlos es una lista que no se puede
-    // corregir.
-    emit(_draft.copyWith(media: media));
+    final picked = await _picker.pick(kind);
+    if (picked == null || isClosed || state is! PostComposerIdle) return;
+    if (!MediaRules.accepts(kind, picked.contentType)) {
+      _flag(ComposerIssue.unsupportedFile);
+      return;
+    }
+    if (picked.sizeBytes > MediaRules.maxBytes(kind)) {
+      _flag(ComposerIssue.fileTooLarge);
+      return;
+    }
+    emit(_draft.copyWith(attachment: picked));
   }
+
+  void _flag(ComposerIssue issue) =>
+      emit(_draft.copyWith(issue: issue, issueSerial: _draft.issueSerial + 1));
 
   void removeMedia() {
     if (state is! PostComposerIdle) return;
@@ -208,27 +249,34 @@ class PostComposerCubit extends Cubit<PostComposerState> {
     final current = state;
     if (current is! PostComposerIdle || !current.canPublish) return;
 
-    final posts = _store.readPosts();
-    posts.insert(
-      0,
-      Post(
-        // Temporal y no `draft-${length + 1}`: ese esquema repite un id apenas
-        // se borra algo, y dos posts con la misma key hacen que la lista
-        // reutilice el elemento equivocado.
-        id: 'draft-${DateTime.now().microsecondsSinceEpoch}',
-        author: 'elena_ux',
-        name: 'Elena Vega',
-        body: current.text.trim(),
-        tags: const ['Nuevo'],
-        likes: 0,
-        comments: 0,
-        createdAt: DateTime.now(),
-        media: current.media,
-        isFollowed: true,
-        authorIsVerified: true,
-      ),
-    );
-    await _store.savePosts(posts);
-    emit(const PostComposerPublished());
+    emit(current.copyWith(isPublishing: true));
+    final body = current.text.trim();
+    try {
+      // Las encuestas todavía no existen en el servidor: se componen pero no
+      // viajan. El texto sí, y las etiquetas salen de sus #hashtags.
+      await _posts.create(
+        PostDraftInput(
+          body: body,
+          tags: MediaRules.tagsIn(body),
+          visibility: current.visibility,
+          allowComments: current.allowComments,
+          attachment: current.attachment,
+        ),
+      );
+      if (!isClosed) emit(const PostComposerPublished());
+    } on Failure catch (failure) {
+      if (isClosed) return;
+      emit(
+        _draft.copyWith(
+          isPublishing: false,
+          issue: switch (failure) {
+            NetworkFailure() => ComposerIssue.offline,
+            ForbiddenFailure() => ComposerIssue.forbidden,
+            _ => ComposerIssue.publishFailed,
+          },
+          issueSerial: _draft.issueSerial + 1,
+        ),
+      );
+    }
   }
 }

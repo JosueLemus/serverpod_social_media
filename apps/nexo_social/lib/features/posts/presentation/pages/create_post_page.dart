@@ -37,7 +37,23 @@ class _ComposerViewState extends State<_ComposerView> {
   }
 
   @override
-  Widget build(BuildContext context) =>
+  Widget build(BuildContext context) => MultiBlocListener(
+    listeners: [
+      // Un archivo rechazado o una publicación que falló se avisa una vez,
+      // en el momento. El borrador queda como estaba para reintentar.
+      BlocListener<PostComposerCubit, PostComposerState>(
+        listenWhen: (previous, current) =>
+            current is PostComposerIdle &&
+            current.issue != null &&
+            (previous is! PostComposerIdle ||
+                previous.issueSerial != current.issueSerial),
+        listener: (context, state) =>
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text((state as PostComposerIdle).issue!.message),
+              ),
+            ),
+      ),
       BlocListener<PostComposerCubit, PostComposerState>(
         listenWhen: (previous, current) => current is PostComposerPublished,
         listener: (context, state) {
@@ -54,91 +70,92 @@ class _ComposerViewState extends State<_ComposerView> {
             const SnackBar(content: Text('Publicación creada')),
           );
         },
-        child: Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            titleSpacing: AppSpacing.md,
-            // El tema centra los títulos, y centrar le da al `title`
-            // restricciones sueltas: esta barra ocupa el ancho completo, así
-            // que centrada se mide por su contenido y desborda en un teléfono
-            // angosto.
-            centerTitle: false,
-            title: const _ComposerBar(),
-          ),
-          body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 640),
-                child: BlocBuilder<PostComposerCubit, PostComposerState>(
-                  builder: (context, state) {
-                    if (state is! PostComposerIdle) {
-                      return const SizedBox.shrink();
-                    }
-                    final cubit = context.read<PostComposerCubit>();
-                    return ListView(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xs,
-                        AppSpacing.md,
-                        AppSpacing.xl,
+      ),
+    ],
+    child: Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        titleSpacing: AppSpacing.md,
+        // El tema centra los títulos, y centrar le da al `title`
+        // restricciones sueltas: esta barra ocupa el ancho completo, así
+        // que centrada se mide por su contenido y desborda en un teléfono
+        // angosto.
+        centerTitle: false,
+        title: const _ComposerBar(),
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: BlocBuilder<PostComposerCubit, PostComposerState>(
+              builder: (context, state) {
+                if (state is! PostComposerIdle) {
+                  return const SizedBox.shrink();
+                }
+                final cubit = context.read<PostComposerCubit>();
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.xs,
+                    AppSpacing.md,
+                    AppSpacing.xl,
+                  ),
+                  children: [
+                    ComposerModeTabs(
+                      mode: state.mode,
+                      onChanged: cubit.setMode,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    _AuthorRow(visibility: state.visibility),
+                    const SizedBox(height: AppSpacing.xs),
+                    _Editor(
+                      controller: _controller,
+                      state: state,
+                      onChanged: cubit.change,
+                    ),
+                    if (state.attachment != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      ComposerMediaPreview(
+                        attachment: state.attachment!,
+                        onRemove: cubit.removeMedia,
                       ),
-                      children: [
-                        ComposerModeTabs(
-                          mode: state.mode,
-                          onChanged: cubit.setMode,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        _AuthorRow(visibility: state.visibility),
-                        const SizedBox(height: AppSpacing.xs),
-                        _Editor(
-                          controller: _controller,
-                          state: state,
-                          onChanged: cubit.change,
-                        ),
-                        if (state.media != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          ComposerMediaPreview(
-                            media: state.media!,
-                            onRemove: cubit.removeMedia,
-                          ),
-                        ],
-                        if (state.poll != null) ...[
-                          const SizedBox(height: AppSpacing.sm),
-                          ComposerPollEditor(
-                            poll: state.poll!,
-                            onChanged: cubit.setPollOption,
-                            onAddOption: cubit.addPollOption,
-                            onRemove: cubit.togglePoll,
-                          ),
-                        ],
-                        const SizedBox(height: AppSpacing.sm),
-                        ComposerAttachments(
-                          onAttach: cubit.attach,
-                          onPoll: cubit.togglePoll,
-                          pollActive: state.poll != null,
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        const Enter(child: ComposerAiTeaser()),
-                        const SizedBox(height: AppSpacing.md),
-                        ComposerToggles(
-                          allowComments: state.allowComments,
-                          notifyVip: state.notifyVip,
-                          onAllowComments: (value) =>
-                              cubit.setAllowComments(value: value),
-                          onNotifyVip: (value) =>
-                              cubit.setNotifyVip(value: value),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        const _CommunityNote(),
-                      ],
-                    );
-                  },
-                ),
-              ),
+                    ],
+                    if (state.poll != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      ComposerPollEditor(
+                        poll: state.poll!,
+                        onChanged: cubit.setPollOption,
+                        onAddOption: cubit.addPollOption,
+                        onRemove: cubit.togglePoll,
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.sm),
+                    ComposerAttachments(
+                      onAttach: cubit.attach,
+                      onPoll: cubit.togglePoll,
+                      pollActive: state.poll != null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    const Enter(child: ComposerAiTeaser()),
+                    const SizedBox(height: AppSpacing.md),
+                    ComposerToggles(
+                      allowComments: state.allowComments,
+                      notifyVip: state.notifyVip,
+                      onAllowComments: (value) =>
+                          cubit.setAllowComments(value: value),
+                      onNotifyVip: (value) => cubit.setNotifyVip(value: value),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    const _CommunityNote(),
+                  ],
+                );
+              },
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 }
 
 /// Cancelar · estado del borrador · Publicar, en la barra superior.
@@ -212,8 +229,20 @@ class _ComposerBar extends StatelessWidget {
                           ? context.read<PostComposerCubit>().publish
                           : null,
                       iconAlignment: IconAlignment.end,
-                      icon: const Icon(Icons.send_rounded, size: 15),
-                      label: const Text('Publicar'),
+                      icon: draft?.isPublishing ?? false
+                          ? const SizedBox.square(
+                              dimension: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded, size: 15),
+                      label: Text(
+                        draft?.isPublishing ?? false
+                            ? 'Publicando…'
+                            : 'Publicar',
+                      ),
                       style: FilledButton.styleFrom(
                         minimumSize: const Size(0, 36),
                         padding: const EdgeInsets.symmetric(
