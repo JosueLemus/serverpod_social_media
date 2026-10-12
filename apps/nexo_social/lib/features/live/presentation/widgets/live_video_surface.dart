@@ -55,7 +55,10 @@ class _StatusCaption extends StatelessWidget {
   final LiveMediaRole role;
 
   String? get _text => switch ((state.phase, state.issue)) {
-    (LiveMediaPhase.failed, LiveMediaIssue.permissionDenied) =>
+    (
+      LiveMediaPhase.failed,
+      LiveMediaIssue.permissionDenied || LiveMediaIssue.permissionBlocked,
+    ) =>
       'Sin permiso de cámara o micrófono. Actívalo en los ajustes.',
     (LiveMediaPhase.failed, _) =>
       'No pudimos conectar el video. El chat sigue funcionando.',

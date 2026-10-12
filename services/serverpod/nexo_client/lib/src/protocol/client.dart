@@ -30,6 +30,18 @@ import 'package:nexo_client/src/protocol/modules/identity/models/profile_edit.da
     as _ih9nymjn;
 import 'package:nexo_client/src/protocol/modules/identity/models/profile_view.dart'
     as _iaqpe3js;
+import 'package:nexo_client/src/protocol/modules/live/models/live_chat_message_view.dart'
+    as _iksujo4g;
+import 'package:nexo_client/src/protocol/modules/live/models/live_event.dart'
+    as _ihybkmik;
+import 'package:nexo_client/src/protocol/modules/live/models/live_media_grant.dart'
+    as _iio5lkou;
+import 'package:nexo_client/src/protocol/modules/live/models/live_show_draft.dart'
+    as _imx9qecc;
+import 'package:nexo_client/src/protocol/modules/live/models/live_show_role.dart'
+    as _iim040ig;
+import 'package:nexo_client/src/protocol/modules/live/models/live_show_view.dart'
+    as _igcmn4rt;
 import 'package:nexo_client/src/protocol/modules/moderation/models/moderation_reason.dart'
     as _ie0oo619;
 import 'package:nexo_client/src/protocol/modules/moderation/models/report_decision.dart'
@@ -422,6 +434,173 @@ class EndpointProfiles extends _isc.EndpointRef {
       );
 }
 
+/// Vivos: programar, iniciar, terminar, mirar y chatear. Desde Flutter:
+/// `client.live`.
+///
+/// Mirar es público: un invitado ve los shows y su chat. Todo lo que escribe
+/// exige sesión y responde [NexoException] con el código del motivo. Lo que
+/// cambia llega en tiempo real por [watch] y [watchIndex].
+/// {@category Endpoint}
+class EndpointLive extends _isc.EndpointRef {
+  EndpointLive(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'live';
+
+  /// Programa un show. Sólo un creador verificado con la cuenta activa.
+  _ida.Future<_igcmn4rt.LiveShowView> schedule(_imx9qecc.LiveShowDraft draft) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'schedule',
+        {'draft': draft},
+      );
+
+  /// Pone el show al aire. Sólo el host, creador verificado y activo, y sin
+  /// otro vivo al aire.
+  _ida.Future<_igcmn4rt.LiveShowView> start(int showId) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'start',
+        {'showId': showId},
+      );
+
+  /// Termina el vivo y lo deja como replay. El host o un operador.
+  _ida.Future<_igcmn4rt.LiveShowView> end(int showId) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'end',
+        {'showId': showId},
+      );
+
+  /// Publica el replay. El host o un operador, si el show guarda replay.
+  _ida.Future<_igcmn4rt.LiveShowView> publish(int showId) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'publish',
+        {'showId': showId},
+      );
+
+  /// Cancela un show que todavía no arrancó. El host o un operador.
+  _ida.Future<_igcmn4rt.LiveShowView> cancel(int showId) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'cancel',
+        {'showId': showId},
+      );
+
+  /// "Transmitir ahora": crea el show y lo pone al aire en un paso. El mismo
+  /// gate que [start]: creador verificado, activo y sin otro vivo al aire.
+  _ida.Future<_igcmn4rt.LiveShowView> goLive(String title) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'goLive',
+        {'title': title},
+      );
+
+  /// La credencial para entrar al canal de video del show. El servidor
+  /// decide el rol: publica sólo el host con el show al aire.
+  _ida.Future<_iio5lkou.LiveMediaGrant> mediaToken(int showId) =>
+      caller.callServerEndpoint<_iio5lkou.LiveMediaGrant>(
+        'live',
+        'mediaToken',
+        {'showId': showId},
+      );
+
+  /// Un show. `notFound` si no existe o se retiró.
+  _ida.Future<_igcmn4rt.LiveShowView> get(int showId) =>
+      caller.callServerEndpoint<_igcmn4rt.LiveShowView>(
+        'live',
+        'get',
+        {'showId': showId},
+      );
+
+  /// Al aire, programados y replays, en ese orden (hasta 50).
+  _ida.Future<List<_igcmn4rt.LiveShowView>> list() =>
+      caller.callServerEndpoint<List<_igcmn4rt.LiveShowView>>(
+        'live',
+        'list',
+        {},
+      );
+
+  /// Los shows de la cuenta de la sesión, en cualquier estado.
+  _ida.Future<List<_igcmn4rt.LiveShowView>> mine() =>
+      caller.callServerEndpoint<List<_igcmn4rt.LiveShowView>>(
+        'live',
+        'mine',
+        {},
+      );
+
+  /// El rol de quien pide dentro del show. Sin sesión, `audience`.
+  _ida.Future<_iim040ig.LiveShowRole> roleIn(int showId) =>
+      caller.callServerEndpoint<_iim040ig.LiveShowRole>(
+        'live',
+        'roleIn',
+        {'showId': showId},
+      );
+
+  /// Chat sin los mensajes ocultos, del más viejo al más nuevo (50 por
+  /// página). [beforeId] para pedir los anteriores.
+  _ida.Future<List<_iksujo4g.LiveChatMessageView>> chatHistory(
+    int showId, {
+    int? beforeId,
+  }) => caller.callServerEndpoint<List<_iksujo4g.LiveChatMessageView>>(
+    'live',
+    'chatHistory',
+    {
+      'showId': showId,
+      'beforeId': beforeId,
+    },
+  );
+
+  /// Manda un mensaje al chat. El show tiene que estar al aire; un mensaje
+  /// por segundo por cuenta.
+  _ida.Future<_iksujo4g.LiveChatMessageView> sendChat(
+    int showId,
+    String body,
+  ) => caller.callServerEndpoint<_iksujo4g.LiveChatMessageView>(
+    'live',
+    'sendChat',
+    {
+      'showId': showId,
+      'body': body,
+    },
+  );
+
+  /// Oculta un mensaje. El host del show, un moderador o un operador.
+  _ida.Future<void> hideChat(int messageId) => caller.callServerEndpoint<void>(
+    'live',
+    'hideChat',
+    {'messageId': messageId},
+  );
+
+  /// Lo que pasa en un show, en tiempo real. El primer evento es
+  /// `snapshot`; después llegan `status`, `viewers`, `chat` y `chatHidden`.
+  /// Mientras la conexión está abierta, cuenta como espectador.
+  _ida.Stream<_ihybkmik.LiveEvent> watch(int showId) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_ihybkmik.LiveEvent>,
+        _ihybkmik.LiveEvent
+      >(
+        'live',
+        'watch',
+        {'showId': showId},
+        {},
+      );
+
+  /// Cada cambio de estado de cualquier show: para que la lista de "en vivo"
+  /// se actualice sola en todos los dispositivos.
+  _ida.Stream<_igcmn4rt.LiveShowView> watchIndex() =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_igcmn4rt.LiveShowView>,
+        _igcmn4rt.LiveShowView
+      >(
+        'live',
+        'watchIndex',
+        {},
+        {},
+      );
+}
+
 /// Reportes y cola de moderación. Desde Flutter: `client.moderation`.
 ///
 /// Reportar lo puede hacer cualquiera con sesión. La cola y resolver exigen
@@ -625,6 +804,7 @@ class Client extends _isc.ServerpodClientShared {
     jwtRefresh = EndpointJwtRefresh(this);
     posts = EndpointPosts(this);
     profiles = EndpointProfiles(this);
+    live = EndpointLive(this);
     moderation = EndpointModeration(this);
     comments = EndpointComments(this);
     likes = EndpointLikes(this);
@@ -639,6 +819,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointPosts posts;
 
   late final EndpointProfiles profiles;
+
+  late final EndpointLive live;
 
   late final EndpointModeration moderation;
 
@@ -656,6 +838,7 @@ class Client extends _isc.ServerpodClientShared {
     'jwtRefresh': jwtRefresh,
     'posts': posts,
     'profiles': profiles,
+    'live': live,
     'moderation': moderation,
     'comments': comments,
     'likes': likes,

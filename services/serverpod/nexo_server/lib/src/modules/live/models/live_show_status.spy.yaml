@@ -1,0 +1,15 @@
+### En qué punto de su vida está un show. La máquina de estados vive en
+### `LiveRules.transitions`: el cliente sólo ofrece lo que el servidor acepta.
+### Mismos nombres que `LiveStatus` en la app.
+enum: LiveShowStatus
+serialized: byName
+values:
+  - draft
+  - scheduled
+  - live
+  - ending
+  - recorded
+  - published
+  - cancelled
+  - failed
+  - removed

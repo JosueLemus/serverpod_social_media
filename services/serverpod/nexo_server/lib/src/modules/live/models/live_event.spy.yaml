@@ -1,0 +1,13 @@
+### Lo que viaja por `live.watch`. Plano, con [kind] y campos opcionales: el
+### canal se tipa con una sola clase, y un cliente viejo ignora un [kind] que
+### no conoce. [role] sólo viene en `snapshot`, que arma la sesión de cada
+### espectador; los demás eventos se publican iguales para todos.
+class: LiveEvent
+fields:
+  kind: LiveEventKind
+  liveShow: LiveShowView?
+  role: LiveShowRole?
+  viewerCount: int?
+  message: LiveChatMessageView?
+  history: List<LiveChatMessageView>?
+  hiddenMessageId: int?

@@ -1,0 +1,13 @@
+### Una cuenta invitada a co-conducir un show.
+class: LiveShowGuest
+table: live_show_guest
+serverOnly: true
+fields:
+  showId: int, relation(parent=live_show, onDelete=Cascade)
+  userId: UuidValue
+  status: LiveShowGuestStatus
+  createdAt: DateTime, default=now
+indexes:
+  live_show_guest_unique_idx:
+    fields: showId, userId
+    unique: true

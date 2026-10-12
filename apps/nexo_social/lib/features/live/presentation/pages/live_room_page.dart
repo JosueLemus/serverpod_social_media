@@ -11,14 +11,13 @@ import '../../../../core/animations/app_motion.dart';
 import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
-import '../../../moderation/presentation/widgets/moderation_sheet.dart';
-import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../domain/entities/live_session.dart';
 import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_card.dart';
+import '../widgets/live_chat.dart';
 import '../widgets/live_media_sync.dart';
 import '../widgets/live_video_surface.dart';
 
@@ -72,6 +71,10 @@ class _RoomViewState extends State<_RoomView> {
 
   void _leave() => context.go(AppRoutes.explore);
 
+  /// Atrás de verdad cuando se llegó empujando (desde el feed o un perfil);
+  /// si la sala se abrió directo, Explorar es el único "atrás" que existe.
+  void _back() => context.canPop() ? context.pop() : _leave();
+
   @override
   Widget build(
     BuildContext context,
@@ -120,6 +123,7 @@ class _RoomViewState extends State<_RoomView> {
           );
         }
 
+        final ending = _RoomEnding.of(session.status);
         return Scaffold(
           backgroundColor: AppColors.stageDark,
           // El teclado no debe redimensionar el video: con resize, escribir
@@ -133,20 +137,63 @@ class _RoomViewState extends State<_RoomView> {
                 fallback: _Stage(),
               ),
               const _StageScrim(),
+              // Terminado: un velo parejo sobre el último cuadro. La sala no
+              // se queda congelada como si siguiera al aire.
+              if (ending != null)
+                const IgnorePointer(
+                  child: ColoredBox(color: AppColors.stageScrim),
+                ),
               SafeArea(
                 child: Column(
                   children: [
                     _RoomTopBar(session: session, onLeave: _leave),
+                    // Se cortó el tiempo real: decirlo, en vez de dejar un
+                    // chat que parece vivo y no recibe nada.
+                    if (state.reconnecting && ending == null)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: StatusBadge(
+                            key: Key('live-reconnecting'),
+                            label: 'RECONECTANDO',
+                            color: AppColors.neutral,
+                            icon: Icons.sync_rounded,
+                          ),
+                        ),
+                      ),
                     const Spacer(),
-                    if (state.pinnedComment != null)
-                      _PinnedComment(comment: state.pinnedComment!),
-                    _ChatOverlay(comments: state.comments),
-                    _Composer(
-                      controller: _composer,
-                      loved: state.loved,
-                      onSend: _send,
-                      onLove: context.read<LiveRoomCubit>().toggleLove,
-                    ),
+                    if (ending != null) ...[
+                      _EndedPanel(
+                        session: session,
+                        ending: ending,
+                        onBack: _back,
+                        onMore: _leave,
+                      ),
+                      const Spacer(),
+                    ] else ...[
+                      if (state.pinnedComment != null)
+                        _PinnedComment(comment: state.pinnedComment!),
+                      LiveChatOverlay(comments: state.comments),
+                      LiveChatComposer(
+                        controller: _composer,
+                        onSend: _send,
+                        trailing: [
+                          // Sin regalos todavía: apagado, no escondido.
+                          const LiveGlassButton(
+                            icon: Icons.card_giftcard_rounded,
+                            tooltip: 'Regalos: muy pronto',
+                            onTap: null,
+                          ),
+                          _LoveButton(
+                            loved: state.loved,
+                            onTap: context.read<LiveRoomCubit>().toggleLove,
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -238,7 +285,7 @@ class _RoomTopBar extends StatelessWidget {
         const SizedBox(width: AppSpacing.xs),
         ViewerPill(viewers: session.viewers, isOnAir: session.status.isOnAir),
         const SizedBox(width: AppSpacing.xs),
-        _GlassIconButton(
+        LiveGlassButton(
           icon: Icons.close_rounded,
           tooltip: 'Salir del vivo',
           onTap: onLeave,
@@ -369,271 +416,145 @@ class _PinnedComment extends StatelessWidget {
   );
 }
 
-/// Los comentarios, flotando sobre el video.
-///
-/// Alto acotado y sin fondo propio: el chat de un vivo es efímero, y un panel
-/// opaco que se come media pantalla compite con lo que la gente vino a ver.
-class _ChatOverlay extends StatelessWidget {
-  const _ChatOverlay({required this.comments});
+class _LoveButton extends StatelessWidget {
+  const _LoveButton({required this.loved, required this.onTap});
 
-  final List<LiveComment> comments;
+  final bool loved;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => LiveGlassButton(
+    key: const Key('live-love'),
+    icon: loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+    tooltip: 'Dar amor',
+    onTap: onTap,
+    background: loved ? AppColors.secondary : null,
+    child: Pop(
+      trigger: loved,
+      child: Icon(
+        loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        size: 20,
+        color: Colors.white,
+      ),
+    ),
+  );
+}
+
+/// Por qué la sala ya no está al aire. La copy la elige la View; el estado
+/// sólo dice qué pasó.
+enum _RoomEnding {
+  finished,
+  cancelled,
+  failed,
+  removed;
+
+  /// Null mientras el vivo no terminó: programado (la sala de espera) o al
+  /// aire.
+  static _RoomEnding? of(LiveStatus status) => switch (status) {
+    LiveStatus.recorded || LiveStatus.published => finished,
+    LiveStatus.cancelled => cancelled,
+    LiveStatus.failed => failed,
+    LiveStatus.removed => removed,
+    LiveStatus.draft ||
+    LiveStatus.scheduled ||
+    LiveStatus.live ||
+    LiveStatus.ending => null,
+  };
+
+  String get title => switch (this) {
+    finished => 'El vivo terminó',
+    cancelled => 'Este vivo se canceló',
+    failed => 'El vivo se cortó',
+    removed => 'Este vivo ya no está disponible',
+  };
+}
+
+/// Lo que ve quien se quedó mirando hasta el final: quién era, cuánto duró y
+/// a dónde ir. Como en cualquier red social, el final se dice; una sala que
+/// sólo deja de moverse se lee como que se colgó la app.
+class _EndedPanel extends StatelessWidget {
+  const _EndedPanel({
+    required this.session,
+    required this.ending,
+    required this.onBack,
+    required this.onMore,
+  });
+
+  final LiveSession session;
+  final _RoomEnding ending;
+  final VoidCallback onBack;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
-    if (comments.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            'Sé la primera persona en comentar',
-            style: TextStyle(color: Colors.white54, fontSize: 12.5),
-          ),
-        ),
-      );
-    }
-
-    return ConstrainedBox(
-      // Un tercio de la pantalla como techo: el chat crece hacia arriba hasta
-      // ahí y después scrollea.
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * .32,
-      ),
-      child: ListView.builder(
-        // Anclado abajo, que es donde llega lo nuevo.
-        reverse: true,
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-        itemCount: comments.length,
-        itemBuilder: (context, index) =>
-            _ChatLine(comment: comments[comments.length - 1 - index]),
-      ),
-    );
-  }
-}
-
-class _ChatLine extends StatelessWidget {
-  const _ChatLine({required this.comment});
-
-  final LiveComment comment;
-
-  /// Moderar sale de una pulsación larga sobre el mensaje, no de un ícono por
-  /// fila: con seis acciones disponibles, un control por comentario convierte
-  /// el chat en una consola y le come la pantalla al directo.
-  Future<void> _moderate(BuildContext context) async {
-    final cubit = context.read<LiveRoomCubit>();
-    final messenger = ScaffoldMessenger.of(context);
-    final issueBefore = cubit.state.issueSerial;
-    final decision = await showModerationSheet(
-      context,
-      author: comment.author,
-      comment: comment.body,
-      canModerate: cubit.state.canModerate,
-    );
-    if (decision == null) return;
-
-    switch (decision.type) {
-      case ModerationType.hideComment:
-        await cubit.hideComment(comment);
-      case ModerationType.report:
-        await cubit.reportComment(comment);
-      case ModerationType.muteUser ||
-          ModerationType.banUser ||
-          ModerationType.dismissReport:
-        cubit.recordModeration('${decision.confirmation} (${comment.author})');
-    }
-    // Si el servidor lo rechazó, el listener ya avisó por qué.
-    if (cubit.state.issue != null && cubit.state.issueSerial != issueBefore) {
-      return;
-    }
-    // Se confirma qué pasó. Una acción de moderación que no deja rastro
-    // visible se siente como que no se aplicó, y el moderador la repite.
-    messenger.showSnackBar(SnackBar(content: Text(decision.confirmation)));
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        UserAvatar(name: comment.author, size: 24),
-        const SizedBox(width: AppSpacing.xs),
-        Flexible(
-          child: InkWell(
-            key: Key('chat-${comment.id}'),
-            onLongPress: () => unawaited(_moderate(context)),
-            borderRadius: AppRadii.medium,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xs,
-                vertical: 5,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.neutral.withValues(alpha: .5),
-                borderRadius: AppRadii.medium,
-              ),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(color: Colors.white, fontSize: 13),
-                  children: [
-                    TextSpan(
-                      text: '${comment.author} ',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: comment.isMine
-                            ? AppColors.primarySurface
-                            : Colors.white70,
-                      ),
-                    ),
-                    TextSpan(text: comment.body),
-                  ],
-                ),
-              ),
+    final host = session.hostUsername.isEmpty
+        ? session.hostName
+        : '@${session.hostUsername}';
+    final lasted = _lasted(session);
+    return EnterStatic(
+      child: Padding(
+        key: const Key('live-ended'),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            UserAvatar(name: session.hostName, size: 64),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              ending.title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: Colors.white),
             ),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.xs),
-      ],
-    ),
-  );
-}
-
-class _Composer extends StatelessWidget {
-  const _Composer({
-    required this.controller,
-    required this.loved,
-    required this.onSend,
-    required this.onLove,
-  });
-
-  final TextEditingController controller;
-  final bool loved;
-  final VoidCallback onSend;
-  final VoidCallback onLove;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(
-      AppSpacing.sm,
-      AppSpacing.xs,
-      AppSpacing.sm,
-      // Sube el campo por encima del teclado. El Scaffold no redimensiona, así
-      // que el inset se aplica acá y sólo acá.
-      MediaQuery.viewInsetsOf(context).bottom + AppSpacing.sm,
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: AppSizes.searchHeight,
-            padding: const EdgeInsets.only(left: AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.neutral.withValues(alpha: .55),
-              borderRadius: AppRadii.pill,
-              border: Border.all(color: Colors.white24),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              [host, ?lasted].join(' · '),
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white70),
             ),
-            child: Row(
+            const SizedBox(height: AppSpacing.md),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
               children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('live-comment-field'),
-                    controller: controller,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                    cursorColor: Colors.white,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => onSend(),
-                    decoration: const InputDecoration(
-                      hintText: 'Escribe un comentario',
-                      hintStyle: TextStyle(color: Colors.white54),
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
+                OutlinedButton(
+                  key: const Key('live-ended-back'),
+                  onPressed: onBack,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
                   ),
+                  child: const Text('Volver'),
                 ),
-                IconButton(
-                  key: const Key('live-send'),
-                  tooltip: 'Enviar',
-                  onPressed: onSend,
-                  icon: const Icon(
-                    Icons.send_rounded,
-                    size: 19,
-                    color: Colors.white,
-                  ),
+                FilledButton(
+                  key: const Key('live-ended-more'),
+                  onPressed: onMore,
+                  child: const Text('Ver más vivos'),
                 ),
               ],
             ),
-          ),
+          ],
         ),
-        const SizedBox(width: AppSpacing.xs),
-        _GlassIconButton(
-          icon: Icons.card_giftcard_rounded,
-          tooltip: 'Enviar un regalo',
-          onTap: () {},
-        ),
-        const SizedBox(width: 6),
-        _GlassIconButton(
-          key: const Key('live-love'),
-          icon: loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-          tooltip: 'Dar amor',
-          onTap: onLove,
-          background: loved ? AppColors.secondary : null,
-          child: Pop(
-            trigger: loved,
-            child: Icon(
-              loved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-              size: 20,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-/// Botón circular translúcido, el lenguaje de todo control sobre video.
-class _GlassIconButton extends StatelessWidget {
-  const _GlassIconButton({
-    super.key,
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-    this.background,
-    this.child,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-  final Color? background;
-
-  /// Reemplaza al ícono cuando el control necesita animarse.
-  final Widget? child;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: InkResponse(
-      onTap: onTap,
-      radius: 26,
-      child: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: background ?? AppColors.neutral.withValues(alpha: .55),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white24),
-        ),
-        child: child ?? Icon(icon, size: 20, color: Colors.white),
       ),
-    ),
-  );
+    );
+  }
+
+  /// "Duró 12 min", o null cuando el servidor no dice cuándo empezó o
+  /// terminó (un vivo cancelado antes de salir al aire, el mock).
+  static String? _lasted(LiveSession session) {
+    final startedAt = session.startedAt;
+    final endedAt = session.endedAt;
+    if (startedAt == null || endedAt == null) return null;
+    final minutes = endedAt.difference(startedAt).inMinutes;
+    if (minutes < 1) return 'Duró menos de un minuto';
+    if (minutes < 60) return 'Duró $minutes min';
+    final rest = minutes.remainder(60);
+    return rest == 0
+        ? 'Duró ${minutes ~/ 60} h'
+        : 'Duró ${minutes ~/ 60} h ${rest.toString().padLeft(2, '0')} min';
+  }
 }

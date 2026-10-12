@@ -15,7 +15,7 @@ void main() {
 
     setUp(() {
       credentials = [];
-      seed = DemoSeed((session, id, email, password) async {
+      seed = DemoSeed((session, id, email, password, _) async {
         credentials.add('$email:$password');
       });
     });

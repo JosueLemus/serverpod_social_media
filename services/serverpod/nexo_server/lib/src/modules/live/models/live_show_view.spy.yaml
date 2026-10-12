@@ -1,0 +1,23 @@
+### Un show tal como lo ve cualquiera. No lleva nada propio de quien pide (el
+### rol va aparte): este mismo objeto se publica a todos los espectadores.
+class: LiveShowView
+fields:
+  id: int
+  hostId: UuidValue
+  hostUsername: String?
+  hostName: String?
+  title: String
+  description: String
+  startsAt: DateTime
+  durationMinutes: int
+  access: LiveShowAccess
+  allowQuestions: bool
+  recordReplay: bool
+  status: LiveShowStatus
+  startedAt: DateTime?
+  endedAt: DateTime?
+  endedByModeration: bool
+  ### Al aire: conexiones mirando ahora, sin contar al host. Terminado: el
+  ### pico. Programado: 0.
+  viewerCount: int
+  guestIds: List<UuidValue>

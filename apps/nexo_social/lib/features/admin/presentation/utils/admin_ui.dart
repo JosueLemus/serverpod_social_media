@@ -65,5 +65,7 @@ extension AdminNoticeUI on AdminNotice {
     AdminNotice.verificationRevoked =>
       'Verificación revocada. Ya no puede iniciar vivos.',
     AdminNotice.liveEnded => 'Vivo finalizado. Quedó registrado.',
+    AdminNotice.demoReset =>
+      'Datos de la demo reiniciados. Las cuentas vuelven a su estado inicial.',
   };
 }

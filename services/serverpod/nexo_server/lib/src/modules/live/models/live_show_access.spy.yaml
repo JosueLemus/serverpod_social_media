@@ -1,0 +1,7 @@
+### Quién puede mirar. Sin membresías en el servidor, `members` todavía se
+### mira como público: es un dato del show, no una regla aplicada.
+enum: LiveShowAccess
+serialized: byName
+values:
+  - public
+  - members

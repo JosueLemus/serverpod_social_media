@@ -1,0 +1,702 @@
+ACTUALIZACIÓN 11/10/2026
+----------------------------------------------------------------------
+Implementado en docs/sdd/0007-cierre-del-front.md, sección 6 (Estado).
+
+  - Hecho: HU-01 (puente), HU-02, HU-03, HU-05, HU-06, HU-07, HU-10,
+    HU-18, HU-19, HU-20, HU-21, HU-22, HU-23, HU-26, HU-28, HU-29, HU-31,
+    y HU-32 en perfil, compositor, login y feed.
+  - HU-04 era un falso positivo: promo@nexo.demo está en DemoAccounts, pero
+    no en DemoAccounts.all, así que el selector nunca la ofrece.
+  - En manos del SDD 0006 (vivos reales, otra sesión): HU-11, HU-24,
+    HU-25, HU-27, y los botones de la sala, el Studio y Explorar.
+  - Pendientes: HU-08, HU-09, HU-12 a HU-17 (backend), HU-30, HU-33 a
+    HU-35.
+
+AUDITORÍA DEL FRONT — NEXO SOCIAL
+Historias de usuario de lo que no está conectado o no funciona
+Fecha: 11/10/2026 (día 9 del SDD 0005; entrega el 14/10)
+Rama: feat/posts-app
+
+======================================================================
+RESUMEN
+======================================================================
+
+Conectado a Serverpod hoy:
+  - Login, registro con verificación, reset de contraseña, restaurar sesión.
+  - Publicaciones: feed con cursor, like, lista de likes, comentarios
+    (listar, crear, borrar), editar, borrar, reportar, subir foto y video.
+
+Sigue en mock:
+  - Perfil, vivos y Studio, programar show, moderación, consola de admin,
+    suscripciones, explorar y actividad (notificaciones).
+  - Agora está en la etapa A: hay video real, pero sin token del servidor.
+
+Calidad:
+  - flutter analyze: sin issues.
+  - flutter test: 237 de 237 en verde (exit code 0).
+
+Las rutas de archivo son relativas a apps/nexo_social/lib/, salvo donde
+se indica otra cosa.
+
+Prioridades:
+  P0  Rompe la demo o el recorrido del hackathon.
+  P1  El backend ya existe; sólo falta conectar la app.
+  P2  Necesita backend nuevo (endpoint que no existe).
+  P3  Bug o UX roto que no depende del backend.
+  P4  Deuda técnica, convenciones y tests.
+
+
+======================================================================
+ÉPICA A — BLOQUEANTES DE LA DEMO (P0)
+======================================================================
+
+HU-01 · Usar vivos, moderación y consola con una cuenta real
+Prioridad: P0
+Como creador o moderador que inició sesión contra Serverpod,
+quiero poder comentar en un vivo, iniciar mi vivo, programar un show,
+moderar y abrir la consola,
+para poder hacer el recorrido del hackathon con cuentas reales.
+
+Problema actual:
+  - Con AUTH_SOURCE=serverpod nadie llama a MockPlatform.bindSession;
+    sólo lo hace el repositorio mock (mock_auth_repository.dart:27).
+  - Toda acción que necesita actor lanza ForbiddenFailure
+    (core/mock/mock_platform.dart:621-624).
+  - El usuario ve "Tu cuenta no tiene permiso para hacer esto" o
+    "El servidor rechazó la solicitud" (moderation report_queue.dart:68).
+    El mensaje es falso: quien rechaza es el mock.
+  - Como el vivo no se puede iniciar, el host nunca entra al canal de
+    Agora: no hay video con cuentas reales.
+  - Un admin real ve "Acceso restringido" en la consola
+    (admin_console_page.dart:125-131).
+
+Criterios de aceptación:
+  [ ] Con AUTH_SOURCE=serverpod se puede programar → iniciar → invitar
+      → ocultar un comentario → terminar → replay.
+  [ ] Ningún mensaje de error dice "el servidor" cuando falla el mock.
+  [ ] El host publica video en Agora con una cuenta del seed.
+
+Nota: el arreglo definitivo es M4 (live) y M6 (admin) en el backend. Ver
+la épica C.
+
+
+HU-02 · Iniciar el show que yo programé
+Prioridad: P0
+Como creador,
+quiero que el Studio abra mi show programado,
+para poder iniciarlo.
+
+Problema actual:
+  - El Studio siempre carga 'live-2', fijo
+    (features/live/presentation/pages/creator_studio_page.dart:30).
+  - Sólo Elena puede iniciar. Carlos, creador verificado, recibe "sin
+    permiso".
+  - Un show recién programado nunca se puede iniciar.
+
+Criterios de aceptación:
+  [ ] El Studio recibe el id del show por la ruta o elige el próximo
+      show del host en sesión.
+  [ ] Programar y después "Transmitir en vivo" abre ese show.
+
+
+HU-03 · Ver por qué falló mi inicio de sesión
+Prioridad: P0
+Como usuario,
+quiero que me digan si la contraseña es incorrecta, si el código venció
+o si la contraseña es débil,
+para saber qué corregir.
+
+Problema actual:
+  - _failureFor busca palabras en error.runtimeType
+    (features/auth/data/repositories/serverpod_auth_repository.dart:204-227).
+  - El cliente (serverpod_auth_idp_client 4.0.3) lanza
+    _EmailAccountLoginExceptionImpl con el motivo en el campo `reason`,
+    y ese nombre de tipo no contiene ninguna de las palabras buscadas.
+  - Contraseña incorrecta, código inválido o vencido y contraseña débil
+    terminan todos en "No pudimos completar la operación". Sólo funciona
+    "blocked".
+  - No hay tests de este mapeo.
+
+Criterios de aceptación:
+  [ ] El mapeo usa `is EmailAccountLoginException` y su `reason`, con
+      los equivalentes de registro y reset.
+  [ ] Contraseña incorrecta muestra la copy de credenciales inválidas.
+  [ ] Hay un test por cada motivo.
+
+
+HU-04 · Entrar con cualquier cuenta demo
+Prioridad: P0
+Como jurado que prueba la demo,
+quiero que todas las cuentas del selector existan en el servidor,
+para no toparme con un error al elegir una.
+
+Problema actual:
+  - El selector incluye promo@nexo.demo (core/mock/demo_accounts.dart:70).
+  - Esa cuenta no está en el seed
+    (services/serverpod/nexo_server/lib/src/shared/demo/demo_seed.dart).
+  - Elegirla contra el servidor falla.
+
+Criterios de aceptación:
+  [ ] El selector y el seed tienen exactamente las mismas cuentas.
+
+
+HU-05 · Ver mi perfil y el de otros con datos reales
+Prioridad: P0 (aparece en el video)
+Como usuario,
+quiero ver mi nombre, mi @ y mis publicaciones en mi perfil, y los
+datos de la otra persona en /u/:username,
+para que el perfil sea de quien dice ser.
+
+Problema actual:
+  - ProfileRepository es siempre mock (app/di/injection.dart:175).
+  - Cualquier creador y todo /u/:username muestran "Elena Vega",
+    @elena_ux, 48.5K seguidores y una grilla fija
+    (features/profile/presentation/pages/profile_page.dart:453-572, 946).
+    Sólo el @ de la barra superior es real (:270).
+  - No se usan profiles.byUsername ni posts.byAuthor, que ya existen.
+  - Un visitante que abre /u/:username ve "Tu perfil te está esperando"
+    (:45), sin AppBar ni forma de volver, aunque el endpoint es público.
+
+Criterios de aceptación:
+  [ ] El perfil propio y el ajeno leen de profiles.byUsername.
+  [ ] La grilla lee de posts.byAuthor.
+  [ ] Un visitante ve el perfil público del creador.
+
+
+HU-06 · Ver mi nombre como autor al publicar
+Prioridad: P0 (aparece en el video)
+Como usuario,
+quiero que el compositor me muestre a mí como autor,
+para no publicar creyendo que lo hago como otra persona.
+
+Problema actual:
+  - _AuthorRow muestra "Elena Vega" verificada para cualquier sesión
+    (features/posts/presentation/pages/create_post_page.dart:274-291).
+
+Criterios de aceptación:
+  [ ] El nombre, el @ y la insignia de verificado salen del AuthCubit.
+
+
+======================================================================
+ÉPICA B — CONECTAR LO QUE EL BACKEND YA TIENE (P1)
+======================================================================
+
+HU-07 · Ver en la cola los reportes que hacen los usuarios
+Prioridad: P1
+Como moderador,
+quiero ver en la cola los posts y comentarios reportados y resolverlos,
+para que reportar sirva de algo.
+
+Problema actual:
+  - El feed manda los reportes al servidor
+    (features/feed/data/repositories/serverpod_post_repository.dart:143).
+  - La pantalla de moderación usa siempre MockModerationRepository
+    (app/di/injection.dart:162), así que esos reportes nunca aparecen.
+  - moderation.queue y moderation.resolve ya existen en el backend.
+  - En modo mock, reportar un post no hace nada
+    (mock_post_repository.dart:138-142).
+  - La tarjeta de staff del feed dice "No hay reportes pendientes"
+    cuando en realidad falló (staff_shortcut_card.dart:80).
+
+Criterios de aceptación:
+  [ ] Existe ServerpodModerationRepository sobre queue y resolve.
+  [ ] Un post reportado desde el feed aparece en la cola.
+  [ ] Resolverlo lo oculta y lo saca de la cola en un solo paso.
+  [ ] La tarjeta de staff distingue "vacío" de "error".
+
+
+HU-08 · Editar mi perfil
+Prioridad: P1
+Como usuario,
+quiero cambiar mi nombre, @ y bio,
+para que mi perfil me represente.
+
+Problema actual:
+  - No hay pantalla de editar perfil.
+  - profiles.update ya existe en el backend.
+  - El avatar necesita requestAvatarUpload y setAvatar, que no existen
+    (M1).
+
+Criterios de aceptación:
+  [ ] La pantalla "Editar perfil" llama a profiles.update.
+  [ ] El perfil y la barra se actualizan sin reiniciar.
+
+
+HU-09 · Convertirme en creador
+Prioridad: P1
+Como usuario,
+quiero un botón "Ser creador",
+para poder publicar vivos.
+
+Problema actual:
+  - profiles.becomeCreator existe y nadie lo llama.
+
+Criterios de aceptación:
+  [ ] El botón aparece si no soy creador y llama al endpoint.
+  [ ] Al volver, el perfil muestra el modo creador.
+
+
+HU-10 · Recuperar mi contraseña
+Prioridad: P1
+Como usuario que olvidó su contraseña,
+quiero encontrar "Olvidé mi contraseña" en el login,
+para poder recuperarla.
+
+Problema actual:
+  - El flujo de reset está conectado al servidor, pero no hay forma de
+    llegar a él.
+  - El único link (features/auth/presentation/pages/auth_pages.dart:773)
+    está en un AuthForm() sin flags que nunca se construye (:63, :70).
+  - La hoja de login (:521-606) no tiene el link.
+
+Criterios de aceptación:
+  [ ] La hoja de login tiene "Olvidé mi contraseña" y abre
+      /password-reset.
+
+
+======================================================================
+ÉPICA C — FALTA BACKEND (P2)
+======================================================================
+Estos endpoints no existen. El cliente generado sólo tiene emailIdp,
+jwtRefresh, posts, profiles, moderation, comments, likes y health.
+
+HU-11 · Vivos de verdad (M4)
+Prioridad: P2 (bloquea HU-01)
+Como creador,
+quiero programar, iniciar y terminar mi vivo contra el servidor, con
+chat y espectadores en tiempo real,
+para que la audiencia en otro dispositivo vea lo mismo que yo.
+
+Falta:
+  - live.schedule, start, end, get, upcoming, byHost.
+  - live.chatHistory, sendChat, hideChat.
+  - live.watch (stream).
+  - live.mediaToken (etapa B de Agora). Hoy el token es siempre '', el
+    uid es 0 y el rol lo decide la pantalla
+    (live_media_cubit.dart:34, live_room_page.dart:43,
+    creator_studio_page.dart:33).
+  - En el servidor, LiveMediaGateway es sólo una interfaz.
+
+Hoy en la app:
+  - Los datos de la sala son fijos: el reloj en 42:15, los invitados
+    pendientes, 14 subs y $185 en donaciones
+    (live_room_cubit.dart:139, 163-166).
+  - El "tiempo real" es el stream changes() de MockPlatform, entre
+    pestañas del mismo navegador.
+  - La audiencia en web no tiene una prueba de punta a punta
+    documentada; sólo consta que compila.
+
+Criterios de aceptación:
+  [ ] LiveRepository y ShowScheduleRepository tienen implementación
+      Serverpod.
+  [ ] Se retiran los vivos y el chat de MockPlatform.
+
+
+HU-12 · Consola de operador y sanciones (M6)
+Prioridad: P2
+Como operador,
+quiero suspender, verificar y ver la auditoría contra el servidor,
+para que una sanción expulse a la cuenta en el acto.
+
+Falta:
+  - El endpoint admin: searchAccounts, account, suspend, ban, restore,
+    setVerification, forceEndShow, audit.
+  - En NexoErrorCode: accountSuspended, creatorNotVerified, muted.
+  - Hoy una suspensión en la consola no afecta sesiones de Serverpod.
+  - sanctionReason devuelve siempre null
+    (serverpod_auth_repository.dart:175).
+  - currentUser no lanza AccountSuspendedFailure.
+
+
+HU-13 · Silenciar y suspender desde la moderación
+Prioridad: P2
+Como moderador,
+quiero que "Silenciar" y "Bloquear" de verdad silencien o bloqueen,
+para que la decisión tenga efecto.
+
+Problema actual:
+  - moderation.resolve sólo oculta o descarta.
+  - En la sala, silenciar y bloquear sólo agregan a una lista local
+    (live_room_cubit.dart:236-257; live_room_page.dart:443-446).
+  - "Bloquear" promete "No podrá volver a ingresar ni comentar"
+    (moderation_sheet.dart:217) y no aplica nada.
+
+
+HU-14 · Notificaciones reales (M5)
+Prioridad: P2
+Como usuario,
+quiero que Actividad muestre lo que pasó de verdad y que tocar una
+notificación me lleve a ella,
+para no perderme un vivo ni una respuesta.
+
+Problema actual:
+  - No hay capa de datos: la semilla está dentro del cubit
+    (features/notifications/.../activity_cubit.dart:57-116), y el cubit
+    se crea sin DI (activity_page.dart:22).
+  - Tocar una fila, "Ver ahora", "Seguir", "Responder" o "Saludar" sólo
+    la marca como leída (activity_page.dart:105, 255).
+  - No hay badge en la barra.
+  - La alerta de 15 minutos se promete en pantalla
+    (audience_notice_card.dart:43) y no se envía.
+
+
+HU-15 · Seguir a un creador (M2)
+Prioridad: P2
+Como usuario,
+quiero seguir a un creador y que eso se refleje en todos lados,
+para ver su contenido en "Siguiendo".
+
+Problema actual:
+  - Seguir en el perfil escribe en MockSocialStore.
+  - Seguir en Explorar va a DiscoveryRepository, que es otro estado:
+    lo que se hace en uno no aparece en el otro.
+  - No hay contadores reales.
+  - Los filtros "Siguiendo" y "En vivo" del feed quedan siempre vacíos
+    con Serverpod: PostView no trae isFollowed ni isLive.
+  - Tampoco aparecen nunca las insignias de verificado y Pro.
+
+
+HU-16 · Suscripción a un creador
+Prioridad: P2
+Como usuario,
+quiero suscribirme al creador cuyo perfil estoy viendo,
+para acceder a su contenido para miembros.
+
+Problema actual:
+  - /premium no recibe creador: siempre es de elena_ux
+    (app/router/app_router.dart:81; subscription_page.dart:16, 127).
+  - El estado vive sólo en memoria y se pierde al reiniciar.
+  - Suscribirse no desbloquea nada; isPremium sólo pinta una insignia.
+  - El mensaje de la donación se borra sin enviarse
+    (subscription_page.dart:443-444).
+
+
+HU-17 · Buscar y explorar
+Prioridad: P2
+Como visitante,
+quiero buscar personas, temas y vivos,
+para encontrar contenido.
+
+Problema actual:
+  - Los buscadores del feed (feed_page.dart:80) y de Explorar
+    (explore_page.dart:45) no tienen onChanged ni onSubmitted.
+  - Los temas y creadores sugeridos son estáticos
+    (mock_discovery_repository.dart:5-33).
+  - "Ver temas en tendencia" es () {} (explore_page.dart:97-98).
+  - Un vivo en estado "ending" no cae en ninguna sección
+    (explore_cubit.dart:27-40).
+
+
+======================================================================
+ÉPICA D — BUGS DEL FRONT (P3)
+======================================================================
+
+HU-18 · No perder lo que ya scrolleé en el feed
+Prioridad: P3
+Como usuario,
+quiero que publicar, editar o comentar no me devuelva a la primera
+página,
+para no perder mi lugar.
+
+Problema actual:
+  - Cada cambio dispara _reload de la página 1, que reemplaza posts y
+    nextCursor (features/feed/presentation/bloc/feed_cubit.dart:118,
+    138-155). Se pierden las páginas cargadas y los guardados.
+  - loadMore emite sobre un estado capturado antes del await (:165-183):
+    un like hecho mientras carga se revierte.
+  - Si fallan loadMore o el refresco, no se avisa nada.
+  - FeedFailure.offline se calcula, pero la vista siempre muestra
+    AppErrorView (feed_page.dart:104).
+
+
+HU-19 · Comentarios sin duplicados
+Prioridad: P3
+Como usuario,
+quiero que mi comentario aparezca una sola vez,
+para que la conversación se lea bien.
+
+Problema actual:
+  - loadMore no protege contra dos cargas a la vez ni elimina
+    duplicados (features/feed/presentation/bloc/comments_cubit.dart:90).
+  - Como el servidor ordena del más viejo al más nuevo, un comentario
+    enviado con páginas pendientes aparece dos veces al paginar.
+
+
+HU-20 · Publicar con las reglas del servidor
+Prioridad: P3
+Como usuario,
+quiero poder escribir hasta 2200 caracteres y publicar sólo una foto,
+para no chocar con límites que el servidor no tiene.
+
+Problema actual:
+  - El compositor limita a 500
+    (features/posts/presentation/bloc/post_composer_cubit.dart:169).
+  - El servidor y el diálogo de edición permiten 2200
+    (services/serverpod/nexo_server/lib/src/modules/content/services/
+    post_rules.dart:7).
+  - canPublish exige texto aunque el servidor acepta sólo media.
+  - La encuesta, "Notificar VIP" y el modo "En vivo" se descartan sin
+    aviso: publish() los ignora (post_composer_cubit.dart:255-264).
+  - Si el selector de fotos lanza una excepción (permiso denegado), no
+    se captura.
+  - Editar no recalcula las etiquetas a partir de los #hashtags.
+
+
+HU-21 · Sesión consistente si falla el perfil
+Prioridad: P3
+Como usuario,
+quiero que, si el login falla a mitad de camino, la app no entre sola
+en el próximo arranque,
+para que la sesión sea predecible.
+
+Problema actual:
+  - signIn guarda la sesión antes de llamar a profiles.me
+    (serverpod_auth_repository.dart:52-53).
+  - Si me() falla, la UI queda deslogueada pero la credencial persiste.
+
+
+HU-22 · Invitado que da like
+Prioridad: P3
+Como visitante,
+quiero que tocar "me gusta" me invite a iniciar sesión,
+para entender por qué no funcionó.
+
+Problema actual:
+  - Muestra "No pudimos guardar tu me gusta" (feed_cubit.dart:209).
+
+
+HU-23 · Rechazar a un invitado
+Prioridad: P3
+Como host,
+quiero que "Rechazar" rechace,
+para no sumar a alguien que no quiero en el vivo.
+
+Problema actual:
+  - "Rechazar" llama a approveGuest
+    (creator_studio_page.dart:449-452).
+  - La auditoría registra "fue aprobado como cohost".
+
+
+HU-24 · No comentar en un vivo terminado
+Prioridad: P3
+Como host,
+quiero que nadie pueda comentar en un vivo grabado o cancelado,
+para que el replay quede como terminó.
+
+Problema actual:
+  - postComment no valida el estado (mock_platform.dart:250-258).
+
+
+HU-25 · Descartar un show programado
+Prioridad: P3
+Como creador con sesión real,
+quiero que "Descartar" cierre la pantalla,
+para no quedar atrapado en el formulario.
+
+Problema actual:
+  - El getter _accountId lanza de forma sincrónica
+    (features/live/presentation/children/schedule_show/data/
+    repositories/mock_show_schedule_repository.dart:19-22).
+  - "Descartar" falla antes del context.pop()
+    (schedule_show_page.dart:116-117).
+  - Cerrar con un guardado pendiente lanza antes del .catchError
+    (schedule_show_cubit.dart:288).
+
+
+HU-26 · Repetir la demo sin borrar el navegador
+Prioridad: P3
+Como presentador,
+quiero reiniciar los datos de la demo desde la app,
+para grabar el recorrido más de una vez.
+
+Problema actual:
+  - MockPlatform.reset() (:601) no tiene quién lo llame.
+  - Después de un recorrido completo, el Studio queda sin acciones.
+
+
+HU-27 · Listas de vivos al día
+Prioridad: P3
+Como usuario,
+quiero que Explorar y la lista de vivos muestren el estado actual,
+para no entrar a un vivo que ya terminó.
+
+Problema actual:
+  - ExploreCubit y LiveListCubit no escuchan changes().
+  - Con el shell que conserva cada pestaña, quedan viejas hasta que el
+    usuario tira para refrescar.
+
+
+======================================================================
+ÉPICA E — NAVEGACIÓN (P3)
+======================================================================
+
+HU-28 · Programar un show desde escritorio y tablet
+Prioridad: P3
+Como creador en la web,
+quiero poder programar un show,
+para no depender del teléfono.
+
+Problema actual:
+  - En el rail, "Crear" hace push(create) directo y se salta la hoja
+    (core/responsive/app_shell.dart:330, 338).
+  - /schedule-show sólo es alcanzable en teléfono.
+
+
+HU-29 · Volver desde Ajustes
+Prioridad: P3
+Como usuario en la web,
+quiero poder salir de Ajustes,
+para no quedar atrapado.
+
+Problema actual:
+  - /settings es un PlaceholderPage sin Scaffold ni AppBar
+    (app/router/app_router.dart:89-97).
+
+
+HU-30 · Volver al feed después de un vivo
+Prioridad: P3
+Como usuario,
+quiero que salir de un vivo abierto desde el feed me devuelva al feed,
+para no perder mi lugar.
+
+Problema actual:
+  - El feed entra al vivo con go (feed_page.dart:184, 195): salta a
+    Explorar.
+  - "Salir" vuelve a Explorar (live_room_page.dart:73).
+  - Los botones de invitado del perfil hacen go a rutas raíz desde el
+    shell (profile_page.dart:144, 155).
+
+
+HU-31 · Menú del perfil ajeno
+Prioridad: P3
+Como usuario que mira el perfil de otra persona,
+quiero opciones sobre esa persona (reportar, bloquear),
+para no ver opciones de mi propia cuenta.
+
+Problema actual:
+  - El menú ⋮ de un perfil ajeno ofrece Creator Studio y "Cerrar
+    sesión" (profile_page.dart:285, 348-427).
+  - Seguir y Suscribirse aparecen en el perfil propio (:601).
+
+
+======================================================================
+ÉPICA F — BOTONES QUE NO HACEN NADA (P3)
+======================================================================
+
+HU-32 · Que cada botón visible haga algo o se vea deshabilitado
+Prioridad: P3
+Como usuario,
+quiero que un botón que todavía no funciona se vea deshabilitado (como
+"Compartir" en post_card.dart:391),
+para no tocarlo y pensar que la app está rota.
+
+Botones que hoy son () {} o sólo cambian estado local:
+  Feed
+    - Mensajes (feed_page.dart:65-69).
+    - Compartir vivo (featured_live_card.dart:134).
+  Sala en vivo
+    - Seguir (live_room_page.dart:298).
+    - Regalo (:579).
+    - Corazón: sólo local (live_room_cubit.dart:188).
+  Studio
+    - Girar, Silenciar, Filtro EQ y Regalos
+      (creator_studio_page.dart:367).
+    - El tooltip dice "disponible con Agora", pero LiveMediaEngine
+      sólo tiene join/leave/dispose (core/media/live_media_engine.dart).
+  Compositor
+    - # y @ (create_post_page.dart:347, 353).
+    - Enlace y Emoción (composer_widgets.dart:307, 313).
+    - "Unirme a la lista" de IA (:437).
+  Perfil
+    - Compartir perfil (profile_page.dart:282).
+    - Enviar mensaje (:652).
+    - "Recordar" sólo navega a Explorar (:1174).
+    - El replay y las tarjetas del grid no tienen onTap (:826-1133).
+  Offline
+    - Los botones de offline_view.dart:106 y :245 no hacen nada.
+    - AppOfflineView nunca se muestra: nadie pasa isOffline: true.
+  Auth
+    - Google y Apple (auth_pages.dart:506).
+    - El selector ES/EN es local y nada lo lee (:316-333; ya conocido).
+    - Los términos son texto plano sin links (:195-203) y no aparecen
+      en el registro.
+
+
+======================================================================
+ÉPICA G — DEUDA TÉCNICA Y TESTS (P4)
+======================================================================
+
+HU-33 · Convenciones del CLAUDE.md
+Prioridad: P4
+Como dev del equipo,
+quiero que el código respete las reglas que los tests de guarda no
+alcanzan a ver,
+para que el próximo cambio no rompa algo en silencio.
+
+Hallazgos:
+  - sl<AuthCubit>() fuera de un create: (profile_page.dart:426).
+  - Repositorios resueltos con sl() en widgets para armar cubits a mano:
+    explore_page.dart:29, app_shell.dart:364, empty_feed_view.dart:39,
+    live_room_page.dart:39, creator_studio_page.dart:30,
+    profile_page.dart:67-68, subscription_page.dart:22.
+  - ProfileCubit depende de MockSocialStore y no de un repositorio.
+  - Unos 38 TextStyle(fontSize:) crudos de 12 px o más.
+  - 16 Colors.white70/54/38/24, que la regex de design_tokens_test deja
+    pasar.
+  - Unos 20 Futures sin unawaited(). La regla unawaited_futures no está
+    activada en analysis_options.yaml; por eso el analyzer queda en cero.
+  - Dio es código muerto. DioClient lee 'access_token', que nunca se
+    escribe.
+  - DATA_SOURCE no lo lee nadie; el interruptor real es AUTH_SOURCE.
+  - La red se detecta buscando texto en el error, no con
+    `is ServerpodClientNetworkException`. Un 401 termina como
+    ServerFailure.
+
+
+HU-34 · Tests de lo que falta cubrir
+Prioridad: P4
+Como dev del equipo,
+quiero tests en las features que hoy no tienen ninguno,
+para poder conectarlas al backend sin miedo.
+
+Hallazgos:
+  - Sin ningún test propio: explore y subscriptions.
+  - Sin widget test: CreatorStudio, LiveRoom, Moderation, SignUp,
+    PasswordReset, Suspended, la hoja de comentarios, las acciones de
+    post y CreatePost.
+  - Sin tests: ProfileCubit, ProfileStatusCubit, MockPostRepository,
+    MockProfileRepository y el mapeo de errores de auth (HU-03).
+  - integration_test/app_flow_test.dart no cubre el recorrido del
+    hackathon: programar → iniciar → invitado → ocultar → replay.
+
+
+HU-35 · CLAUDE.md al día
+Prioridad: P4
+Como dev o agente que entra al repo,
+quiero que el CLAUDE.md describa el estado real,
+para no construir sobre supuestos falsos.
+
+Problema actual:
+  - Dice que el backend es "todavía sólo README" y que el interruptor
+    es DATA_SOURCE.
+  - Hoy hay auth, posts, comentarios, likes, perfiles y moderación en
+    Serverpod, y el que manda es AUTH_SOURCE.
+
+
+======================================================================
+ORDEN SUGERIDO (quedan 3 días)
+======================================================================
+
+Situación:
+  - La línea de corte 1 del SDD 0005 (vivos y sanciones contra
+    Serverpod) era el día 7.
+  - Hoy es el día 9, con M3 cerrado y M4 (2,5 días) y M6 (1,5 días) sin
+    empezar.
+
+Recomendación:
+  1. Medio día de arreglos baratos que se ven en el video:
+     HU-02, HU-03, HU-04, HU-05, HU-06 y HU-10.
+  2. HU-07: moderación sobre queue y resolve, que ya existen.
+  3. HU-11 mínima (schedule, start, end, get y chat, con o sin stream).
+     Si no entra: grabar el tramo del vivo con AUTH_SOURCE=mock, donde
+     todo sale del mismo MockPlatform, y contar el resto en el pitch.

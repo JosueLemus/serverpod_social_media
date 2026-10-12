@@ -1,0 +1,10 @@
+### Un mensaje del chat tal como lo ve cualquiera.
+class: LiveChatMessageView
+fields:
+  id: int
+  showId: int
+  authorId: UuidValue
+  authorUsername: String?
+  authorName: String?
+  body: String
+  createdAt: DateTime

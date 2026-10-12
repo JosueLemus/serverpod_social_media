@@ -27,6 +27,9 @@ enum ComposerMode {
 enum ComposerIssue {
   fileTooLarge,
   unsupportedFile,
+
+  /// El selector del dispositivo falló, casi siempre por un permiso negado.
+  pickerFailed,
   publishFailed,
   offline,
   forbidden,
@@ -104,9 +107,10 @@ class PostComposerIdle extends PostComposerState {
   /// separarse.
   bool get canPublish {
     if (isPublishing) return false;
-    if (text.trim().isEmpty || length > PostComposerCubit.maxLength) {
-      return false;
-    }
+    if (length > PostComposerCubit.maxLength) return false;
+    // Un post con un adjunto no necesita texto: el servidor lo acepta, y una
+    // foto sola es la publicación más común de una red social.
+    if (text.trim().isEmpty && attachment == null) return false;
     // Con encuesta abierta, el texto solo no alcanza: publicar una encuesta a
     // medio escribir deja una votación que nadie puede responder.
     if (poll != null && !poll!.isValid) return false;
@@ -166,7 +170,10 @@ class PostComposerCubit extends Cubit<PostComposerState> {
   final PostRepository _posts;
   final MediaPicker _picker;
 
-  static const maxLength = 500;
+  /// El de `PostRules.maxBodyLength` del servidor, que es también el del
+  /// diálogo de editar. Con 500, un post que se podía editar a 2200 no se
+  /// podía publicar así.
+  static const maxLength = 2200;
 
   PostComposerIdle get _draft => state as PostComposerIdle;
 
@@ -190,7 +197,17 @@ class PostComposerCubit extends Cubit<PostComposerState> {
   /// reordenarlos es una lista que no se puede corregir.
   Future<void> attach(PostMedia kind) async {
     if (state is! PostComposerIdle) return;
-    final picked = await _picker.pick(kind);
+    final MediaAttachment? picked;
+    try {
+      picked = await _picker.pick(kind);
+    } on Object {
+      // Un permiso negado lanza desde el plugin. Sin esto, tocar "Foto" sin
+      // permiso no hacía nada y no decía nada.
+      if (!isClosed && state is PostComposerIdle) {
+        _flag(ComposerIssue.pickerFailed);
+      }
+      return;
+    }
     if (picked == null || isClosed || state is! PostComposerIdle) return;
     if (!MediaRules.accepts(kind, picked.contentType)) {
       _flag(ComposerIssue.unsupportedFile);

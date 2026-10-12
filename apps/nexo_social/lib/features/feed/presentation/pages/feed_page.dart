@@ -14,7 +14,9 @@ import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/search_field.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/bloc/live_list_cubit.dart';
+import '../../../live/presentation/utils/live_status_ui.dart';
 import '../../../live/presentation/widgets/featured_live_card.dart';
+import '../../../live/presentation/widgets/live_card.dart';
 import '../../../live/presentation/widgets/live_stories_row.dart';
 import '../../../moderation/presentation/widgets/staff_shortcut_card.dart';
 import '../../domain/entities/feed_filter.dart';
@@ -62,10 +64,11 @@ class _FeedView extends StatelessWidget {
         return NexoPage(
           section: 'Feed',
           actions: [
-            IconButton(
-              tooltip: 'Mensajes',
-              onPressed: () {},
-              icon: const Icon(Icons.mail_outline_rounded, size: 22),
+            // Sin mensajes directos todavía: apagado, no escondido (F11).
+            const IconButton(
+              tooltip: 'Mensajes: muy pronto',
+              onPressed: null,
+              icon: Icon(Icons.mail_outline_rounded, size: 22),
             ),
           ],
           // Los dos cubits se resuelven antes del await: después de él este
@@ -85,9 +88,20 @@ class _FeedView extends StatelessWidget {
             _FilterRow(
               selected: loaded?.filter ?? FeedFilter.forYou,
               onSelected: cubit.selectFilter,
-              liveCount: loaded?.posts.where((post) => post.isLive).length,
+              // Los vivos al aire, no los posts marcados: con Serverpod un post
+              // nunca dice que está en vivo, y el contador quedaba en 0 con un
+              // vivo al aire.
+              liveCount: context.select<LiveListCubit, int?>(
+                (live) => switch (live.state) {
+                  LiveListLoaded(:final sessions) =>
+                    sessions.where((session) => session.status.isOnAir).length,
+                  _ => null,
+                },
+              ),
             ),
-            const _LiveRail(),
+            // Con el chip "En vivo" la lista de abajo ya son los vivos: el rail
+            // repetiría la misma transmisión dos veces seguidas.
+            if (loaded?.filter != FeedFilter.live) const _LiveRail(),
             ..._body(context, state),
           ],
         );
@@ -106,6 +120,13 @@ class _FeedView extends StatelessWidget {
     }
 
     final loaded = state as FeedLoaded;
+    // Los vivos no son posts: con Serverpod ningún post dice que está en
+    // vivo, y filtrar por eso dejaba la lista vacía con vivos al aire.
+    if (loaded.filter == FeedFilter.live) {
+      return [
+        _LiveNowList(onShowAll: () => cubit.selectFilter(FeedFilter.forYou)),
+      ];
+    }
     final posts = loaded.visible;
 
     if (posts.isEmpty) {
@@ -157,6 +178,63 @@ class _FeedView extends StatelessWidget {
   }
 }
 
+/// Los vivos al aire, para el chip "En vivo". Los lee del mismo cubit que el
+/// contador del chip, así que el número y la lista no pueden discrepar.
+class _LiveNowList extends StatelessWidget {
+  const _LiveNowList({required this.onShowAll});
+
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) =>
+      BlocBuilder<LiveListCubit, LiveListState>(
+        builder: (context, state) => switch (state) {
+          LiveListLoaded(:final sessions) => _list(
+            context,
+            sessions.where((session) => session.status.isOnAir).toList(),
+          ),
+          LiveListFailure() => AppErrorView(
+            onRetry: () => context.read<LiveListCubit>().load(),
+          ),
+          _ => const Padding(
+            padding: EdgeInsets.only(top: AppSpacing.md),
+            child: FeedSkeleton(count: 1),
+          ),
+        },
+      );
+
+  Widget _list(BuildContext context, List<LiveSession> onAir) {
+    if (onAir.isEmpty) {
+      return AppEmptyView(
+        key: const Key('feed-live-empty'),
+        icon: Icons.sensors_off_rounded,
+        title: 'Nadie está en vivo ahora',
+        message:
+            'Cuando alguien empiece a transmitir aparece acá, sin que '
+            'tengas que recargar.',
+        actionLabel: 'Ver todo',
+        onAction: onShowAll,
+      );
+    }
+    return Column(
+      children: [
+        for (final (index, session) in onAir.indexed)
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpacing.md),
+            child: EnterStatic(
+              key: ValueKey(session.id),
+              index: index,
+              child: LiveCard(
+                session: session,
+                onTap: () => context.go(AppRoutes.liveRoom(session.id)),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Historias + la transmisión destacada. Lee su propio cubit, así que un fallo
 /// al listar vivos no deja al feed sin posts.
 class _LiveRail extends StatelessWidget {
@@ -188,10 +266,7 @@ class _LiveRail extends StatelessWidget {
                 Enter(
                   child: FeaturedLiveCard(
                     session: featured,
-                    // Mock: el handle del host llega con el modelo real de
-                    // identidad. Derivarlo del nombre acá inventaría un
-                    // usuario que puede no existir.
-                    hostUsername: 'elena_ux',
+                    hostUsername: featured.hostUsername,
                     onJoin: () => context.go(AppRoutes.liveRoom(featured.id)),
                   ),
                 ),

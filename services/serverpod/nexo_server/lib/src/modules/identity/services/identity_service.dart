@@ -167,6 +167,22 @@ class IdentityService {
     }
   }
 
+  /// El perfil de [userId] si la cuenta puede escribir; si está suspendida o
+  /// baneada, lanza `accountSuspended` (D4 del SDD 0004).
+  Future<AccountProfile> requireActive(
+    Session session,
+    UuidValue userId,
+  ) async {
+    final account = await ensure(session, userId);
+    if (account.status != AccountStatus.active) {
+      throw _error(
+        NexoErrorCode.accountSuspended,
+        'Tu cuenta está suspendida.',
+      );
+    }
+    return account;
+  }
+
   // --- Internos ------------------------------------------------------------
 
   Future<AccountProfile?> _account(Session session, UuidValue userId) =>

@@ -70,4 +70,26 @@ void main() {
 
     expect(cubit.state.failed, isTrue);
   });
+
+  /// Regresión: el servidor pagina del más viejo al más nuevo, así que un
+  /// comentario propio enviado con páginas pendientes volvía en la última y
+  /// se veía dos veces.
+  test('paging does not repeat a comment already sent', () {
+    PostComment comment(String id, int minute) => PostComment(
+      id: id,
+      postId: '1',
+      author: 'a',
+      name: 'A',
+      body: id,
+      createdAt: DateTime(2026, 10, 11, 12, minute),
+    );
+    final mine = comment('mine', 30);
+
+    final merged = CommentsCubit.mergeComments(
+      [comment('c1', 1), comment('c2', 2), mine],
+      [comment('c3', 3), comment('c4', 4), mine],
+    );
+
+    expect(merged.map((c) => c.id), ['c1', 'c2', 'c3', 'c4', 'mine']);
+  });
 }

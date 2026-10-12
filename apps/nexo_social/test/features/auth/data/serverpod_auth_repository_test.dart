@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_client/nexo_client.dart' as api;
 import 'package:nexo_social/features/auth/data/repositories/serverpod_auth_repository.dart';
+import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/features/auth/domain/entities/app_user.dart';
+import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart';
 
 void main() {
   api.AccountView account({
@@ -65,5 +67,98 @@ void main() {
 
     expect(user.status, AccountStatus.suspended);
     expect(user.isActive, isFalse);
+  });
+
+  group('failureFor', () {
+    AuthFailureReason? reasonOf(Object error) =>
+        switch (ServerpodAuthRepository.failureFor(error)) {
+          AuthenticationFailure(:final reason) => reason,
+          _ => null,
+        };
+
+    /// Regresión: el mapeo buscaba el motivo en `runtimeType.toString()`, y
+    /// el cliente lanza `_EmailAccountLoginExceptionImpl`. Una contraseña
+    /// incorrecta se mostraba como "No pudimos completar la operación".
+    test('a wrong password says so', () {
+      expect(
+        reasonOf(
+          EmailAccountLoginException(
+            reason: EmailAccountLoginExceptionReason.invalidCredentials,
+          ),
+        ),
+        AuthFailureReason.invalidCredentials,
+      );
+      expect(
+        reasonOf(
+          EmailAccountLoginException(
+            reason: EmailAccountLoginExceptionReason.tooManyAttempts,
+          ),
+        ),
+        AuthFailureReason.tooManyAttempts,
+      );
+    });
+
+    test('registration codes and passwords keep their reason', () {
+      const expected = {
+        EmailAccountRequestExceptionReason.expired:
+            AuthFailureReason.expiredCode,
+        EmailAccountRequestExceptionReason.invalid:
+            AuthFailureReason.invalidCode,
+        EmailAccountRequestExceptionReason.policyViolation:
+            AuthFailureReason.passwordPolicy,
+        EmailAccountRequestExceptionReason.tooManyAttempts:
+            AuthFailureReason.tooManyAttempts,
+        EmailAccountRequestExceptionReason.unknown:
+            AuthFailureReason.unavailable,
+      };
+      for (final MapEntry(:key, :value) in expected.entries) {
+        expect(
+          reasonOf(EmailAccountRequestException(reason: key)),
+          value,
+          reason: key.name,
+        );
+      }
+    });
+
+    test('password reset codes and passwords keep their reason', () {
+      const expected = {
+        EmailAccountPasswordResetExceptionReason.expired:
+            AuthFailureReason.expiredCode,
+        EmailAccountPasswordResetExceptionReason.invalid:
+            AuthFailureReason.invalidCode,
+        EmailAccountPasswordResetExceptionReason.policyViolation:
+            AuthFailureReason.passwordPolicy,
+        EmailAccountPasswordResetExceptionReason.tooManyAttempts:
+            AuthFailureReason.tooManyAttempts,
+        EmailAccountPasswordResetExceptionReason.unknown:
+            AuthFailureReason.unavailable,
+      };
+      for (final MapEntry(:key, :value) in expected.entries) {
+        expect(
+          reasonOf(EmailAccountPasswordResetException(reason: key)),
+          value,
+          reason: key.name,
+        );
+      }
+    });
+
+    test('a blocked account is a sanction, not a form error', () {
+      expect(
+        ServerpodAuthRepository.failureFor(AuthUserBlockedException()),
+        isA<AccountSuspendedFailure>(),
+      );
+    });
+
+    test('only a network error reads as network', () {
+      expect(
+        reasonOf(const api.ServerpodClientNetworkException('offline')),
+        AuthFailureReason.network,
+      );
+      expect(
+        reasonOf(api.ServerpodClientInternalServerError()),
+        AuthFailureReason.unavailable,
+      );
+      expect(reasonOf(StateError('?')), AuthFailureReason.unavailable);
+    });
   });
 }

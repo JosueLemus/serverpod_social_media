@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -62,6 +64,7 @@ class ExploreCubit extends Cubit<ExploreState> {
 
   final LiveRepository _live;
   final DiscoveryRepository _discovery;
+  StreamSubscription<void>? _changes;
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, hasFailed: false));
@@ -77,6 +80,24 @@ class ExploreCubit extends Cubit<ExploreState> {
     } catch (_) {
       emit(state.copyWith(isLoading: false, hasFailed: true));
     }
+    // "En vivo ahora" se actualiza solo cuando alguien empieza o termina en
+    // otro dispositivo.
+    _changes ??= _live.changes().listen((_) => unawaited(_refreshLives()));
+  }
+
+  /// Sólo los vivos, sin `isLoading`: la pantalla no vuelve al esqueleto
+  /// cada vez que cambia un show.
+  Future<void> _refreshLives() async {
+    try {
+      final sessions = await _live.list();
+      if (!isClosed) emit(state.copyWith(sessions: sessions));
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> close() async {
+    await _changes?.cancel();
+    return super.close();
   }
 
   /// Optimista: el estado cambia en el turno del tap y la escritura va detrás.

@@ -14,6 +14,9 @@ extension ComposerIssueCopy on ComposerIssue {
       'El archivo es muy pesado: hasta 10 MB para fotos y 50 MB para videos.',
     ComposerIssue.unsupportedFile =>
       'Ese formato no se acepta. Usa JPG, PNG, WebP o GIF; MP4, MOV o WebM.',
+    ComposerIssue.pickerFailed =>
+      'No pudimos abrir tu galería. Revisa que Nexo tenga permiso para '
+          'acceder a tus fotos.',
     ComposerIssue.publishFailed =>
       'No pudimos publicar. Tu borrador sigue acá para reintentar.',
     ComposerIssue.offline =>
@@ -293,24 +296,31 @@ class ComposerAttachments extends StatelessWidget {
         buttonKey: const Key('composer-attach-video'),
         onTap: () => onAttach(PostMedia.video),
       ),
+      // Encuesta, enlace y emoción no viajan al servidor todavía: un post no
+      // tiene dónde guardarlos. Deshabilitados y no escondidos, porque el
+      // diseño los tiene; antes la encuesta se componía entera y se
+      // descartaba en silencio al publicar (SDD 0007, F11).
       _Attachment(
         icon: Icons.poll_outlined,
         label: 'Encuesta',
         buttonKey: const Key('composer-attach-poll'),
         active: pollActive,
-        onTap: onPoll,
+        tooltip: 'Encuestas: muy pronto',
+        onTap: null,
       ),
-      _Attachment(
+      const _Attachment(
         icon: Icons.link_rounded,
         label: 'Enlace',
-        buttonKey: const Key('composer-attach-link'),
-        onTap: () {},
+        buttonKey: Key('composer-attach-link'),
+        tooltip: 'Enlaces: muy pronto',
+        onTap: null,
       ),
-      _Attachment(
+      const _Attachment(
         icon: Icons.emoji_emotions_outlined,
         label: 'Emoción',
-        buttonKey: const Key('composer-attach-mood'),
-        onTap: () {},
+        buttonKey: Key('composer-attach-mood'),
+        tooltip: 'Emociones: muy pronto',
+        onTap: null,
       ),
     ],
   );
@@ -323,51 +333,70 @@ class _Attachment extends StatelessWidget {
     required this.onTap,
     required this.buttonKey,
     this.active = false,
+    this.tooltip,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+
+  /// Null deshabilita: se dibuja apagado y el tooltip dice por qué.
+  final VoidCallback? onTap;
   final Key buttonKey;
   final bool active;
+  final String? tooltip;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        InkResponse(
-          key: buttonKey,
-          onTap: onTap,
-          radius: 28,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: active ? AppColors.primaryDeep : AppColors.primarySurface,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 19,
-              color: active ? Colors.white : AppColors.textOnBrandSurface,
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final button = InkResponse(
+      key: buttonKey,
+      onTap: onTap,
+      radius: 28,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: active
+              ? AppColors.primaryDeep
+              : enabled
+              ? AppColors.primarySurface
+              : AppColors.border,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 19,
+          color: active
+              ? Colors.white
+              : enabled
+              ? AppColors.textOnBrandSurface
+              : AppColors.textSecondary,
+        ),
+      ),
+    );
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (tooltip case final message?)
+            Tooltip(message: message, child: button)
+          else
+            button,
+          const SizedBox(height: 5),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ),
-        const SizedBox(height: 5),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 10.5,
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// El bloque de IA, marcado como próximamente.
@@ -434,7 +463,8 @@ class ComposerAiTeaser extends StatelessWidget {
               child: SizedBox(
                 height: 36,
                 child: FilledButton.icon(
-                  onPressed: () {},
+                  // Apagado como el resto del bloque: no hay lista todavía.
+                  onPressed: null,
                   iconAlignment: IconAlignment.end,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 15),
                   label: const Text(
@@ -541,15 +571,17 @@ class ComposerToggles extends StatelessWidget {
           onChanged: onAllowComments,
         ),
         const Divider(height: 1),
+        // Apagado hasta que existan las notificaciones (M5): el interruptor
+        // se guardaba en el borrador y no se enviaba a nadie.
         _ToggleRow(
           switchKey: const Key('composer-notify-vip'),
           icon: Icons.notifications_active_outlined,
           iconColor: AppColors.secondary,
           title: 'Notificar a suscriptores VIP',
-          detail: 'Envía una alerta instantánea prioritaria',
-          badge: 'Push',
-          value: notifyVip,
-          onChanged: onNotifyVip,
+          detail: 'Llega con las notificaciones push',
+          badge: 'Pronto',
+          value: false,
+          onChanged: null,
         ),
       ],
     ),
@@ -573,7 +605,7 @@ class _ToggleRow extends StatelessWidget {
   final String title;
   final String detail;
   final bool value;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
   final String? badge;
   final Color iconColor;
 

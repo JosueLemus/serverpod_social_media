@@ -21,6 +21,7 @@ class LiveSession extends Equatable {
     required this.hostName,
     required this.status,
     this.hostId = '',
+    this.hostUsername = '',
     this.viewers = 0,
     this.isPremium = false,
     this.endedByModeration = false,
@@ -30,11 +31,17 @@ class LiveSession extends Equatable {
     this.cohostIds = const [],
     this.allowQuestions = true,
     this.recordReplay = true,
+    this.startedAt,
+    this.endedAt,
   });
   final String id;
   final String title;
   final String hostId;
   final String hostName;
+
+  /// El handle del host, sin `@`. Vacío cuando la fuente no lo sabe (el
+  /// mock): la View cae al nombre en vez de inventar un usuario.
+  final String hostUsername;
   final LiveStatus status;
   final int viewers;
   final bool isPremium;
@@ -54,6 +61,13 @@ class LiveSession extends Equatable {
   final bool allowQuestions;
   final bool recordReplay;
 
+  /// Cuándo salió al aire. De acá sale el reloj del Studio.
+  final DateTime? startedAt;
+
+  /// Cuándo terminó. Con [startedAt], la duración que ve quien se quedó
+  /// mirando hasta el final.
+  final DateTime? endedAt;
+
   LiveSession copyWith({
     LiveStatus? status,
     int? viewers,
@@ -63,6 +77,7 @@ class LiveSession extends Equatable {
     title: title,
     hostId: hostId,
     hostName: hostName,
+    hostUsername: hostUsername,
     status: status ?? this.status,
     viewers: viewers ?? this.viewers,
     isPremium: isPremium,
@@ -73,6 +88,8 @@ class LiveSession extends Equatable {
     cohostIds: cohostIds,
     allowQuestions: allowQuestions,
     recordReplay: recordReplay,
+    startedAt: startedAt,
+    endedAt: endedAt,
   );
   @override
   List<Object?> get props => [
@@ -80,6 +97,7 @@ class LiveSession extends Equatable {
     title,
     hostId,
     hostName,
+    hostUsername,
     status,
     viewers,
     isPremium,
@@ -90,5 +108,7 @@ class LiveSession extends Equatable {
     cohostIds,
     allowQuestions,
     recordReplay,
+    startedAt,
+    endedAt,
   ];
 }

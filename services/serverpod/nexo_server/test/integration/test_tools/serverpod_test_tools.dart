@@ -31,6 +31,18 @@ import 'package:nexo_server/src/generated/modules/identity/models/profile_edit.d
     as _iu4itgek;
 import 'package:nexo_server/src/generated/modules/identity/models/profile_view.dart'
     as _i43ck6sm;
+import 'package:nexo_server/src/generated/modules/live/models/live_chat_message_view.dart'
+    as _i22oo2zh;
+import 'package:nexo_server/src/generated/modules/live/models/live_event.dart'
+    as _i6fqvgf0;
+import 'package:nexo_server/src/generated/modules/live/models/live_media_grant.dart'
+    as _i2ragamz;
+import 'package:nexo_server/src/generated/modules/live/models/live_show_draft.dart'
+    as _i9mwtw4q;
+import 'package:nexo_server/src/generated/modules/live/models/live_show_role.dart'
+    as _icj96yng;
+import 'package:nexo_server/src/generated/modules/live/models/live_show_view.dart'
+    as _iqa1l3vk;
 import 'package:nexo_server/src/generated/modules/moderation/models/moderation_reason.dart'
     as _ixmgs13r;
 import 'package:nexo_server/src/generated/modules/moderation/models/report_decision.dart'
@@ -194,6 +206,8 @@ class TestEndpoints {
 
   late final _ProfilesEndpoint profiles;
 
+  late final _LiveEndpoint live;
+
   late final _ModerationEndpoint moderation;
 
   late final _CommentsEndpoint comments;
@@ -223,6 +237,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     profiles = _ProfilesEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    live = _LiveEndpoint(
       endpoints,
       serializationManager,
     );
@@ -941,6 +959,521 @@ class _ProfilesEndpoint {
         await _localUniqueSession.close();
       }
     });
+  }
+}
+
+class _LiveEndpoint {
+  _LiveEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_iqa1l3vk.LiveShowView> schedule(
+    _ist.TestSessionBuilder sessionBuilder,
+    _i9mwtw4q.LiveShowDraft draft,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'schedule',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'schedule',
+          parameters: _ist.testObjectToJson({'draft': draft}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> start(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'start',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'start',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> end(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'end',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'end',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> publish(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'publish',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'publish',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> cancel(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'cancel',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'cancel',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> goLive(
+    _ist.TestSessionBuilder sessionBuilder,
+    String title,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'goLive',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'goLive',
+          parameters: _ist.testObjectToJson({'title': title}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i2ragamz.LiveMediaGrant> mediaToken(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'mediaToken',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'mediaToken',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i2ragamz.LiveMediaGrant>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iqa1l3vk.LiveShowView> get(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'get',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'get',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iqa1l3vk.LiveShowView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_iqa1l3vk.LiveShowView>> list(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iqa1l3vk.LiveShowView>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_iqa1l3vk.LiveShowView>> mine(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'mine',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'mine',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iqa1l3vk.LiveShowView>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_icj96yng.LiveShowRole> roleIn(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'roleIn',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'roleIn',
+          parameters: _ist.testObjectToJson({'showId': showId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_icj96yng.LiveShowRole>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_i22oo2zh.LiveChatMessageView>> chatHistory(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId, {
+    int? beforeId,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'chatHistory',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'chatHistory',
+          parameters: _ist.testObjectToJson({
+            'showId': showId,
+            'beforeId': beforeId,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_i22oo2zh.LiveChatMessageView>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_i22oo2zh.LiveChatMessageView> sendChat(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+    String body,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'sendChat',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'sendChat',
+          parameters: _ist.testObjectToJson({
+            'showId': showId,
+            'body': body,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_i22oo2zh.LiveChatMessageView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> hideChat(
+    _ist.TestSessionBuilder sessionBuilder,
+    int messageId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'live',
+            method: 'hideChat',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'live',
+          methodName: 'hideChat',
+          parameters: _ist.testObjectToJson({'messageId': messageId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Stream<_i6fqvgf0.LiveEvent> watch(
+    _ist.TestSessionBuilder sessionBuilder,
+    int showId,
+  ) {
+    var _localTestStreamManager = _ist.TestStreamManager<_i6fqvgf0.LiveEvent>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'live',
+              method: 'watch',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'live',
+              methodName: 'watch',
+              arguments: {'showId': showId},
+              requestedInputStreams: [],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
+  }
+
+  _ida.Stream<_iqa1l3vk.LiveShowView> watchIndex(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) {
+    var _localTestStreamManager =
+        _ist.TestStreamManager<_iqa1l3vk.LiveShowView>();
+    _ist.callStreamFunctionAndHandleExceptions(
+      () async {
+        var _localUniqueSession =
+            (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+              endpoint: 'live',
+              method: 'watchIndex',
+            );
+        var _localCallContext = await _endpointDispatch
+            .getMethodStreamCallContext(
+              createSessionCallback: (_) => _localUniqueSession,
+              endpointPath: 'live',
+              methodName: 'watchIndex',
+              arguments: {},
+              requestedInputStreams: [],
+              serializationManager: _serializationManager,
+            );
+        await _localTestStreamManager.callStreamMethod(
+          _localCallContext,
+          _localUniqueSession,
+          {},
+        );
+      },
+      _localTestStreamManager.outputStreamController,
+    );
+    return _localTestStreamManager.outputStreamController.stream;
   }
 }
 

@@ -32,6 +32,11 @@ abstract final class AppRoutes {
   static const userProfile = '/u';
 
   static const studio = '/studio';
+
+  /// El Studio sobre un show puntual del host. Sin él, abre el que está al
+  /// aire o el próximo programado.
+  static const studioShowParam = 'show';
+  static String studioFor(String showId) => '$studio?$studioShowParam=$showId';
   static const moderation = '/moderation';
 
   /// La consola del operador. Separada de [moderation] a propósito: el

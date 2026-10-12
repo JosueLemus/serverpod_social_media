@@ -43,6 +43,12 @@ abstract interface class AdminRepository {
   /// Más reciente primero.
   Future<ResultPage<AuditEntry>> audit(AuditFilter filter, {String? cursor});
 
+  /// Vuelve los datos de la demo a la semilla: cuentas, sanciones, reportes
+  /// y auditoría de la consola. Existe mientras la consola sea mock (M6):
+  /// sin esto, repetir la grabación de la demo exigía borrar el storage del
+  /// navegador. Operador.
+  Future<void> resetDemo();
+
   /// Emite cada vez que cambia algo que la consola muestra.
   Stream<void> changes();
 }

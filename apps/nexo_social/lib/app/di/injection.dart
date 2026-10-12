@@ -20,6 +20,7 @@ import '../../features/feed/presentation/bloc/comments_cubit.dart';
 import '../../features/feed/presentation/bloc/feed_cubit.dart';
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
 import '../../features/auth/data/datasources/serverpod_auth_storage.dart';
+import '../../features/auth/data/repositories/bridged_auth_repository.dart';
 import '../../features/auth/data/repositories/mock_auth_repository.dart';
 import '../../features/auth/data/repositories/serverpod_auth_repository.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
@@ -28,15 +29,18 @@ import '../../features/posts/presentation/bloc/post_composer_cubit.dart';
 import '../../features/explore/data/repositories/mock_discovery_repository.dart';
 import '../../features/explore/domain/repositories/discovery_repository.dart';
 import '../../features/live/data/repositories/mock_live_repository.dart';
+import '../../features/live/data/repositories/serverpod_live_repository.dart';
 import '../../features/live/domain/repositories/live_repository.dart';
 import '../../features/live/presentation/bloc/live_list_cubit.dart';
 import '../../features/live/presentation/bloc/live_media_cubit.dart';
 import '../../features/live/presentation/children/schedule_show/data/datasources/show_draft_local_data_source.dart';
 import '../../features/live/presentation/children/schedule_show/data/repositories/mock_show_schedule_repository.dart';
+import '../../features/live/presentation/children/schedule_show/data/repositories/serverpod_show_schedule_repository.dart';
 import '../../features/live/presentation/children/schedule_show/domain/repositories/show_schedule_repository.dart';
 import '../../features/live/presentation/children/schedule_show/domain/usecases/schedule_show.dart';
 import '../../features/live/presentation/children/schedule_show/presentation/bloc/schedule_show_cubit.dart';
 import '../../features/moderation/data/repositories/mock_moderation_repository.dart';
+import '../../features/moderation/data/repositories/serverpod_moderation_repository.dart';
 import '../../features/moderation/domain/repositories/moderation_repository.dart';
 import '../../features/moderation/presentation/bloc/moderation_cubit.dart';
 import '../../features/subscriptions/data/repositories/mock_subscription_repository.dart';
@@ -47,7 +51,9 @@ import '../../features/admin/presentation/bloc/account_detail_cubit.dart';
 import '../../features/admin/presentation/bloc/admin_console_cubit.dart';
 import '../../features/admin/presentation/bloc/audit_log_cubit.dart';
 import '../../features/profile/data/repositories/mock_profile_repository.dart';
+import '../../features/profile/data/repositories/serverpod_profile_repository.dart';
 import '../../features/profile/domain/repositories/profile_repository.dart';
+import '../../features/profile/presentation/bloc/public_profile_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -110,10 +116,15 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<AuthRepository>(
     () => resolvedAuthSource == AuthSourceMode.mock
         ? MockAuthRepository(sl(), sl())
-        : ServerpodAuthRepository(
-            sl<serverpod.Client>(),
-            sl<ClientAuthSessionManager>(),
-            sl<StreamController<AuthSuccess?>>().stream,
+        // El puente lleva la sesión real a los módulos que todavía son mock
+        // (vivos, programar, consola). Se va con M7: ver SDD 0007, F1.
+        : BridgedAuthRepository(
+            ServerpodAuthRepository(
+              sl<serverpod.Client>(),
+              sl<ClientAuthSessionManager>(),
+              sl<StreamController<AuthSuccess?>>().stream,
+            ),
+            sl(),
           ),
   );
   sl.registerLazySingleton<DioClient>(
@@ -140,7 +151,17 @@ Future<void> configureDependencies({
   // its own cubit, so signing out in one place would leave the others
   // authenticated.
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
-  sl.registerLazySingleton<LiveRepository>(() => MockLiveRepository(sl()));
+  // Con cuentas reales, vivos reales (SDD 0006): el mismo interruptor que
+  // los posts. Una sesión de Serverpod sobre los vivos del mock es la que
+  // contestaba "sin permiso" a todos.
+  sl.registerLazySingleton<LiveRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockLiveRepository(sl())
+        : ServerpodLiveRepository(
+            sl<serverpod.Client>(),
+            sl<ClientAuthSessionManager>(),
+          ),
+  );
   sl.registerFactory(() => LiveListCubit(sl()));
   // Un motor por pantalla: el cubit lo libera al cerrarse. Sin App ID de
   // Agora, el video es el simulado de siempre.
@@ -149,18 +170,25 @@ Future<void> configureDependencies({
         ? SimulatedLiveMediaEngine()
         : AgoraLiveMediaEngine(Environment.agoraAppId),
   );
-  sl.registerFactory(() => LiveMediaCubit(sl()));
-  // TODO(backend): registrar ServerpodShowScheduleRepository (sobre
-  // serverpod.Client) cuando exista el endpoint de agenda, igual que
-  // AuthRepository elige implementación por Environment.
+  sl.registerFactory(() => LiveMediaCubit(sl(), sl()));
   sl.registerLazySingleton<ShowScheduleRepository>(
-    () => MockShowScheduleRepository(sl(), ShowDraftLocalDataSource(sl())),
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockShowScheduleRepository(sl(), ShowDraftLocalDataSource(sl()))
+        : ServerpodShowScheduleRepository(
+            sl<serverpod.Client>(),
+            sl<ClientAuthSessionManager>(),
+            ShowDraftLocalDataSource(sl()),
+          ),
   );
   sl.registerLazySingleton(() => ScheduleShow(sl()));
   sl.registerFactory(() => ScheduleShowCubit(sl(), sl()));
   sl.registerLazySingleton<DiscoveryRepository>(MockDiscoveryRepository.new);
+  // Con cuentas reales, la cola junta los reportes de posts del servidor con
+  // los del chat, que siguen en el mock hasta M6 (SDD 0007, F9).
   sl.registerLazySingleton<ModerationRepository>(
-    () => MockModerationRepository(sl()),
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockModerationRepository(sl())
+        : ServerpodModerationRepository(sl<serverpod.Client>(), sl()),
   );
   sl.registerFactory(() => ModerationCubit(sl()));
   sl.registerLazySingleton<SubscriptionRepository>(
@@ -172,8 +200,15 @@ Future<void> configureDependencies({
   sl.registerFactoryParam<AccountDetailCubit, String, void>(
     (accountId, _) => AccountDetailCubit(sl(), accountId),
   );
+  // El perfil lee de `profiles` y `posts.byAuthor` con cuentas reales. La
+  // plataforma mock sólo aporta las sanciones de la consola, hasta M6.
   sl.registerLazySingleton<ProfileRepository>(
-    () => MockProfileRepository(sl()),
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockProfileRepository(sl(), sl())
+        : ServerpodProfileRepository(sl<serverpod.Client>(), sl()),
+  );
+  sl.registerFactoryParam<PublicProfileCubit, String, void>(
+    (username, _) => PublicProfileCubit(sl(), sl(), sl(), username),
   );
 }
 

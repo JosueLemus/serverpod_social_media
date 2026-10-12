@@ -1,0 +1,15 @@
+### Un mensaje del chat de un show. Ocultar no borra: pone [hiddenAt] y
+### [hiddenBy], y la acción queda en la auditoría.
+class: LiveChatMessage
+table: live_chat_message
+serverOnly: true
+fields:
+  showId: int, relation(parent=live_show, onDelete=Cascade)
+  authorId: UuidValue
+  body: String
+  createdAt: DateTime, default=now
+  hiddenAt: DateTime?
+  hiddenBy: UuidValue?
+indexes:
+  live_chat_message_show_idx:
+    fields: showId, id

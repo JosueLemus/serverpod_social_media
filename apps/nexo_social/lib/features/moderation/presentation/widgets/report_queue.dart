@@ -65,8 +65,7 @@ class _IssueBanner extends StatelessWidget {
 
   String get _message => switch (issue) {
     ModerationIssue.forbidden =>
-      'Tu cuenta no tiene permisos de moderación. El servidor rechazó la '
-          'solicitud.',
+      'Tu cuenta no tiene permisos para esta acción de moderación.',
     ModerationIssue.conflict =>
       'Ese reporte ya no está abierto: alguien lo resolvió antes.',
     ModerationIssue.other => 'No pudimos completar la acción.',
@@ -202,18 +201,21 @@ class _ReportCard extends StatelessWidget {
                       cubit.resolve(report, ModerationType.hideComment),
                   child: const Text('Ocultar'),
                 ),
-                OutlinedButton(
-                  key: Key('mute-${report.id}'),
-                  onPressed: () =>
-                      cubit.resolve(report, ModerationType.muteUser),
-                  child: Text('Silenciar ${MuteDuration.oneDay.label}'),
-                ),
-                OutlinedButton(
-                  key: Key('ban-${report.id}'),
-                  onPressed: () =>
-                      cubit.resolve(report, ModerationType.banUser),
-                  child: const Text('Expulsar'),
-                ),
+                // Sólo donde quien tiene el reporte puede aplicarlo (F10).
+                if (report.canSanctionAuthor) ...[
+                  OutlinedButton(
+                    key: Key('mute-${report.id}'),
+                    onPressed: () =>
+                        cubit.resolve(report, ModerationType.muteUser),
+                    child: Text('Silenciar ${MuteDuration.oneDay.label}'),
+                  ),
+                  OutlinedButton(
+                    key: Key('ban-${report.id}'),
+                    onPressed: () =>
+                        cubit.resolve(report, ModerationType.banUser),
+                    child: const Text('Expulsar'),
+                  ),
+                ],
                 TextButton(
                   key: Key('dismiss-${report.id}'),
                   onPressed: () => cubit.dismiss(report),

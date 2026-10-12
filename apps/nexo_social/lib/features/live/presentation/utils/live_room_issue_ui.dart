@@ -11,6 +11,8 @@ extension LiveRoomIssueUI on LiveRoomIssue {
     LiveRoomIssue.suspended => 'Tu cuenta está suspendida.',
     LiveRoomIssue.muted =>
       'Estás silenciado en este momento y no puedes comentar.',
+    LiveRoomIssue.tooFast =>
+      'Vas muy rápido. Espera un segundo antes del próximo mensaje.',
     LiveRoomIssue.conflict =>
       'Esta acción ya no es posible desde el estado actual del vivo.',
     LiveRoomIssue.other =>

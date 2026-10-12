@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -34,6 +36,7 @@ class LiveListCubit extends Cubit<LiveListState> {
   LiveListCubit(this._repository) : super(const LiveListLoading());
 
   final LiveRepository _repository;
+  StreamSubscription<void>? _changes;
 
   Future<void> load() async {
     emit(const LiveListLoading());
@@ -42,5 +45,22 @@ class LiveListCubit extends Cubit<LiveListState> {
     } catch (_) {
       emit(const LiveListFailure());
     }
+    // Un vivo que empieza en otro dispositivo aparece acá sin recargar.
+    _changes ??= _repository.changes().listen((_) => unawaited(_refresh()));
+  }
+
+  /// Sin pasar por `Loading`: la fila de vivos no parpadea cada vez que
+  /// alguien entra o sale del aire. Si falla, queda lo que había.
+  Future<void> _refresh() async {
+    try {
+      final sessions = await _repository.list();
+      if (!isClosed) emit(LiveListLoaded(sessions));
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> close() async {
+    await _changes?.cancel();
+    return super.close();
   }
 }

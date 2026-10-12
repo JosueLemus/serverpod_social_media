@@ -69,12 +69,13 @@ Future<void> _seedDemoIfAsked(Serverpod pod) async {
   try {
     final email = AuthServices.getIdentityProvider<EmailIdp>();
     final created = await DemoSeed(
-      (session, authUserId, address, password) async {
+      (session, authUserId, address, password, transaction) async {
         await email.admin.createEmailAuthentication(
           session,
           authUserId: authUserId,
           email: address,
           password: password,
+          transaction: transaction,
         );
       },
     ).run(session);

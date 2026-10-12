@@ -1,11 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/mock/demo_accounts.dart';
+import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/core/layout/nexo_page.dart';
 import 'package:nexo_social/core/responsive/breakpoints.dart';
 import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
 import 'package:nexo_social/features/feed/presentation/widgets/post_card.dart';
+import 'package:nexo_social/features/live/domain/entities/live_session.dart';
+import 'package:nexo_social/features/live/domain/repositories/live_repository.dart';
+import 'package:nexo_social/features/live/presentation/widgets/live_card.dart';
 
 import '../../../support/app_harness.dart';
+
+/// Un servidor sin nadie al aire. Sólo responde lo que el feed lee.
+class _NobodyLive implements LiveRepository {
+  @override
+  Future<List<LiveSession>> list() async => const [];
+
+  @override
+  Stream<void> changes() => const Stream.empty();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   setUp(AppHarness.bootstrap);
@@ -97,15 +115,31 @@ void main() {
     });
 
     /// They used to be decorative: four identical Material chips, none
-    /// selected, none tappable.
-    testWidgets('"En vivo" narrows the list to live posts', (tester) async {
+    /// selected, none tappable. "En vivo" lists the lives on air, not posts:
+    /// with Serverpod no post says it is live, and the list came out empty.
+    testWidgets('"En vivo" lists the lives on air instead of posts', (
+      tester,
+    ) async {
       await pumpWide(tester);
 
       await tapFilter(tester, 'En vivo');
 
-      expect(find.byType(PostCard), findsOneWidget);
-      // Aparece en la fila de historias y en la tarjeta del post.
-      expect(find.text('Elena Vega'), findsWidgets);
+      expect(find.byType(PostCard), findsNothing);
+      // La semilla del mock tiene dos al aire: Elena y Carlos.
+      expect(find.byType(LiveCard), findsNWidgets(2));
+    });
+
+    testWidgets('"En vivo" with nobody on air says so', (tester) async {
+      sl
+        ..unregister<LiveRepository>()
+        ..registerLazySingleton<LiveRepository>(_NobodyLive.new);
+      await pumpWide(tester);
+
+      await tapFilter(tester, 'En vivo');
+
+      expect(find.byKey(const Key('feed-live-empty')), findsOneWidget);
+      expect(find.text('Nadie está en vivo ahora'), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
     });
 
     testWidgets('the heading follows the selected filter', (tester) async {
@@ -123,7 +157,7 @@ void main() {
       await pumpWide(tester);
 
       await tapFilter(tester, 'En vivo');
-      expect(find.byType(PostCard), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
 
       await tapFilter(tester, 'Para ti');
       // Filtering is applied on read, never by dropping posts from the state,
@@ -136,6 +170,7 @@ void main() {
     testWidgets('liking updates the count and keeps the icon visible', (
       tester,
     ) async {
+      await sl<AuthCubit>().signIn(DemoAccounts.viewer.email, 'demo');
       await pumpAt(tester, const Size(390, 1600));
 
       expect(find.text('482'), findsOneWidget);
@@ -147,6 +182,19 @@ void main() {
       // Regression: the filled heart must exist after the pop animation, and
       // the outlined one must exist before it.
       expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
+    });
+
+    /// Regresión: el toque de un visitante llegaba al servidor, que lo
+    /// rechazaba, y el aviso decía "No pudimos guardar tu me gusta".
+    testWidgets('a visitor is asked to sign in instead', (tester) async {
+      await sl<AuthCubit>().guest();
+      await pumpAt(tester, const Size(390, 1600));
+
+      await tester.tap(find.byKey(const Key('like-post-1')));
+      await AppHarness.settle(tester);
+
+      expect(find.byKey(const Key('like-sign-in')), findsOneWidget);
+      expect(find.text('482'), findsOneWidget);
     });
 
     testWidgets('an unliked post still shows a heart to tap', (tester) async {
