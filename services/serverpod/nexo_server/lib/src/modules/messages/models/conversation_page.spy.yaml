@@ -1,0 +1,6 @@
+### La bandeja, de la conversación con actividad más reciente a la más vieja.
+### [nextCursor] es `null` cuando no hay más.
+class: ConversationPage
+fields:
+  items: List<ConversationView>
+  nextCursor: PageCursor?

@@ -1,0 +1,12 @@
+### Un mensaje de texto. Se ordena por id: es el orden de llegada y no empata.
+class: DmMessage
+table: dm_message
+serverOnly: true
+fields:
+  conversationId: int, relation(parent=dm_conversation, onDelete=Cascade)
+  authorId: UuidValue
+  body: String
+  createdAt: DateTime, default=now
+indexes:
+  dm_message_thread_idx:
+    fields: conversationId, id

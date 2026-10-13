@@ -10,6 +10,7 @@ import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/feed/presentation/widgets/post_card.dart';
 
 import '../../support/app_harness.dart';
+import 'package:nexo_social/features/messages/presentation/bloc/unread_messages_cubit.dart';
 
 void main() {
   setUp(() async {
@@ -29,8 +30,12 @@ void main() {
 
     final auth = sl<AuthCubit>();
     await tester.pumpWidget(
-      BlocProvider.value(
-        value: auth,
+      MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: auth),
+          // Como en `NexoApp`: el badge de "Mensajes" del feed es app-wide.
+          BlocProvider.value(value: sl<UnreadMessagesCubit>()),
+        ],
         child: MaterialApp.router(
           theme: AppTheme.nexo,
           routerConfig: createRouter(auth, initialLocation: AppRoutes.feed),

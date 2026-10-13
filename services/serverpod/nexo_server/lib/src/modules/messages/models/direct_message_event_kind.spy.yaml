@@ -1,0 +1,5 @@
+enum: DirectMessageEventKind
+serialized: byName
+values:
+  - message
+  - read

@@ -67,6 +67,14 @@ import 'modules/live/models/live_show_guest_status.dart' as _ixmm5757;
 import 'modules/live/models/live_show_role.dart' as _ibpln05y;
 import 'modules/live/models/live_show_status.dart' as _i60g3ahg;
 import 'modules/live/models/live_show_view.dart' as _iky3rvks;
+import 'modules/messages/models/conversation_page.dart' as _i54ek7if;
+import 'modules/messages/models/conversation_view.dart' as _iea0s5ku;
+import 'modules/messages/models/direct_message_event.dart' as _i56rpfla;
+import 'modules/messages/models/direct_message_event_kind.dart' as _ixoqahhg;
+import 'modules/messages/models/direct_message_page.dart' as _igwk6oho;
+import 'modules/messages/models/direct_message_view.dart' as _ikbrq2q8;
+import 'modules/messages/models/dm_conversation.dart' as _iaz5gpy6;
+import 'modules/messages/models/dm_message.dart' as _i5w9zcei;
 import 'modules/moderation/models/content_report.dart' as _iwkeo1oc;
 import 'modules/moderation/models/moderation_reason.dart' as _ipkc12ge;
 import 'modules/moderation/models/report_decision.dart' as _ib61hwyt;
@@ -128,6 +136,14 @@ export 'modules/live/models/live_show_guest_status.dart';
 export 'modules/live/models/live_show_role.dart';
 export 'modules/live/models/live_show_status.dart';
 export 'modules/live/models/live_show_view.dart';
+export 'modules/messages/models/conversation_page.dart';
+export 'modules/messages/models/conversation_view.dart';
+export 'modules/messages/models/direct_message_event.dart';
+export 'modules/messages/models/direct_message_event_kind.dart';
+export 'modules/messages/models/direct_message_page.dart';
+export 'modules/messages/models/direct_message_view.dart';
+export 'modules/messages/models/dm_conversation.dart';
+export 'modules/messages/models/dm_message.dart';
 export 'modules/moderation/models/content_report.dart';
 export 'modules/moderation/models/moderation_reason.dart';
 export 'modules/moderation/models/report_decision.dart';
@@ -476,6 +492,192 @@ class Protocol extends _is.DatabaseSerializationManager {
             _isp.IndexElementDefinition(
               type: _isp.IndexElementDefinitionType.column,
               definition: 'severity',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'dm_conversation',
+      dartName: 'DmConversation',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userA',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userB',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastReadA',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastReadB',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastMessageId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastActivityAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'dm_conversation_pair_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userA',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userB',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'dm_conversation_a_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userA',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'lastActivityAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'dm_conversation_b_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userB',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'lastActivityAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'dm_message',
+      dartName: 'DmMessage',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'conversationId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'authorId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'body',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'dm_message_fk_0',
+          columns: ['conversationId'],
+          referenceTable: 'dm_conversation',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'dm_message_thread_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'conversationId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'id',
             ),
           ],
           type: 'btree',
@@ -1509,6 +1711,30 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _iky3rvks.LiveShowView) {
       return _iky3rvks.LiveShowView.fromJson(data) as T;
     }
+    if (t == _i54ek7if.ConversationPage) {
+      return _i54ek7if.ConversationPage.fromJson(data) as T;
+    }
+    if (t == _iea0s5ku.ConversationView) {
+      return _iea0s5ku.ConversationView.fromJson(data) as T;
+    }
+    if (t == _i56rpfla.DirectMessageEvent) {
+      return _i56rpfla.DirectMessageEvent.fromJson(data) as T;
+    }
+    if (t == _ixoqahhg.DirectMessageEventKind) {
+      return _ixoqahhg.DirectMessageEventKind.fromJson(data) as T;
+    }
+    if (t == _igwk6oho.DirectMessagePage) {
+      return _igwk6oho.DirectMessagePage.fromJson(data) as T;
+    }
+    if (t == _ikbrq2q8.DirectMessageView) {
+      return _ikbrq2q8.DirectMessageView.fromJson(data) as T;
+    }
+    if (t == _iaz5gpy6.DmConversation) {
+      return _iaz5gpy6.DmConversation.fromJson(data) as T;
+    }
+    if (t == _i5w9zcei.DmMessage) {
+      return _i5w9zcei.DmMessage.fromJson(data) as T;
+    }
     if (t == _iwkeo1oc.ContentReport) {
       return _iwkeo1oc.ContentReport.fromJson(data) as T;
     }
@@ -1733,6 +1959,39 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_iky3rvks.LiveShowView?>()) {
       return (data != null ? _iky3rvks.LiveShowView.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_i54ek7if.ConversationPage?>()) {
+      return (data != null ? _i54ek7if.ConversationPage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_iea0s5ku.ConversationView?>()) {
+      return (data != null ? _iea0s5ku.ConversationView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i56rpfla.DirectMessageEvent?>()) {
+      return (data != null ? _i56rpfla.DirectMessageEvent.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ixoqahhg.DirectMessageEventKind?>()) {
+      return (data != null
+              ? _ixoqahhg.DirectMessageEventKind.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _is.getType<_igwk6oho.DirectMessagePage?>()) {
+      return (data != null ? _igwk6oho.DirectMessagePage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ikbrq2q8.DirectMessageView?>()) {
+      return (data != null ? _ikbrq2q8.DirectMessageView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_iaz5gpy6.DmConversation?>()) {
+      return (data != null ? _iaz5gpy6.DmConversation.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i5w9zcei.DmMessage?>()) {
+      return (data != null ? _i5w9zcei.DmMessage.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_iwkeo1oc.ContentReport?>()) {
       return (data != null ? _iwkeo1oc.ContentReport.fromJson(data) : null)
           as T;
@@ -1895,6 +2154,18 @@ class Protocol extends _is.DatabaseSerializationManager {
       return (data as List).map((e) => deserialize<_is.UuidValue>(e)).toList()
           as T;
     }
+    if (t == List<_iea0s5ku.ConversationView>) {
+      return (data as List)
+              .map((e) => deserialize<_iea0s5ku.ConversationView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ikbrq2q8.DirectMessageView>) {
+      return (data as List)
+              .map((e) => deserialize<_ikbrq2q8.DirectMessageView>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_imgpiqz3.NotificationView>) {
       return (data as List)
               .map((e) => deserialize<_imgpiqz3.NotificationView>(e))
@@ -2002,6 +2273,14 @@ class Protocol extends _is.DatabaseSerializationManager {
       _ibpln05y.LiveShowRole => 'LiveShowRole',
       _i60g3ahg.LiveShowStatus => 'LiveShowStatus',
       _iky3rvks.LiveShowView => 'LiveShowView',
+      _i54ek7if.ConversationPage => 'ConversationPage',
+      _iea0s5ku.ConversationView => 'ConversationView',
+      _i56rpfla.DirectMessageEvent => 'DirectMessageEvent',
+      _ixoqahhg.DirectMessageEventKind => 'DirectMessageEventKind',
+      _igwk6oho.DirectMessagePage => 'DirectMessagePage',
+      _ikbrq2q8.DirectMessageView => 'DirectMessageView',
+      _iaz5gpy6.DmConversation => 'DmConversation',
+      _i5w9zcei.DmMessage => 'DmMessage',
       _iwkeo1oc.ContentReport => 'ContentReport',
       _ipkc12ge.ModerationReason => 'ModerationReason',
       _ib61hwyt.ReportDecision => 'ReportDecision',
@@ -2119,6 +2398,22 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'LiveShowStatus';
       case _iky3rvks.LiveShowView():
         return 'LiveShowView';
+      case _i54ek7if.ConversationPage():
+        return 'ConversationPage';
+      case _iea0s5ku.ConversationView():
+        return 'ConversationView';
+      case _i56rpfla.DirectMessageEvent():
+        return 'DirectMessageEvent';
+      case _ixoqahhg.DirectMessageEventKind():
+        return 'DirectMessageEventKind';
+      case _igwk6oho.DirectMessagePage():
+        return 'DirectMessagePage';
+      case _ikbrq2q8.DirectMessageView():
+        return 'DirectMessageView';
+      case _iaz5gpy6.DmConversation():
+        return 'DmConversation';
+      case _i5w9zcei.DmMessage():
+        return 'DmMessage';
       case _iwkeo1oc.ContentReport():
         return 'ContentReport';
       case _ipkc12ge.ModerationReason():
@@ -2314,6 +2609,30 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName == 'LiveShowView') {
       return deserialize<_iky3rvks.LiveShowView>(data['data']);
     }
+    if (dataClassName == 'ConversationPage') {
+      return deserialize<_i54ek7if.ConversationPage>(data['data']);
+    }
+    if (dataClassName == 'ConversationView') {
+      return deserialize<_iea0s5ku.ConversationView>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageEvent') {
+      return deserialize<_i56rpfla.DirectMessageEvent>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageEventKind') {
+      return deserialize<_ixoqahhg.DirectMessageEventKind>(data['data']);
+    }
+    if (dataClassName == 'DirectMessagePage') {
+      return deserialize<_igwk6oho.DirectMessagePage>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageView') {
+      return deserialize<_ikbrq2q8.DirectMessageView>(data['data']);
+    }
+    if (dataClassName == 'DmConversation') {
+      return deserialize<_iaz5gpy6.DmConversation>(data['data']);
+    }
+    if (dataClassName == 'DmMessage') {
+      return deserialize<_i5w9zcei.DmMessage>(data['data']);
+    }
     if (dataClassName == 'ContentReport') {
       return deserialize<_iwkeo1oc.ContentReport>(data['data']);
     }
@@ -2442,6 +2761,10 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _i1mej27o.LiveShow.t;
       case _iavthlak.LiveShowGuest:
         return _iavthlak.LiveShowGuest.t;
+      case _iaz5gpy6.DmConversation:
+        return _iaz5gpy6.DmConversation.t;
+      case _i5w9zcei.DmMessage:
+        return _i5w9zcei.DmMessage.t;
       case _iwkeo1oc.ContentReport:
         return _iwkeo1oc.ContentReport.t;
       case _idxf743i.UserNotification:

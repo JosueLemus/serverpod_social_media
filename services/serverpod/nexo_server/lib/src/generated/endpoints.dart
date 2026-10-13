@@ -42,6 +42,7 @@ import '../modules/content/endpoints/posts_endpoint.dart' as _i14rwr4t;
 import '../modules/feed/endpoints/feed_endpoint.dart' as _ioxv0ue4;
 import '../modules/identity/endpoints/profiles_endpoint.dart' as _ijchdihn;
 import '../modules/live/endpoints/live_endpoint.dart' as _i440evyb;
+import '../modules/messages/endpoints/messages_endpoint.dart' as _iqd7pz5o;
 import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
 import '../modules/notifications/endpoints/notifications_endpoint.dart'
     as _it1fxm15;
@@ -90,6 +91,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'live',
+          null,
+        ),
+      'messages': _iqd7pz5o.MessagesEndpoint()
+        ..initialize(
+          server,
+          'messages',
           null,
         ),
       'moderation': _ityzuh2k.ModerationEndpoint()
@@ -929,6 +936,174 @@ class Endpoints extends _is.EndpointDispatch {
                 Map<String, dynamic> params,
                 Map<String, Stream> streamParams,
               ) => (endpoints['live'] as _i440evyb.LiveEndpoint).watchIndex(
+                session,
+              ),
+        ),
+      },
+    );
+    connectors['messages'] = _is.EndpointConnector(
+      name: 'messages',
+      endpoint: endpoints['messages']!,
+      methodConnectors: {
+        'conversations': _is.MethodConnector(
+          name: 'conversations',
+          params: {
+            'after': _is.ParameterDescription(
+              name: 'after',
+              type: _is.getType<_iwd7ajf0.PageCursor?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint)
+                  .conversations(
+                    session,
+                    after: params['after'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'open': _is.MethodConnector(
+          name: 'open',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint).open(
+                    session,
+                    params['userId'],
+                  ),
+        ),
+        'conversation': _is.MethodConnector(
+          name: 'conversation',
+          params: {
+            'conversationId': _is.ParameterDescription(
+              name: 'conversationId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint)
+                  .conversation(
+                    session,
+                    params['conversationId'],
+                  ),
+        ),
+        'history': _is.MethodConnector(
+          name: 'history',
+          params: {
+            'conversationId': _is.ParameterDescription(
+              name: 'conversationId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'beforeId': _is.ParameterDescription(
+              name: 'beforeId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint).history(
+                    session,
+                    params['conversationId'],
+                    beforeId: params['beforeId'],
+                    limit: params['limit'],
+                  ),
+        ),
+        'send': _is.MethodConnector(
+          name: 'send',
+          params: {
+            'conversationId': _is.ParameterDescription(
+              name: 'conversationId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint).send(
+                    session,
+                    params['conversationId'],
+                    params['body'],
+                  ),
+        ),
+        'markRead': _is.MethodConnector(
+          name: 'markRead',
+          params: {
+            'conversationId': _is.ParameterDescription(
+              name: 'conversationId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint)
+                  .markRead(
+                    session,
+                    params['conversationId'],
+                  ),
+        ),
+        'unreadCount': _is.MethodConnector(
+          name: 'unreadCount',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint)
+                  .unreadCount(session),
+        ),
+        'watch': _is.MethodStreamConnector(
+          name: 'watch',
+          params: {},
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['messages'] as _iqd7pz5o.MessagesEndpoint).watch(
                 session,
               ),
         ),

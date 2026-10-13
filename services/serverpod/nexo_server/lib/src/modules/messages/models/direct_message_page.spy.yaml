@@ -1,0 +1,6 @@
+### Un tramo de la historia, del mensaje más viejo al más nuevo. [hasMore]
+### dice si hay anteriores al primero.
+class: DirectMessagePage
+fields:
+  items: List<DirectMessageView>
+  hasMore: bool

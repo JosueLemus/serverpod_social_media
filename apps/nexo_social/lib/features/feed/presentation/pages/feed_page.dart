@@ -30,6 +30,7 @@ import '../widgets/post_actions.dart';
 import '../widgets/post_card.dart';
 import '../widgets/suggested_accounts_row.dart';
 import '../../../live/presentation/utils/live_navigation.dart';
+import '../../../messages/presentation/widgets/messages_button.dart';
 
 class FeedPage extends StatelessWidget {
   const FeedPage({super.key});
@@ -77,13 +78,9 @@ class _FeedView extends StatelessWidget {
               onPressed: () => context.go(AppRoutes.explore),
               icon: const NexoIcon(NexoGlyph.search, size: 22),
             ),
-            // Sin mensajes directos todavía: apagado, no escondido (F11). El
-            // IconButton deshabilitado tiñe el glifo de gris por su IconTheme.
-            const IconButton(
-              tooltip: 'Mensajes: muy pronto',
-              onPressed: null,
-              icon: NexoIcon(NexoGlyph.comment, size: 22),
-            ),
+            // Mensajes directos (SDD 0010), con el número de conversaciones
+            // sin leer. Un invitado que lo toca va a iniciar sesión (guarda).
+            const MessagesButton(),
           ],
           // Los dos cubits se resuelven antes del await: después de él este
           // context puede estar desmontado, y leer un provider desde un Element
