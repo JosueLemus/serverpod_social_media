@@ -9,6 +9,7 @@ import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/presentation/widgets/moderation_sheet.dart';
+import '../../domain/entities/live_moderation.dart';
 import '../bloc/live_room_cubit.dart';
 
 /// El vidrio oscuro de todo lo que flota sobre el video: tinta translúcida.
@@ -126,9 +127,21 @@ class LiveChatLine extends StatelessWidget {
         await cubit.hideComment(comment);
       case ModerationType.report:
         await cubit.reportComment(comment);
-      case ModerationType.muteUser ||
-          ModerationType.banUser ||
-          ModerationType.dismissReport:
+      // En la sala, silenciar es el silencio del chat de este vivo y
+      // expulsar es sacarlo de este vivo (SDD 0011). Las sanciones de
+      // plataforma son de la consola.
+      case ModerationType.muteUser:
+        await cubit.muteInChat(
+          comment.authorId,
+          switch (decision.muteFor ?? MuteDuration.fifteenMinutes) {
+            MuteDuration.fifteenMinutes => LiveMuteDuration.fifteenMinutes,
+            MuteDuration.oneHour => LiveMuteDuration.oneHour,
+            MuteDuration.oneDay => LiveMuteDuration.restOfLive,
+          },
+        );
+      case ModerationType.banUser:
+        await cubit.kick(comment.authorId);
+      case ModerationType.dismissReport:
         cubit.recordModeration('${decision.confirmation} (${comment.author})');
     }
     // Si el servidor lo rechazó, el listener ya avisó por qué.

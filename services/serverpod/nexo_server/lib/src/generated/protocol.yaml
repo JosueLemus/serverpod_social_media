@@ -51,6 +51,16 @@ live:
   - leaveStage:
   - setMicMuted:
   - setCamera:
+  - assignModerator:
+  - muteChat:
+  - unmuteChat:
+  - kick:
+  - ban:
+  - unban:
+  - unhideChat:
+  - deleteChat:
+  - pinChat:
+  - highlightQuestion:
   - watch:
   - watchIndex:
 messages:

@@ -133,9 +133,66 @@ class LiveEndpoint extends Endpoint {
   Future<void> setCamera(Session session, int showId, bool on) =>
       _live.stageService.setCamera(session, showId, on);
 
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ----------------------------
+
+  /// Nombra al moderador del vivo, o lo quita con [userId] null. Sólo el
+  /// host; también antes de salir al aire.
+  Future<void> assignModerator(
+    Session session,
+    int showId,
+    UuidValue? userId,
+  ) => _live.moderation.assignModerator(session, showId, userId);
+
+  /// Silencio en el chat por 5, 15 o 60 [minutes], o el resto del vivo con
+  /// null. Host o moderador.
+  Future<void> muteChat(
+    Session session,
+    int showId,
+    UuidValue userId,
+    int? minutes,
+  ) => _live.moderation.muteChat(session, showId, userId, minutes);
+
+  /// Levanta un silencio antes de tiempo.
+  Future<void> unmuteChat(Session session, int showId, UuidValue userId) =>
+      _live.moderation.unmuteChat(session, showId, userId);
+
+  /// Fuera de este vivo. Host o moderador.
+  Future<void> kick(Session session, int showId, UuidValue userId) =>
+      _live.moderation.kick(session, showId, userId);
+
+  /// Fuera de todos los vivos del host. Sólo el host.
+  Future<void> ban(Session session, int showId, UuidValue userId) =>
+      _live.moderation.ban(session, showId, userId);
+
+  /// Levanta un baneo de los vivos propios.
+  Future<void> unban(Session session, UuidValue userId) =>
+      _live.moderation.unban(session, userId);
+
+  /// Devuelve un mensaje oculto. Uno borrado no vuelve.
+  Future<void> unhideChat(Session session, int messageId) =>
+      _live.moderation.unhideChat(session, messageId);
+
+  /// Borra un mensaje para todos y del replay; la fila queda para la
+  /// auditoría. Host o moderador.
+  Future<void> deleteChat(Session session, int messageId) =>
+      _live.moderation.deleteChat(session, messageId);
+
+  /// Fija un mensaje arriba del chat, o lo despega con null.
+  Future<void> pinChat(Session session, int showId, int? messageId) =>
+      _live.moderation.pinChat(session, showId, messageId);
+
+  /// Destaca una pregunta del chat, o la quita con null. Host, moderador o
+  /// invitado.
+  Future<void> highlightQuestion(
+    Session session,
+    int showId,
+    int? messageId,
+  ) => _live.moderation.highlightQuestion(session, showId, messageId);
+
   /// Lo que pasa en un show, en tiempo real. El primer evento es
   /// `snapshot`; después llegan `status`, `viewers`, `chat`, `chatHidden`,
-  /// `stage` y `roleChanged`.
+  /// `stage`, `roleChanged`, `sanction`, `chatDeleted`, `chatRestored`,
+  /// `pinned` y `highlighted`. Un expulsado o baneado recibe `forbidden`.
   /// Mientras la conexión está abierta, cuenta como espectador.
   Stream<LiveEvent> watch(Session session, int showId) async* {
     // Primero la suscripción y después la foto: en el orden inverso, un
@@ -145,6 +202,7 @@ class LiveEndpoint extends Endpoint {
       LiveChannels.show(showId),
     );
     final show = await _live.requireVisible(session, showId);
+    await _live.requireAdmitted(session, show);
 
     // La baja se registra dos veces a propósito: el listener corre aunque la
     // sesión se cierre sin cancelar el stream, y el `finally` cubre la

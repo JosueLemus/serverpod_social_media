@@ -73,6 +73,20 @@ abstract final class LiveRules {
   /// nadie más.
   static bool stageFull(int guestsOnStage) => guestsOnStage >= maxGuests;
 
+  /// Cuánto puede durar un silencio en el chat (SDD 0011, S10). Null es "el
+  /// resto del vivo". Un conjunto cerrado y no minutos libres: el moderador
+  /// decide en medio de un directo, y la auditoría se puede agrupar.
+  static const chatMuteMinutes = {5, 15, 60};
+
+  static int? checkChatMute(int? minutes) {
+    if (minutes != null && !chatMuteMinutes.contains(minutes)) {
+      throw _invalid(
+        'Un silencio dura 5, 15 o 60 minutos, o el resto del vivo.',
+      );
+    }
+    return minutes;
+  }
+
   static bool isOnAir(LiveShowStatus status) =>
       status == LiveShowStatus.live || status == LiveShowStatus.ending;
 

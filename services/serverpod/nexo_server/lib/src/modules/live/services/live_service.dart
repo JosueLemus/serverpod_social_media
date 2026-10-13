@@ -11,7 +11,9 @@ import '../../identity/services/identity_service.dart';
 import '../../notifications/services/notification_service.dart';
 import '../../social/services/follow_service.dart';
 import 'live_presence.dart';
+import 'live_moderation_service.dart';
 import 'live_rules.dart';
+import 'live_sanctions.dart';
 import 'live_stage_service.dart';
 import 'show_scheduler.dart';
 
@@ -53,6 +55,13 @@ class LiveService {
 
   /// El escenario: roles en la sala, quién habla y quién pidió la palabra.
   final LiveStageService _stage;
+
+  /// Silenciar, expulsar, banear, ocultar, borrar, fijar y destacar.
+  late final LiveModerationService _moderation = LiveModerationService(
+    stage: _stage,
+    messageViews: _messageViews,
+    now: _now,
+  );
 
   /// Se resuelve por sesión porque los secretos se leen de ahí: con App
   /// Certificate, tokens firmados; sin él, el modo de prueba de Agora.
@@ -167,7 +176,10 @@ class LiveService {
     final rows = await LiveChatMessage.db.find(
       session,
       where: (t) {
-        var where = t.showId.equals(showId) & t.hiddenAt.equals(null);
+        var where =
+            t.showId.equals(showId) &
+            t.hiddenAt.equals(null) &
+            t.deletedAt.equals(null);
         if (beforeId != null) where = where & (t.id < beforeId);
         return where;
       },
@@ -308,6 +320,7 @@ class LiveService {
       throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
     }
     final viewer = session.userIdOrNull;
+    await LiveSanctions.requireAdmitted(session, show, viewer);
     final isPublisher =
         onAir &&
         viewer != null &&
@@ -344,6 +357,11 @@ class LiveService {
     if (show.status != LiveShowStatus.live) {
       throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
     }
+    await LiveSanctions.requireAdmitted(session, show, authorId);
+    if (await LiveSanctions.activeMute(session, showId, authorId, _now()) !=
+        null) {
+      throw _error(NexoErrorCode.muted, 'Estás silenciado en este vivo.');
+    }
     final text = LiveRules.normalizeChat(body);
     if (!_throttle.tryAcquire(authorId, _now(), LiveRules.chatCooldown)) {
       throw _error(
@@ -364,56 +382,10 @@ class LiveService {
     return view;
   }
 
-  /// El host del show o el staff. No borra: queda en la auditoría.
-  Future<void> hideChat(Session session, int messageId) async {
-    final actorId = session.requireUserId;
-    final hidden = await session.db.transaction((tx) async {
-      final message = await LiveChatMessage.db.findById(
-        session,
-        messageId,
-        transaction: tx,
-        lockMode: LockMode.forUpdate,
-      );
-      if (message == null) {
-        throw _error(NexoErrorCode.notFound, 'El mensaje no existe.');
-      }
-      final show = await LiveShow.db.findById(
-        session,
-        message.showId,
-        transaction: tx,
-      );
-      if (show?.hostId != actorId && !session.isStaff) {
-        throw _error(
-          NexoErrorCode.forbidden,
-          'Sólo el host o un moderador ocultan mensajes.',
-        );
-      }
-      if (message.hiddenAt != null) return null;
-
-      await LiveChatMessage.db.updateRow(
-        session,
-        message.copyWith(hiddenAt: _now(), hiddenBy: actorId),
-        columns: (t) => [t.hiddenAt, t.hiddenBy],
-        transaction: tx,
-      );
-      await _audit.record(
-        session,
-        actorId: actorId,
-        action: 'live.hideChat',
-        entityType: 'liveChatMessage',
-        entityId: '$messageId',
-        metadata: {'showId': message.showId},
-        transaction: tx,
-      );
-      return message;
-    });
-
-    if (hidden == null) return;
-    await session.messages.postMessage(
-      LiveChannels.show(hidden.showId),
-      LiveEvent(kind: LiveEventKind.chatHidden, hiddenMessageId: messageId),
-    );
-  }
+  /// Oculta un mensaje. Host o moderador, sobre alguien de rango menor
+  /// (SDD 0011). No borra: queda en la auditoría.
+  Future<void> hideChat(Session session, int messageId) =>
+      _moderation.hideChat(session, messageId);
 
   // --- Tiempo real ---------------------------------------------------------
 
@@ -428,14 +400,30 @@ class LiveService {
 
   /// Lo primero que recibe quien se conecta. Se arma en SU sesión: es el
   /// único evento que puede llevar el rol.
-  Future<LiveEvent> snapshot(Session session, LiveShow show) async => LiveEvent(
-    kind: LiveEventKind.snapshot,
-    liveShow: await _toView(session, show),
-    role: await _roleIn(session, show),
-    viewerCount: _viewerCount(show),
-    history: await chatHistory(session, show.id!),
-    stage: await _stage.view(session, show.id!),
-  );
+  Future<LiveEvent> snapshot(Session session, LiveShow show) async {
+    final (pinned, highlighted) = await _moderation.anchors(session, show);
+    final viewer = session.userIdOrNull;
+    final mute = viewer == null
+        ? null
+        : await LiveSanctions.activeMute(session, show.id!, viewer, _now());
+    return LiveEvent(
+      kind: LiveEventKind.snapshot,
+      liveShow: await _toView(session, show),
+      role: await _roleIn(session, show),
+      viewerCount: _viewerCount(show),
+      history: await chatHistory(session, show.id!),
+      stage: await _stage.view(session, show.id!),
+      pinned: pinned,
+      highlighted: highlighted,
+      sanctionKind: mute == null ? null : LiveSanctionKind.chatMute,
+      until: mute?.until,
+    );
+  }
+
+  /// `forbidden` si quien pide fue expulsado de este vivo o baneado por su
+  /// host. Lo llama `watch` antes de sumarlo a la audiencia.
+  Future<void> requireAdmitted(Session session, LiveShow show) =>
+      LiveSanctions.requireAdmitted(session, show, session.userIdOrNull);
 
   /// Suma la sesión a los espectadores, salvo que sea el host.
   Future<void> joinAudience(Session session, LiveShow show) async {
@@ -556,6 +544,8 @@ class LiveService {
       _stage.view(session, (await requireVisible(session, showId)).id!);
 
   LiveStageService get stageService => _stage;
+
+  LiveModerationService get moderation => _moderation;
 
   // --- Internos ------------------------------------------------------------
 

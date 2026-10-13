@@ -58,9 +58,12 @@ import 'modules/live/models/live_chat_message_view.dart' as _il6n38yd;
 import 'modules/live/models/live_event.dart' as _i7dasvmg;
 import 'modules/live/models/live_event_kind.dart' as _ilchcp3h;
 import 'modules/live/models/live_hand_view.dart' as _igpp3v1h;
+import 'modules/live/models/live_host_ban.dart' as _ib5s9fd2;
 import 'modules/live/models/live_media_grant.dart' as _ij3uatdc;
 import 'modules/live/models/live_media_grant_role.dart' as _ildi0w8j;
 import 'modules/live/models/live_participant.dart' as _i7uaaqjc;
+import 'modules/live/models/live_sanction.dart' as _izxcblzl;
+import 'modules/live/models/live_sanction_kind.dart' as _i1t7par0;
 import 'modules/live/models/live_show.dart' as _i1mej27o;
 import 'modules/live/models/live_show_access.dart' as _irbd4xwy;
 import 'modules/live/models/live_show_draft.dart' as _ixjiwb6f;
@@ -131,9 +134,12 @@ export 'modules/live/models/live_chat_message_view.dart';
 export 'modules/live/models/live_event.dart';
 export 'modules/live/models/live_event_kind.dart';
 export 'modules/live/models/live_hand_view.dart';
+export 'modules/live/models/live_host_ban.dart';
 export 'modules/live/models/live_media_grant.dart';
 export 'modules/live/models/live_media_grant_role.dart';
 export 'modules/live/models/live_participant.dart';
+export 'modules/live/models/live_sanction.dart';
+export 'modules/live/models/live_sanction_kind.dart';
 export 'modules/live/models/live_show.dart';
 export 'modules/live/models/live_show_access.dart';
 export 'modules/live/models/live_show_draft.dart';
@@ -834,6 +840,18 @@ class Protocol extends _is.DatabaseSerializationManager {
           isNullable: true,
           dartType: 'UuidValue?',
         ),
+        _isp.ColumnDefinition(
+          name: 'deletedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'deletedBy',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: true,
+          dartType: 'UuidValue?',
+        ),
       ],
       foreignKeys: [
         _isp.ForeignKeyDefinition(
@@ -863,6 +881,67 @@ class Protocol extends _is.DatabaseSerializationManager {
           ],
           type: 'btree',
           isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'live_host_ban',
+      dartName: 'LiveHostBan',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'hostId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'actorId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'live_host_ban_unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'hostId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
           isPrimary: false,
         ),
       ],
@@ -962,6 +1041,90 @@ class Protocol extends _is.DatabaseSerializationManager {
           ],
           type: 'btree',
           isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'live_sanction',
+      dartName: 'LiveSanction',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'showId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'targetId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'kind',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:LiveSanctionKind',
+        ),
+        _isp.ColumnDefinition(
+          name: 'until',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'actorId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'live_sanction_fk_0',
+          columns: ['showId'],
+          referenceTable: 'live_show',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'live_sanction_target_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'showId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'targetId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
           isPrimary: false,
         ),
       ],
@@ -1069,6 +1232,18 @@ class Protocol extends _is.DatabaseSerializationManager {
           isNullable: false,
           dartType: 'int',
           columnDefault: '0',
+        ),
+        _isp.ColumnDefinition(
+          name: 'pinnedMessageId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'highlightedMessageId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: true,
+          dartType: 'int?',
         ),
         _isp.ColumnDefinition(
           name: 'createdAt',
@@ -1791,6 +1966,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _igpp3v1h.LiveHandView) {
       return _igpp3v1h.LiveHandView.fromJson(data) as T;
     }
+    if (t == _ib5s9fd2.LiveHostBan) {
+      return _ib5s9fd2.LiveHostBan.fromJson(data) as T;
+    }
     if (t == _ij3uatdc.LiveMediaGrant) {
       return _ij3uatdc.LiveMediaGrant.fromJson(data) as T;
     }
@@ -1799,6 +1977,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _i7uaaqjc.LiveParticipant) {
       return _i7uaaqjc.LiveParticipant.fromJson(data) as T;
+    }
+    if (t == _izxcblzl.LiveSanction) {
+      return _izxcblzl.LiveSanction.fromJson(data) as T;
+    }
+    if (t == _i1t7par0.LiveSanctionKind) {
+      return _i1t7par0.LiveSanctionKind.fromJson(data) as T;
     }
     if (t == _i1mej27o.LiveShow) {
       return _i1mej27o.LiveShow.fromJson(data) as T;
@@ -2042,6 +2226,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_igpp3v1h.LiveHandView?>()) {
       return (data != null ? _igpp3v1h.LiveHandView.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_ib5s9fd2.LiveHostBan?>()) {
+      return (data != null ? _ib5s9fd2.LiveHostBan.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_ij3uatdc.LiveMediaGrant?>()) {
       return (data != null ? _ij3uatdc.LiveMediaGrant.fromJson(data) : null)
           as T;
@@ -2052,6 +2239,13 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_i7uaaqjc.LiveParticipant?>()) {
       return (data != null ? _i7uaaqjc.LiveParticipant.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_izxcblzl.LiveSanction?>()) {
+      return (data != null ? _izxcblzl.LiveSanction.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_i1t7par0.LiveSanctionKind?>()) {
+      return (data != null ? _i1t7par0.LiveSanctionKind.fromJson(data) : null)
           as T;
     }
     if (t == _is.getType<_i1mej27o.LiveShow?>()) {
@@ -2410,9 +2604,12 @@ class Protocol extends _is.DatabaseSerializationManager {
       _i7dasvmg.LiveEvent => 'LiveEvent',
       _ilchcp3h.LiveEventKind => 'LiveEventKind',
       _igpp3v1h.LiveHandView => 'LiveHandView',
+      _ib5s9fd2.LiveHostBan => 'LiveHostBan',
       _ij3uatdc.LiveMediaGrant => 'LiveMediaGrant',
       _ildi0w8j.LiveMediaGrantRole => 'LiveMediaGrantRole',
       _i7uaaqjc.LiveParticipant => 'LiveParticipant',
+      _izxcblzl.LiveSanction => 'LiveSanction',
+      _i1t7par0.LiveSanctionKind => 'LiveSanctionKind',
       _i1mej27o.LiveShow => 'LiveShow',
       _irbd4xwy.LiveShowAccess => 'LiveShowAccess',
       _ixjiwb6f.LiveShowDraft => 'LiveShowDraft',
@@ -2530,12 +2727,18 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'LiveEventKind';
       case _igpp3v1h.LiveHandView():
         return 'LiveHandView';
+      case _ib5s9fd2.LiveHostBan():
+        return 'LiveHostBan';
       case _ij3uatdc.LiveMediaGrant():
         return 'LiveMediaGrant';
       case _ildi0w8j.LiveMediaGrantRole():
         return 'LiveMediaGrantRole';
       case _i7uaaqjc.LiveParticipant():
         return 'LiveParticipant';
+      case _izxcblzl.LiveSanction():
+        return 'LiveSanction';
+      case _i1t7par0.LiveSanctionKind():
+        return 'LiveSanctionKind';
       case _i1mej27o.LiveShow():
         return 'LiveShow';
       case _irbd4xwy.LiveShowAccess():
@@ -2740,6 +2943,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName == 'LiveHandView') {
       return deserialize<_igpp3v1h.LiveHandView>(data['data']);
     }
+    if (dataClassName == 'LiveHostBan') {
+      return deserialize<_ib5s9fd2.LiveHostBan>(data['data']);
+    }
     if (dataClassName == 'LiveMediaGrant') {
       return deserialize<_ij3uatdc.LiveMediaGrant>(data['data']);
     }
@@ -2748,6 +2954,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'LiveParticipant') {
       return deserialize<_i7uaaqjc.LiveParticipant>(data['data']);
+    }
+    if (dataClassName == 'LiveSanction') {
+      return deserialize<_izxcblzl.LiveSanction>(data['data']);
+    }
+    if (dataClassName == 'LiveSanctionKind') {
+      return deserialize<_i1t7par0.LiveSanctionKind>(data['data']);
     }
     if (dataClassName == 'LiveShow') {
       return deserialize<_i1mej27o.LiveShow>(data['data']);
@@ -2927,8 +3139,12 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _i85zfh3f.AccountProfile.t;
       case _i4vd7apv.LiveChatMessage:
         return _i4vd7apv.LiveChatMessage.t;
+      case _ib5s9fd2.LiveHostBan:
+        return _ib5s9fd2.LiveHostBan.t;
       case _i7uaaqjc.LiveParticipant:
         return _i7uaaqjc.LiveParticipant.t;
+      case _izxcblzl.LiveSanction:
+        return _izxcblzl.LiveSanction.t;
       case _i1mej27o.LiveShow:
         return _i1mej27o.LiveShow.t;
       case _iavthlak.LiveShowGuest:

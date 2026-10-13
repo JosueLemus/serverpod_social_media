@@ -1,0 +1,17 @@
+### Un silencio o una expulsión dentro de un show. El baneo vive aparte
+### (`LiveHostBan`) porque no es de un show sino de un host.
+class: LiveSanction
+table: live_sanction
+serverOnly: true
+fields:
+  showId: int, relation(parent=live_show, onDelete=Cascade)
+  targetId: UuidValue
+  kind: LiveSanctionKind
+  ### Hasta cuándo. Null: el resto del vivo (un silencio) o para siempre en
+  ### este show (una expulsión).
+  until: DateTime?
+  actorId: UuidValue
+  createdAt: DateTime, default=now
+indexes:
+  live_sanction_target_idx:
+    fields: showId, targetId

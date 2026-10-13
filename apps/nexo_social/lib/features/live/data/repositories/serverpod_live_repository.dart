@@ -7,6 +7,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/network/serverpod_failures.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
+import '../../domain/entities/live_moderation.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/live_stage.dart';
@@ -176,6 +177,66 @@ class ServerpodLiveRepository implements LiveRepository {
   Future<void> setCamera(String liveId, {required bool on}) =>
       _guard(() => _client.live.setCamera(_showId(liveId), on));
 
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  @override
+  Future<void> assignModerator(String liveId, String? userId) => _guard(
+    () => _client.live.assignModerator(
+      _showId(liveId),
+      userId == null ? null : _uuid(userId),
+    ),
+  );
+
+  @override
+  Future<void> muteChat(
+    String liveId,
+    String userId,
+    LiveMuteDuration duration,
+  ) => _guard(
+    () =>
+        _client.live.muteChat(_showId(liveId), _uuid(userId), duration.minutes),
+  );
+
+  @override
+  Future<void> unmuteChat(String liveId, String userId) =>
+      _guard(() => _client.live.unmuteChat(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> kick(String liveId, String userId) =>
+      _guard(() => _client.live.kick(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> ban(String liveId, String userId) =>
+      _guard(() => _client.live.ban(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> unban(String userId) =>
+      _guard(() => _client.live.unban(_uuid(userId)));
+
+  @override
+  Future<void> unhideComment(String liveId, String commentId) =>
+      _guard(() => _client.live.unhideChat(_messageId(commentId)));
+
+  @override
+  Future<void> deleteComment(String liveId, String commentId) =>
+      _guard(() => _client.live.deleteChat(_messageId(commentId)));
+
+  @override
+  Future<void> pinComment(String liveId, String? commentId) => _guard(
+    () => _client.live.pinChat(
+      _showId(liveId),
+      commentId == null ? null : _messageId(commentId),
+    ),
+  );
+
+  @override
+  Future<void> highlightQuestion(String liveId, String? commentId) => _guard(
+    () => _client.live.highlightQuestion(
+      _showId(liveId),
+      commentId == null ? null : _messageId(commentId),
+    ),
+  );
+
   @override
   Stream<LiveRoomEvent> watch(String liveId) {
     final showId = int.tryParse(liveId);
@@ -246,6 +307,13 @@ class ServerpodLiveRepository implements LiveRepository {
       stage: event.stage == null
           ? LiveStage.empty
           : toStage(event.stage!, me: me),
+      pinned: event.pinned == null ? null : toComment(event.pinned!, me: me),
+      highlighted: event.highlighted == null
+          ? null
+          : toComment(event.highlighted!, me: me),
+      myMute: event.sanctionKind == api.LiveSanctionKind.chatMute
+          ? LiveChatMute(until: event.until?.toLocal())
+          : null,
     ),
     api.LiveEventKind.status when event.liveShow != null => LiveSessionChanged(
       toSession(event.liveShow!),
@@ -267,6 +335,24 @@ class ServerpodLiveRepository implements LiveRepository {
         role: toRole(event.role!),
         isMine: me != null && event.targetId.toString() == me,
       ),
+    api.LiveEventKind.sanction
+        when event.targetId != null && event.sanctionKind != null =>
+      LiveSanctioned(
+        userId: event.targetId.toString(),
+        kind: LiveSanctionKind.values.byName(event.sanctionKind!.name),
+        until: event.until?.toLocal(),
+        isMine: me != null && event.targetId.toString() == me,
+      ),
+    api.LiveEventKind.chatDeleted when event.hiddenMessageId != null =>
+      LiveCommentDeleted('${event.hiddenMessageId}'),
+    api.LiveEventKind.chatRestored when event.message != null =>
+      LiveCommentRestored(toComment(event.message!, me: me)),
+    api.LiveEventKind.pinned => LivePinnedChanged(
+      event.pinned == null ? null : toComment(event.pinned!, me: me),
+    ),
+    api.LiveEventKind.highlighted => LiveHighlightChanged(
+      event.highlighted == null ? null : toComment(event.highlighted!, me: me),
+    ),
     _ => null,
   };
 
@@ -309,6 +395,9 @@ class ServerpodLiveRepository implements LiveRepository {
       throw const NotFoundFailure('account');
     }
   }
+
+  static int _messageId(String id) =>
+      int.tryParse(id) ?? (throw const NotFoundFailure('comment'));
 
   static int _showId(String id) {
     final showId = int.tryParse(id);

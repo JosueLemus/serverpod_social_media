@@ -7,6 +7,7 @@ import '../../features/admin/domain/entities/account_detail.dart';
 import '../../features/admin/domain/entities/audit_entry.dart';
 import '../../features/auth/domain/entities/app_user.dart';
 import '../../features/live/domain/entities/live_comment.dart';
+import '../../features/live/domain/entities/live_moderation.dart';
 import '../../features/live/domain/entities/live_permissions.dart';
 import '../../features/live/domain/entities/live_session.dart';
 import '../../features/live/domain/entities/live_stage.dart';
@@ -65,6 +66,13 @@ class MockPlatform {
   /// El escenario de cada sala (SDD 0011). Como en el servidor, una fila
   /// existente manda sobre la agenda: un invitado que se baja es oyente.
   late List<_Participant> _participants;
+
+  /// Silencios y expulsiones por sala, baneos por host, y el mensaje fijado y
+  /// la pregunta destacada de cada sala (SDD 0011, Etapa 3).
+  late List<_RoomSanction> _roomSanctions;
+  late List<_HostBan> _hostBans;
+  late Map<String, String> _pinned;
+  late Map<String, String> _highlighted;
 
   /// Quién está usando **esta** instancia. Es por pestaña y no se persiste:
   /// lo fija el repositorio de auth al restaurar o iniciar sesión.
@@ -244,7 +252,9 @@ class MockPlatform {
 
   List<LiveComment> comments(String liveId) => [
     for (final record in _comments)
-      if (record.liveId == liveId && record.hiddenAt == null)
+      if (record.liveId == liveId &&
+          record.hiddenAt == null &&
+          record.deletedAt == null)
         LiveComment(
           id: record.id,
           author: record.author,
@@ -262,6 +272,10 @@ class MockPlatform {
     }
     if (_kicked(actor.id, liveId)) {
       throw const ForbiddenFailure('comment.post: kicked');
+    }
+    _requireAdmitted(liveId, actor.id);
+    if (roomMute(liveId, actor.id) != null) {
+      throw const MutedFailure('comment.post: room');
     }
     final record = _Comment(
       id: _id('comment'),
@@ -283,10 +297,17 @@ class MockPlatform {
 
   void hideComment(String liveId, String commentId) {
     final actor = _requireActor();
-    if (!_canModerateLive(actor, liveId)) {
-      throw const ForbiddenFailure('comment.hide');
-    }
-    _commit(() => _hideComment(commentId, ModerationReason.other));
+    final comment = _roomComment(liveId, commentId);
+    _requireOver(
+      liveId,
+      _roleOf(liveId, actor.id, isStaff: actor.canModerate),
+      LiveAction.hideChat,
+      comment.authorId,
+    );
+    _commit(() {
+      _hideComment(commentId, ModerationReason.other);
+      _unanchor(liveId, commentId);
+    });
   }
 
   LiveRole roleIn(String liveId) {
@@ -469,8 +490,245 @@ class MockPlatform {
     if (live.status != LiveStatus.live) {
       throw const ConflictFailure('stage: not on air');
     }
+    _requireAdmitted(liveId, actor.id);
     final role = _roleOf(liveId, actor.id, isStaff: actor.canModerate);
     _commit(() => change(actor, role));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Moderación de la sala (SDD 0011, Etapa 3). Las mismas reglas que
+  // `LiveModerationService`.
+  // ---------------------------------------------------------------------------
+
+  /// Si [userId] no puede estar en la sala: baneado por el host o expulsado.
+  LiveSanctionKind? exclusion(String liveId, String userId) {
+    final host = _lives[liveId]?.hostId;
+    if (_hostBans.any((b) => b.hostId == host && b.userId == userId)) {
+      return LiveSanctionKind.ban;
+    }
+    final kicked = _roomSanctions.any(
+      (r) =>
+          r.liveId == liveId &&
+          r.targetId == userId &&
+          r.kind == LiveSanctionKind.kick,
+    );
+    return kicked ? LiveSanctionKind.kick : null;
+  }
+
+  void _requireAdmitted(String liveId, String userId) {
+    if (exclusion(liveId, userId) != null) {
+      throw const ForbiddenFailure('live: excluded');
+    }
+  }
+
+  /// El silencio vigente de [userId] en la sala.
+  LiveChatMute? roomMute(String liveId, String userId) {
+    final now = _now();
+    for (final r in _roomSanctions.reversed) {
+      if (r.liveId == liveId &&
+          r.targetId == userId &&
+          r.kind == LiveSanctionKind.chatMute &&
+          (r.until == null || r.until!.isAfter(now))) {
+        return LiveChatMute(until: r.until);
+      }
+    }
+    return null;
+  }
+
+  LiveComment? pinnedComment(String liveId) =>
+      _visible(liveId, _pinned[liveId]);
+
+  LiveComment? highlightedComment(String liveId) =>
+      _visible(liveId, _highlighted[liveId]);
+
+  LiveComment? _visible(String liveId, String? id) {
+    if (id == null) return null;
+    return comments(liveId).where((c) => c.id == id).firstOrNull;
+  }
+
+  void assignModerator(String liveId, String? userId) {
+    final actor = _requireActor();
+    final live = _lives[liveId];
+    if (live == null) throw const NotFoundFailure('live');
+    if (live.status != LiveStatus.live && live.status != LiveStatus.scheduled) {
+      throw const ConflictFailure('moderator: not on air');
+    }
+    final role = _roleOf(liveId, actor.id, isStaff: actor.canModerate);
+    final target = userId == null ? LiveRole.audience : _roleOf(liveId, userId);
+    if (!LivePermissions.can(
+      role,
+      LiveAction.assignModerator,
+      target: target,
+    )) {
+      throw const ForbiddenFailure('moderator: rank');
+    }
+    _commit(() {
+      for (final p in _participants.where(
+        (p) => p.liveId == liveId && p.role == LiveRole.moderator,
+      )) {
+        if (p.userId == userId) return;
+        p.role = p.onStage ? LiveRole.cohost : LiveRole.audience;
+      }
+      if (userId != null) {
+        _upsert(liveId, userId, LiveRole.audience, (p) {
+          p.role = LiveRole.moderator;
+        });
+      }
+    });
+  }
+
+  void muteChat(String liveId, String userId, LiveMuteDuration duration) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.muteChat, userId);
+        final minutes = duration.minutes;
+        _roomSanctions.add(
+          _RoomSanction(
+            liveId: liveId,
+            targetId: userId,
+            kind: LiveSanctionKind.chatMute,
+            until: minutes == null
+                ? null
+                : _now().add(Duration(minutes: minutes)),
+          ),
+        );
+      });
+
+  void unmuteChat(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.muteChat, userId);
+        final now = _now();
+        for (final r in _roomSanctions) {
+          if (r.liveId == liveId &&
+              r.targetId == userId &&
+              r.kind == LiveSanctionKind.chatMute &&
+              (r.until == null || r.until!.isAfter(now))) {
+            r.until = now;
+          }
+        }
+      });
+
+  void kick(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.kick, userId);
+        _exclude(liveId, userId);
+      });
+
+  /// Fuera de todos los vivos del host (no es el baneo de plataforma de
+  /// [ban], que es de la consola).
+  void banFromHost(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.ban, userId);
+        final host = _lives[liveId]!.hostId;
+        if (!_hostBans.any((b) => b.hostId == host && b.userId == userId)) {
+          _hostBans.add(_HostBan(hostId: host, userId: userId));
+        }
+        _exclude(liveId, userId);
+      });
+
+  void unbanFromHost(String userId) {
+    final actor = _requireActor();
+    _commit(
+      () => _hostBans.removeWhere(
+        (b) => b.hostId == actor.id && b.userId == userId,
+      ),
+    );
+  }
+
+  void unhideComment(String liveId, String commentId) =>
+      _onRoomComment(liveId, commentId, LiveAction.hideChat, (comment) {
+        if (comment.deletedAt != null) return;
+        comment
+          ..hiddenAt = null
+          ..hiddenBy = null;
+      }, allowEnded: true);
+
+  void deleteComment(String liveId, String commentId) =>
+      _onRoomComment(liveId, commentId, LiveAction.deleteChat, (comment) {
+        comment
+          ..deletedAt ??= _now()
+          ..deletedBy ??= _actorId;
+        _unanchor(liveId, commentId);
+      }, allowEnded: true);
+
+  void pinComment(String liveId, String? commentId) =>
+      _anchor(liveId, commentId, LiveAction.pinChat, _pinned);
+
+  void highlightQuestion(String liveId, String? commentId) =>
+      _anchor(liveId, commentId, LiveAction.highlightQuestion, _highlighted);
+
+  void _anchor(
+    String liveId,
+    String? commentId,
+    LiveAction action,
+    Map<String, String> anchors,
+  ) => _stageChange(liveId, (actor, role) {
+    _requireCan(role, action);
+    if (commentId == null) {
+      anchors.remove(liveId);
+      return;
+    }
+    if (_visible(liveId, commentId) == null) {
+      throw const NotFoundFailure('comment');
+    }
+    anchors[liveId] = commentId;
+  });
+
+  void _onRoomComment(
+    String liveId,
+    String commentId,
+    LiveAction action,
+    void Function(_Comment comment) change, {
+    bool allowEnded = false,
+  }) {
+    final actor = _requireActor();
+    final live = _lives[liveId];
+    if (live == null) throw const NotFoundFailure('live');
+    final ended =
+        live.status == LiveStatus.recorded ||
+        live.status == LiveStatus.published;
+    if (live.status != LiveStatus.live && !(allowEnded && ended)) {
+      throw const ConflictFailure('comment: not on air');
+    }
+    final comment = _roomComment(liveId, commentId);
+    _requireOver(
+      liveId,
+      _roleOf(liveId, actor.id, isStaff: actor.canModerate),
+      action,
+      comment.authorId,
+    );
+    _commit(() => change(comment));
+  }
+
+  _Comment _roomComment(String liveId, String commentId) {
+    final comment = _comments
+        .where((c) => c.id == commentId && c.liveId == liveId)
+        .firstOrNull;
+    if (comment == null) throw const NotFoundFailure('comment');
+    return comment;
+  }
+
+  void _unanchor(String liveId, String commentId) {
+    if (_pinned[liveId] == commentId) _pinned.remove(liveId);
+    if (_highlighted[liveId] == commentId) _highlighted.remove(liveId);
+  }
+
+  void _exclude(String liveId, String userId) {
+    _roomSanctions.add(
+      _RoomSanction(
+        liveId: liveId,
+        targetId: userId,
+        kind: LiveSanctionKind.kick,
+      ),
+    );
+    final row = _participant(liveId, userId);
+    if (row != null) {
+      row
+        ..role = LiveRole.audience
+        ..onStage = false
+        ..handRaisedAt = null
+        ..micMuted = false
+        ..cameraOn = false;
+    }
   }
 
   void _putUp(String liveId, _Participant row) {
@@ -885,9 +1143,6 @@ class MockPlatform {
     return actor;
   }
 
-  bool _canModerateLive(AppUser actor, String liveId) =>
-      actor.canModerate || _lives[liveId]?.hostId == actor.id;
-
   /// Un operador no se sanciona a sí mismo ni a otro operador: es la forma de
   /// dejar la plataforma sin nadie que pueda deshacerlo.
   _Account _sanctionable(String accountId) {
@@ -1153,6 +1408,10 @@ class MockPlatform {
     'sanctions': [for (final sanction in _sanctions) sanction.toJson()],
     'audit': [for (final record in _audit) record.toJson()],
     'participants': [for (final p in _participants) p.toJson()],
+    'roomSanctions': [for (final r in _roomSanctions) r.toJson()],
+    'hostBans': [for (final b in _hostBans) b.toJson()],
+    'pinned': _pinned,
+    'highlighted': _highlighted,
   });
 
   void _decode(String raw) {
@@ -1178,6 +1437,16 @@ class MockPlatform {
               .cast<Map<String, dynamic>>())
         _Participant.fromJson(item),
     ];
+    List<Map<String, dynamic>> optional(String key) =>
+        (json[key] as List<dynamic>? ?? const []).cast<Map<String, dynamic>>();
+    _roomSanctions = optional(
+      'roomSanctions',
+    ).map(_RoomSanction.fromJson).toList();
+    _hostBans = optional('hostBans').map(_HostBan.fromJson).toList();
+    _pinned = Map<String, String>.from(json['pinned'] as Map? ?? const {});
+    _highlighted = Map<String, String>.from(
+      json['highlighted'] as Map? ?? const {},
+    );
   }
 
   void _seed() {
@@ -1321,6 +1590,10 @@ class MockPlatform {
     _audit = [];
     // Los vivos que la demo arranca al aire ya tienen su escenario.
     _participants = [];
+    _roomSanctions = [];
+    _hostBans = [];
+    _pinned = {};
+    _highlighted = {};
     for (final live in _lives.values) {
       if (live.status == LiveStatus.live) _seedStage(live);
     }
@@ -1424,6 +1697,8 @@ class _Comment {
     required this.createdAt,
     this.hiddenAt,
     this.hiddenBy,
+    this.deletedAt,
+    this.deletedBy,
   });
 
   factory _Comment.fromJson(Map<String, dynamic> json) => _Comment(
@@ -1435,6 +1710,8 @@ class _Comment {
     createdAt: DateTime.parse(json['createdAt'] as String),
     hiddenAt: _date(json['hiddenAt']),
     hiddenBy: json['hiddenBy'] as String?,
+    deletedAt: _date(json['deletedAt']),
+    deletedBy: json['deletedBy'] as String?,
   );
 
   final String id;
@@ -1446,6 +1723,10 @@ class _Comment {
   DateTime? hiddenAt;
   String? hiddenBy;
 
+  /// Borrado: fuera del chat y del replay, pero la fila queda.
+  DateTime? deletedAt;
+  String? deletedBy;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'liveId': liveId,
@@ -1455,6 +1736,8 @@ class _Comment {
     'createdAt': createdAt.toIso8601String(),
     'hiddenAt': hiddenAt?.toIso8601String(),
     'hiddenBy': hiddenBy,
+    'deletedAt': deletedAt?.toIso8601String(),
+    'deletedBy': deletedBy,
   };
 }
 
@@ -1632,4 +1915,50 @@ class _Participant {
     'micMuted': micMuted,
     'cameraOn': cameraOn,
   };
+}
+
+/// Un silencio o una expulsión dentro de una sala.
+class _RoomSanction {
+  _RoomSanction({
+    required this.liveId,
+    required this.targetId,
+    required this.kind,
+    this.until,
+  });
+
+  factory _RoomSanction.fromJson(Map<String, dynamic> json) => _RoomSanction(
+    liveId: json['liveId'] as String,
+    targetId: json['targetId'] as String,
+    kind: LiveSanctionKind.values.byName(json['kind'] as String),
+    until: json['until'] == null
+        ? null
+        : DateTime.parse(json['until'] as String),
+  );
+
+  final String liveId;
+  final String targetId;
+  final LiveSanctionKind kind;
+  DateTime? until;
+
+  Map<String, Object?> toJson() => {
+    'liveId': liveId,
+    'targetId': targetId,
+    'kind': kind.name,
+    'until': until?.toIso8601String(),
+  };
+}
+
+/// Alguien que no entra a ningún vivo de [hostId].
+class _HostBan {
+  _HostBan({required this.hostId, required this.userId});
+
+  factory _HostBan.fromJson(Map<String, dynamic> json) => _HostBan(
+    hostId: json['hostId'] as String,
+    userId: json['userId'] as String,
+  );
+
+  final String hostId;
+  final String userId;
+
+  Map<String, Object?> toJson() => {'hostId': hostId, 'userId': userId};
 }

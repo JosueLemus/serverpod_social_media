@@ -10,6 +10,10 @@ fields:
   createdAt: DateTime, default=now
   hiddenAt: DateTime?
   hiddenBy: UuidValue?
+  ### Borrado: desaparece para todos y del replay, pero la fila queda para la
+  ### auditoría (SDD 0011, S12). Ocultar es reversible; borrar, no.
+  deletedAt: DateTime?
+  deletedBy: UuidValue?
 indexes:
   live_chat_message_show_idx:
     fields: showId, id

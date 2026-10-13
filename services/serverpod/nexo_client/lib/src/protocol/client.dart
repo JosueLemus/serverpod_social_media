@@ -755,9 +755,131 @@ class EndpointLive extends _isc.EndpointRef {
     },
   );
 
+  /// Nombra al moderador del vivo, o lo quita con [userId] null. Sólo el
+  /// host; también antes de salir al aire.
+  _ida.Future<void> assignModerator(
+    int showId,
+    _isc.UuidValue? userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'assignModerator',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Silencio en el chat por 5, 15 o 60 [minutes], o el resto del vivo con
+  /// null. Host o moderador.
+  _ida.Future<void> muteChat(
+    int showId,
+    _isc.UuidValue userId,
+    int? minutes,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'muteChat',
+    {
+      'showId': showId,
+      'userId': userId,
+      'minutes': minutes,
+    },
+  );
+
+  /// Levanta un silencio antes de tiempo.
+  _ida.Future<void> unmuteChat(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'unmuteChat',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Fuera de este vivo. Host o moderador.
+  _ida.Future<void> kick(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'kick',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Fuera de todos los vivos del host. Sólo el host.
+  _ida.Future<void> ban(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'ban',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Levanta un baneo de los vivos propios.
+  _ida.Future<void> unban(_isc.UuidValue userId) =>
+      caller.callServerEndpoint<void>(
+        'live',
+        'unban',
+        {'userId': userId},
+      );
+
+  /// Devuelve un mensaje oculto. Uno borrado no vuelve.
+  _ida.Future<void> unhideChat(int messageId) =>
+      caller.callServerEndpoint<void>(
+        'live',
+        'unhideChat',
+        {'messageId': messageId},
+      );
+
+  /// Borra un mensaje para todos y del replay; la fila queda para la
+  /// auditoría. Host o moderador.
+  _ida.Future<void> deleteChat(int messageId) =>
+      caller.callServerEndpoint<void>(
+        'live',
+        'deleteChat',
+        {'messageId': messageId},
+      );
+
+  /// Fija un mensaje arriba del chat, o lo despega con null.
+  _ida.Future<void> pinChat(
+    int showId,
+    int? messageId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'pinChat',
+    {
+      'showId': showId,
+      'messageId': messageId,
+    },
+  );
+
+  /// Destaca una pregunta del chat, o la quita con null. Host, moderador o
+  /// invitado.
+  _ida.Future<void> highlightQuestion(
+    int showId,
+    int? messageId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'highlightQuestion',
+    {
+      'showId': showId,
+      'messageId': messageId,
+    },
+  );
+
   /// Lo que pasa en un show, en tiempo real. El primer evento es
   /// `snapshot`; después llegan `status`, `viewers`, `chat`, `chatHidden`,
-  /// `stage` y `roleChanged`.
+  /// `stage`, `roleChanged`, `sanction`, `chatDeleted`, `chatRestored`,
+  /// `pinned` y `highlighted`. Un expulsado o baneado recibe `forbidden`.
   /// Mientras la conexión está abierta, cuenta como espectador.
   _ida.Stream<_ihybkmik.LiveEvent> watch(int showId) =>
       caller.callStreamingServerEndpoint<

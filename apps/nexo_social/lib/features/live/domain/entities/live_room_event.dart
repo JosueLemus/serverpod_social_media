@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'live_comment.dart';
+import 'live_moderation.dart';
 import 'live_session.dart';
 import 'live_stage.dart';
 
@@ -21,6 +22,10 @@ class LiveRoomSnapshot extends LiveRoomEvent {
     required this.role,
     required this.comments,
     this.stage = LiveStage.empty,
+    this.pinned,
+    this.highlighted,
+    this.myMute,
+    this.exclusion,
   });
 
   final LiveSession session;
@@ -30,8 +35,29 @@ class LiveRoomSnapshot extends LiveRoomEvent {
   final List<LiveComment> comments;
   final LiveStage stage;
 
+  /// El mensaje fijado y la pregunta destacada, si hay.
+  final LiveComment? pinned;
+  final LiveComment? highlighted;
+
+  /// El silencio vigente de quien mira.
+  final LiveChatMute? myMute;
+
+  /// Si quien mira fue expulsado o baneado. El servidor no lo manda —a un
+  /// expulsado le rechaza la conexión—; el mock, que emite la sala entera en
+  /// cada cambio, sí.
+  final LiveSanctionKind? exclusion;
+
   @override
-  List<Object?> get props => [session, role, comments, stage];
+  List<Object?> get props => [
+    session,
+    role,
+    comments,
+    stage,
+    pinned,
+    highlighted,
+    myMute,
+    exclusion,
+  ];
 }
 
 /// El vivo cambió de estado (empezó, terminó, lo cortó un operador).
@@ -97,4 +123,66 @@ class LiveRoleChanged extends LiveRoomEvent {
 
   @override
   List<Object?> get props => [userId, role, isMine];
+}
+
+/// Una sanción a alguien de la sala. Se publica igual para todos; la sala la
+/// aplica a sí misma sólo si [isMine].
+class LiveSanctioned extends LiveRoomEvent {
+  const LiveSanctioned({
+    required this.userId,
+    required this.kind,
+    required this.isMine,
+    this.until,
+  });
+
+  final String userId;
+  final LiveSanctionKind kind;
+  final bool isMine;
+
+  /// Hasta cuándo dura un silencio. Null: el resto del vivo. Un `until` ya
+  /// pasado es un silencio levantado.
+  final DateTime? until;
+
+  @override
+  List<Object?> get props => [userId, kind, isMine, until];
+}
+
+/// Un comentario se borró para todos. A diferencia de oculto, no vuelve.
+class LiveCommentDeleted extends LiveRoomEvent {
+  const LiveCommentDeleted(this.commentId);
+
+  final String commentId;
+
+  @override
+  List<Object?> get props => [commentId];
+}
+
+/// Un comentario oculto volvió al chat.
+class LiveCommentRestored extends LiveRoomEvent {
+  const LiveCommentRestored(this.comment);
+
+  final LiveComment comment;
+
+  @override
+  List<Object?> get props => [comment];
+}
+
+/// Cambió el mensaje fijado. Null: se despegó.
+class LivePinnedChanged extends LiveRoomEvent {
+  const LivePinnedChanged(this.comment);
+
+  final LiveComment? comment;
+
+  @override
+  List<Object?> get props => [comment];
+}
+
+/// Cambió la pregunta destacada. Null: se quitó.
+class LiveHighlightChanged extends LiveRoomEvent {
+  const LiveHighlightChanged(this.comment);
+
+  final LiveComment? comment;
+
+  @override
+  List<Object?> get props => [comment];
 }

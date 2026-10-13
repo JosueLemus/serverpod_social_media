@@ -1,0 +1,11 @@
+### Una sanción dentro de una sala (SDD 0011, S10). Tres escalones con
+### alcances distintos: la conversación, la sala y la relación con el host.
+enum: LiveSanctionKind
+serialized: byName
+values:
+  ### No puede escribir en el chat hasta `until` (o hasta que termine el vivo).
+  - chatMute
+  ### Fuera de este vivo: no vuelve a entrar.
+  - kick
+  ### Fuera de todos los vivos de este host, hasta que el host lo levante.
+  - ban

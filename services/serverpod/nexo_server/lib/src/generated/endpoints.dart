@@ -1135,6 +1135,239 @@ class Endpoints extends _is.EndpointDispatch {
                     params['on'],
                   ),
         ),
+        'assignModerator': _is.MethodConnector(
+          name: 'assignModerator',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).assignModerator(
+                    session,
+                    params['showId'],
+                    params['userId'],
+                  ),
+        ),
+        'muteChat': _is.MethodConnector(
+          name: 'muteChat',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+            'minutes': _is.ParameterDescription(
+              name: 'minutes',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).muteChat(
+                session,
+                params['showId'],
+                params['userId'],
+                params['minutes'],
+              ),
+        ),
+        'unmuteChat': _is.MethodConnector(
+          name: 'unmuteChat',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).unmuteChat(
+                    session,
+                    params['showId'],
+                    params['userId'],
+                  ),
+        ),
+        'kick': _is.MethodConnector(
+          name: 'kick',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).kick(
+                session,
+                params['showId'],
+                params['userId'],
+              ),
+        ),
+        'ban': _is.MethodConnector(
+          name: 'ban',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).ban(
+                session,
+                params['showId'],
+                params['userId'],
+              ),
+        ),
+        'unban': _is.MethodConnector(
+          name: 'unban',
+          params: {
+            'userId': _is.ParameterDescription(
+              name: 'userId',
+              type: _is.getType<_is.UuidValue>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).unban(
+                session,
+                params['userId'],
+              ),
+        ),
+        'unhideChat': _is.MethodConnector(
+          name: 'unhideChat',
+          params: {
+            'messageId': _is.ParameterDescription(
+              name: 'messageId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).unhideChat(
+                    session,
+                    params['messageId'],
+                  ),
+        ),
+        'deleteChat': _is.MethodConnector(
+          name: 'deleteChat',
+          params: {
+            'messageId': _is.ParameterDescription(
+              name: 'messageId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['live'] as _i440evyb.LiveEndpoint).deleteChat(
+                    session,
+                    params['messageId'],
+                  ),
+        ),
+        'pinChat': _is.MethodConnector(
+          name: 'pinChat',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'messageId': _is.ParameterDescription(
+              name: 'messageId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint).pinChat(
+                session,
+                params['showId'],
+                params['messageId'],
+              ),
+        ),
+        'highlightQuestion': _is.MethodConnector(
+          name: 'highlightQuestion',
+          params: {
+            'showId': _is.ParameterDescription(
+              name: 'showId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'messageId': _is.ParameterDescription(
+              name: 'messageId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['live'] as _i440evyb.LiveEndpoint)
+                  .highlightQuestion(
+                    session,
+                    params['showId'],
+                    params['messageId'],
+                  ),
+        ),
         'watch': _is.MethodStreamConnector(
           name: 'watch',
           params: {

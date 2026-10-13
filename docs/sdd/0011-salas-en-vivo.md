@@ -151,6 +151,21 @@ Y cambia lo que ya existe:
     nueva al subir o bajar del escenario (`LiveMediaSync` todavía sólo mira
     si es host).
 
+- **Etapa 3** — hecha en servidor, mock y capa de datos de la app:
+  - Tablas `live_sanction` y `live_host_ban`, columnas para borrar, fijar y
+    destacar (migración `live-moderation`, sólo agrega), y
+    `LiveModerationService` con los once métodos.
+  - El chat rechaza a un silenciado (`muted`); `watch`, `mediaToken`, el chat
+    y el escenario rechazan a un expulsado o baneado (`forbidden`).
+  - El snapshot trae el mensaje fijado, la pregunta destacada y el silencio
+    propio; hay eventos para cada sanción, borrado, restauración, fijado y
+    destacado.
+  - En la app: dominio, repositorios (Serverpod y mock), cubit, y la hoja de
+    moderación del chat que ya existía ahora silencia y expulsa de verdad.
+  - **Pendiente para la Etapa 4:** decir en pantalla "estás silenciado" y
+    "te sacaron de este vivo" (hoy la sala lo sabe —`myMute`, `exclusion`—
+    pero no lo dibuja), y las acciones nuevas en la hoja de una persona.
+
 ## 9. Riesgos
 
 - **El límite de 17 publicadores de Agora** es lo que dimensiona el escenario. Si resulta menor, baja `LiveRules.maxStage` y nada más cambia.

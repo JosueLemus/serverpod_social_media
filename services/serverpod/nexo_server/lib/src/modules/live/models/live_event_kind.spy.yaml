@@ -16,3 +16,13 @@ values:
   - stage
   ### Cambió el rol de una persona (`targetId`). Cada app mira si es ella.
   - roleChanged
+  ### Una sanción a `targetId`: `sanctionKind` y, en un silencio, `until`.
+  - sanction
+  ### Un mensaje se borró (`hiddenMessageId`).
+  - chatDeleted
+  ### Un mensaje oculto volvió (`message`).
+  - chatRestored
+  ### Cambió el mensaje fijado (`pinned`; null lo despega).
+  - pinned
+  ### Cambió la pregunta destacada (`highlighted`; null la quita).
+  - highlighted

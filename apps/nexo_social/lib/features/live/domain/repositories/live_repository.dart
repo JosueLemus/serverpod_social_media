@@ -1,5 +1,6 @@
 import '../entities/live_comment.dart';
 import '../entities/live_media_grant.dart';
+import '../entities/live_moderation.dart';
 import '../entities/live_room_event.dart';
 import '../entities/live_session.dart';
 import '../entities/live_stage.dart';
@@ -74,6 +75,43 @@ abstract interface class LiveRepository {
 
   /// La cámara propia, estando en el escenario.
   Future<void> setCamera(String liveId, {required bool on});
+
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+  //
+  // Mismas reglas: `ForbiddenFailure` si el rol no lo permite sobre esa
+  // persona. Lo que cambia llega por [watch].
+
+  /// Nombra al moderador, o lo quita con [userId] null. Sólo el host; también
+  /// con el vivo programado.
+  Future<void> assignModerator(String liveId, String? userId);
+
+  Future<void> muteChat(
+    String liveId,
+    String userId,
+    LiveMuteDuration duration,
+  );
+  Future<void> unmuteChat(String liveId, String userId);
+
+  /// Fuera de este vivo.
+  Future<void> kick(String liveId, String userId);
+
+  /// Fuera de todos los vivos del host. Sólo el host.
+  Future<void> ban(String liveId, String userId);
+
+  /// Levanta un baneo de los vivos propios.
+  Future<void> unban(String userId);
+
+  /// Devuelve un comentario oculto. Uno borrado no vuelve.
+  Future<void> unhideComment(String liveId, String commentId);
+
+  /// Borra para todos y del replay; la evidencia queda en el servidor.
+  Future<void> deleteComment(String liveId, String commentId);
+
+  /// Fija un comentario, o lo despega con [commentId] null.
+  Future<void> pinComment(String liveId, String? commentId);
+
+  /// Destaca una pregunta, o la quita con [commentId] null.
+  Future<void> highlightQuestion(String liveId, String? commentId);
 
   /// La sala en tiempo real. Lo primero es un [LiveRoomSnapshot]; después,
   /// cambios puntuales. Mientras alguien escucha, cuenta como espectador. Un

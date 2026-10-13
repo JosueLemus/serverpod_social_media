@@ -49,6 +49,7 @@ import 'modules/live/models/live_event_kind.dart' as _ilchcp3h;
 import 'modules/live/models/live_hand_view.dart' as _igpp3v1h;
 import 'modules/live/models/live_media_grant.dart' as _ij3uatdc;
 import 'modules/live/models/live_media_grant_role.dart' as _ildi0w8j;
+import 'modules/live/models/live_sanction_kind.dart' as _i1t7par0;
 import 'modules/live/models/live_show_access.dart' as _irbd4xwy;
 import 'modules/live/models/live_show_draft.dart' as _ixjiwb6f;
 import 'modules/live/models/live_show_guest_status.dart' as _ixmm5757;
@@ -107,6 +108,7 @@ export 'modules/live/models/live_event_kind.dart';
 export 'modules/live/models/live_hand_view.dart';
 export 'modules/live/models/live_media_grant.dart';
 export 'modules/live/models/live_media_grant_role.dart';
+export 'modules/live/models/live_sanction_kind.dart';
 export 'modules/live/models/live_show_access.dart';
 export 'modules/live/models/live_show_draft.dart';
 export 'modules/live/models/live_show_guest_status.dart';
@@ -250,6 +252,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _ildi0w8j.LiveMediaGrantRole) {
       return _ildi0w8j.LiveMediaGrantRole.fromJson(data) as T;
+    }
+    if (t == _i1t7par0.LiveSanctionKind) {
+      return _i1t7par0.LiveSanctionKind.fromJson(data) as T;
     }
     if (t == _irbd4xwy.LiveShowAccess) {
       return _irbd4xwy.LiveShowAccess.fromJson(data) as T;
@@ -437,6 +442,10 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _isc.getType<_ildi0w8j.LiveMediaGrantRole?>()) {
       return (data != null ? _ildi0w8j.LiveMediaGrantRole.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_i1t7par0.LiveSanctionKind?>()) {
+      return (data != null ? _i1t7par0.LiveSanctionKind.fromJson(data) : null)
           as T;
     }
     if (t == _isc.getType<_irbd4xwy.LiveShowAccess?>()) {
@@ -736,6 +745,7 @@ class Protocol extends _isc.SerializationManager {
       _igpp3v1h.LiveHandView => 'LiveHandView',
       _ij3uatdc.LiveMediaGrant => 'LiveMediaGrant',
       _ildi0w8j.LiveMediaGrantRole => 'LiveMediaGrantRole',
+      _i1t7par0.LiveSanctionKind => 'LiveSanctionKind',
       _irbd4xwy.LiveShowAccess => 'LiveShowAccess',
       _ixjiwb6f.LiveShowDraft => 'LiveShowDraft',
       _ixmm5757.LiveShowGuestStatus => 'LiveShowGuestStatus',
@@ -833,6 +843,8 @@ class Protocol extends _isc.SerializationManager {
         return 'LiveMediaGrant';
       case _ildi0w8j.LiveMediaGrantRole():
         return 'LiveMediaGrantRole';
+      case _i1t7par0.LiveSanctionKind():
+        return 'LiveSanctionKind';
       case _irbd4xwy.LiveShowAccess():
         return 'LiveShowAccess';
       case _ixjiwb6f.LiveShowDraft():
@@ -995,6 +1007,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'LiveMediaGrantRole') {
       return deserialize<_ildi0w8j.LiveMediaGrantRole>(data['data']);
+    }
+    if (dataClassName == 'LiveSanctionKind') {
+      return deserialize<_i1t7par0.LiveSanctionKind>(data['data']);
     }
     if (dataClassName == 'LiveShowAccess') {
       return deserialize<_irbd4xwy.LiveShowAccess>(data['data']);

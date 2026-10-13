@@ -8,6 +8,7 @@ import '../../../shared/profiles/profile_lookup.dart';
 import '../../identity/services/identity_service.dart';
 import 'live_permissions.dart';
 import 'live_rules.dart';
+import 'live_sanctions.dart';
 
 /// El escenario de una sala (SDD 0011, Etapa 2): quién habla, quién pidió la
 /// palabra, y subir y bajar gente.
@@ -383,6 +384,12 @@ class LiveStageService {
       if (show.status != LiveShowStatus.live) {
         throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
       }
+      await LiveSanctions.requireAdmitted(
+        session,
+        show,
+        actor,
+        transaction: tx,
+      );
       final role = await roleOf(
         session,
         show,

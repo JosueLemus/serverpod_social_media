@@ -104,6 +104,38 @@ void main() {
         expect(chat.map((e) => e.message?.id), [sent.id]);
       });
 
+      test('then a kick reaches the person and keeps them out', () async {
+        final events = await watch(tomas);
+        await endpoints.live.raiseHand(tomas, showId);
+        final id = (await endpoints.live.stage(
+          fixtures.guest,
+          showId,
+        )).hands.single.userId;
+
+        await endpoints.live.kick(elena, showId, id);
+        await until(
+          () => events.any((e) => e.kind == LiveEventKind.sanction),
+        );
+
+        final sanction = events.firstWhere(
+          (e) => e.kind == LiveEventKind.sanction,
+        );
+        expect(sanction.targetId, id);
+        expect(sanction.sanctionKind, LiveSanctionKind.kick);
+        await expectLater(
+          endpoints.live.watch(tomas, showId).first,
+          throwsNexo(NexoErrorCode.forbidden),
+        );
+      });
+
+      test('then the snapshot carries the pinned message', () async {
+        final message = await endpoints.live.sendChat(ana, showId, 'link');
+        await endpoints.live.pinChat(elena, showId, message.id);
+
+        final snapshot = (await watch(tomas)).first;
+        expect(snapshot.pinned?.id, message.id);
+      });
+
       test('then the snapshot carries the stage, host first', () async {
         final snapshot = (await watch(tomas)).first;
 

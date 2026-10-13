@@ -8,6 +8,7 @@ import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/domain/repositories/moderation_repository.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_room_event.dart';
+import '../../domain/entities/live_moderation.dart';
 import '../../domain/entities/live_permissions.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/live_stage.dart';
@@ -46,6 +47,9 @@ class LiveRoomState extends Equatable {
     this.issueSerial = 0,
     this.reconnecting = false,
     this.stage = LiveStage.empty,
+    this.highlightedComment,
+    this.myMute,
+    this.exclusion,
   });
 
   /// Null while loading, and when the id does not resolve.
@@ -96,6 +100,17 @@ class LiveRoomState extends Equatable {
   /// Quién habla y quién pidió la palabra (SDD 0011).
   final LiveStage stage;
 
+  /// La pregunta que host, moderador o un invitado destacaron.
+  final LiveComment? highlightedComment;
+
+  /// El silencio propio en el chat de esta sala. La View lo compara con el
+  /// reloj (`LiveChatMute.activeAt`): vence solo.
+  final LiveChatMute? myMute;
+
+  /// Si quien mira fue expulsado o baneado. La sala lo dice y deja de
+  /// reconectarse: insistir sería pedirle al servidor que repita el "no".
+  final LiveSanctionKind? exclusion;
+
   bool get isOnStage => stage.meOnStage;
   bool get handRaised => stage.myHandRaised;
 
@@ -122,12 +137,18 @@ class LiveRoomState extends Equatable {
     int? issueSerial,
     bool? reconnecting,
     LiveStage? stage,
+    LiveComment? highlightedComment,
+    LiveChatMute? myMute,
+    LiveSanctionKind? exclusion,
+    bool clearPinned = false,
+    bool clearHighlighted = false,
+    bool clearMute = false,
   }) => LiveRoomState(
     session: session ?? this.session,
     role: role ?? this.role,
     loved: loved ?? this.loved,
     comments: comments ?? this.comments,
-    pinnedComment: pinnedComment ?? this.pinnedComment,
+    pinnedComment: clearPinned ? null : pinnedComment ?? this.pinnedComment,
     pendingGuests: pendingGuests ?? this.pendingGuests,
     audit: audit ?? this.audit,
     isLoading: isLoading ?? this.isLoading,
@@ -139,6 +160,11 @@ class LiveRoomState extends Equatable {
     issueSerial: issueSerial ?? this.issueSerial,
     reconnecting: reconnecting ?? this.reconnecting,
     stage: stage ?? this.stage,
+    highlightedComment: clearHighlighted
+        ? null
+        : highlightedComment ?? this.highlightedComment,
+    myMute: clearMute ? null : myMute ?? this.myMute,
+    exclusion: exclusion ?? this.exclusion,
   );
 
   @override
@@ -159,6 +185,9 @@ class LiveRoomState extends Equatable {
     issueSerial,
     reconnecting,
     stage,
+    highlightedComment,
+    myMute,
+    exclusion,
   ];
 }
 
@@ -219,6 +248,12 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
           },
           onError: (Object error) {
             if (isClosed) return settle();
+            if (error is ForbiddenFailure) {
+              // Al conectarse sólo se rechaza a quien fue expulsado o
+              // baneado de esta sala.
+              _exclude(state.exclusion ?? LiveSanctionKind.kick);
+              return settle();
+            }
             if (error is NotFoundFailure) {
               emit(
                 state.copyWith(
@@ -267,13 +302,24 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
         :final role,
         :final comments,
         :final stage,
+        :final pinned,
+        :final highlighted,
+        :final myMute,
+        :final exclusion,
       ):
+        if (exclusion != null) return _exclude(exclusion);
         emit(
           state.copyWith(
             session: session,
             role: role,
             comments: comments,
             stage: stage,
+            pinnedComment: pinned,
+            clearPinned: pinned == null,
+            highlightedComment: highlighted,
+            clearHighlighted: highlighted == null,
+            myMute: myMute,
+            clearMute: myMute == null,
             isLoading: false,
             notFound: false,
             reconnecting: false,
@@ -296,8 +342,59 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
         emit(state.copyWith(role: role));
       case LiveRoleChanged():
         break;
+      case LiveSanctioned(:final kind, :final until, isMine: true):
+        if (kind == LiveSanctionKind.chatMute) {
+          final mute = LiveChatMute(until: until);
+          emit(
+            mute.activeAt(_now())
+                ? state.copyWith(myMute: mute)
+                : state.copyWith(clearMute: true),
+          );
+        } else {
+          return _exclude(kind);
+        }
+      case LiveSanctioned():
+        break;
+      case LiveCommentDeleted(:final commentId):
+        _dropComment(commentId);
+      case LiveCommentRestored(:final comment):
+        _restoreComment(comment);
+      case LivePinnedChanged(:final comment):
+        emit(
+          state.copyWith(pinnedComment: comment, clearPinned: comment == null),
+        );
+      case LiveHighlightChanged(:final comment):
+        emit(
+          state.copyWith(
+            highlightedComment: comment,
+            clearHighlighted: comment == null,
+          ),
+        );
     }
     _syncClock();
+  }
+
+  /// Fuera de la sala: deja de escuchar y de reconectarse.
+  void _exclude(LiveSanctionKind kind) {
+    _reconnect?.cancel();
+    unawaited(_events?.cancel());
+    _events = null;
+    emit(
+      state.copyWith(exclusion: kind, isLoading: false, reconnecting: false),
+    );
+  }
+
+  /// Un comentario que vuelve entra en su lugar, no al final: el orden del
+  /// chat es el de llegada.
+  void _restoreComment(LiveComment comment) {
+    if (state.comments.any((c) => c.id == comment.id)) return;
+    final id = int.tryParse(comment.id);
+    final comments = [...state.comments];
+    final at = id == null
+        ? comments.length
+        : comments.indexWhere((c) => (int.tryParse(c.id) ?? 0) > id);
+    comments.insert(at < 0 ? comments.length : at, comment);
+    emit(state.copyWith(comments: comments));
   }
 
   /// El reloj del Studio sale de `startedAt`, no de un contador: cerrar y
@@ -426,16 +523,41 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   void recordModeration(String entry) =>
       emit(state.copyWith(audit: [...state.audit, entry]));
 
-  /// Fija un mensaje arriba del chat, reemplazando el anterior.
-  void pinComment(LiveComment comment) => emit(
-    state.copyWith(
-      pinnedComment: comment,
-      audit: [
-        ...state.audit,
-        'Moderación fijó el mensaje de ${comment.author}',
-      ],
-    ),
-  );
+  /// Fija un mensaje arriba del chat, reemplazando el anterior, o lo despega
+  /// con null. Lo que se ve es lo que vuelve del servidor.
+  Future<void> pinComment(LiveComment? comment) =>
+      _moderate((id) => _repository.pinComment(id, comment?.id));
+
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  Future<void> highlightQuestion(LiveComment? comment) =>
+      _moderate((id) => _repository.highlightQuestion(id, comment?.id));
+
+  /// Borra para todos y del replay. A diferencia de ocultar, no vuelve.
+  Future<void> deleteComment(LiveComment comment) =>
+      _moderate((id) => _repository.deleteComment(id, comment.id));
+
+  Future<void> unhideComment(String commentId) =>
+      _moderate((id) => _repository.unhideComment(id, commentId));
+
+  Future<void> muteInChat(String userId, LiveMuteDuration duration) =>
+      _moderate((id) => _repository.muteChat(id, userId, duration));
+
+  Future<void> unmuteInChat(String userId) =>
+      _moderate((id) => _repository.unmuteChat(id, userId));
+
+  Future<void> kick(String userId) =>
+      _moderate((id) => _repository.kick(id, userId));
+
+  Future<void> ban(String userId) =>
+      _moderate((id) => _repository.ban(id, userId));
+
+  /// Nombra al moderador del vivo, o lo quita con null.
+  Future<void> assignModerator(String? userId) =>
+      _moderate((id) => _repository.assignModerator(id, userId));
+
+  Future<void> _moderate(Future<void> Function(String liveId) action) =>
+      _onStage(action);
 
   void approveGuest(String guest) => emit(
     state.copyWith(

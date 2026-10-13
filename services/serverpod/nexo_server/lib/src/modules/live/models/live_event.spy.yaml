@@ -16,3 +16,11 @@ fields:
   stage: LiveStageView?
   ### En `roleChanged`: de quién es el rol nuevo, que viaja en `role`.
   targetId: UuidValue?
+  ### En `sanction`, y en `snapshot` si quien mira está silenciado.
+  sanctionKind: LiveSanctionKind?
+  ### Hasta cuándo dura un silencio. Null con `chatMute`: el resto del vivo.
+  until: DateTime?
+  ### En `snapshot` y `pinned`.
+  pinned: LiveChatMessageView?
+  ### En `snapshot` y `highlighted`.
+  highlighted: LiveChatMessageView?

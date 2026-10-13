@@ -4,6 +4,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/mock_platform.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
+import '../../domain/entities/live_moderation.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/live_stage.dart';
@@ -71,6 +72,9 @@ class MockLiveRepository implements LiveRepository {
       throw const ConflictFailure('live.mediaToken: not on air');
     }
     final me = _platform.sessionAccountId;
+    if (me != null && _platform.exclusion(liveId, me) != null) {
+      throw const ForbiddenFailure('live.mediaToken: excluded');
+    }
     final publishes =
         me != null && (live.hostId == me || _platform.isOnStage(liveId, me));
     return LiveMediaGrant(
@@ -128,6 +132,7 @@ class MockLiveRepository implements LiveRepository {
   }
 
   LiveRoomSnapshot _snapshot(String liveId) {
+    final me = _platform.sessionAccountId;
     final session = _platform.live(liveId);
     if (session == null) throw const NotFoundFailure('live');
     return LiveRoomSnapshot(
@@ -135,6 +140,10 @@ class MockLiveRepository implements LiveRepository {
       role: _platform.roleIn(liveId),
       comments: _platform.comments(liveId),
       stage: _platform.stage(liveId),
+      pinned: _platform.pinnedComment(liveId),
+      highlighted: _platform.highlightedComment(liveId),
+      myMute: me == null ? null : _platform.roomMute(liveId, me),
+      exclusion: me == null ? null : _platform.exclusion(liveId, me),
     );
   }
 
@@ -181,4 +190,48 @@ class MockLiveRepository implements LiveRepository {
   @override
   Future<void> setCamera(String liveId, {required bool on}) async =>
       _platform.setCamera(liveId, on: on);
+
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  @override
+  Future<void> assignModerator(String liveId, String? userId) async =>
+      _platform.assignModerator(liveId, userId);
+
+  @override
+  Future<void> muteChat(
+    String liveId,
+    String userId,
+    LiveMuteDuration duration,
+  ) async => _platform.muteChat(liveId, userId, duration);
+
+  @override
+  Future<void> unmuteChat(String liveId, String userId) async =>
+      _platform.unmuteChat(liveId, userId);
+
+  @override
+  Future<void> kick(String liveId, String userId) async =>
+      _platform.kick(liveId, userId);
+
+  @override
+  Future<void> ban(String liveId, String userId) async =>
+      _platform.banFromHost(liveId, userId);
+
+  @override
+  Future<void> unban(String userId) async => _platform.unbanFromHost(userId);
+
+  @override
+  Future<void> unhideComment(String liveId, String commentId) async =>
+      _platform.unhideComment(liveId, commentId);
+
+  @override
+  Future<void> deleteComment(String liveId, String commentId) async =>
+      _platform.deleteComment(liveId, commentId);
+
+  @override
+  Future<void> pinComment(String liveId, String? commentId) async =>
+      _platform.pinComment(liveId, commentId);
+
+  @override
+  Future<void> highlightQuestion(String liveId, String? commentId) async =>
+      _platform.highlightQuestion(liveId, commentId);
 }
