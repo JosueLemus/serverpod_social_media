@@ -264,6 +264,7 @@ class _SessionIdentity extends StatelessWidget {
           child: UserAvatar(
             key: const Key('session-avatar'),
             name: user?.name ?? 'Invitado',
+            imageUrl: user?.avatarUrl,
             size: AppSizes.avatarHeader,
             ring: role != null ? AppColors.vinylLime : null,
           ),

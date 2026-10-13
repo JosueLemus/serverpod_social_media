@@ -351,6 +351,7 @@ String? _guard(AuthState auth, String location, {String? from}) {
   if (location == AppRoutes.suspended) return resolvedSplash;
 
   if (auth is! AuthAuthenticated) {
+    if (AppRoutes.isSharedPage(location)) return null;
     return isPublic ? null : AppRoutes.signIn;
   }
 

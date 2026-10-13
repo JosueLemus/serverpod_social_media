@@ -303,7 +303,7 @@ class _AuthorRow extends StatelessWidget {
     final name = user?.name ?? '';
     return Row(
       children: [
-        UserAvatar(name: name, size: 44),
+        UserAvatar(name: name, imageUrl: user?.avatarUrl, size: 44),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
           child: Column(

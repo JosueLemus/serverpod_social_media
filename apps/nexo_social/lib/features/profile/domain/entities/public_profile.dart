@@ -24,6 +24,9 @@ class PublicProfile extends Equatable {
     this.likes,
     this.viewerFollows = false,
     this.avatarUrl,
+    this.coverUrl,
+    this.website,
+    this.posts,
   });
 
   /// El id de la cuenta en el servidor. Es lo que pide `posts.byAuthor`.
@@ -47,6 +50,16 @@ class PublicProfile extends Equatable {
   /// La foto de perfil. Null: se dibuja la inicial.
   final String? avatarUrl;
 
+  /// El banner del encabezado. Null: el vinilo de la cuenta.
+  final String? coverUrl;
+
+  /// El enlace propio, ya con esquema (`https://…`).
+  final String? website;
+
+  /// Publicaciones no borradas, contadas en el servidor. Null en el mock,
+  /// que no las cuenta: no se dibuja un número que no se sabe.
+  final int? posts;
+
   bool get isVerified => verification == VerificationStatus.verified;
 
   /// Seguir cambia dos cosas a la vez: el botón y el contador.
@@ -65,6 +78,9 @@ class PublicProfile extends Equatable {
         likes: likes,
         viewerFollows: viewerFollows ?? this.viewerFollows,
         avatarUrl: avatarUrl,
+        coverUrl: coverUrl,
+        website: website,
+        posts: posts,
       );
 
   @override
@@ -82,5 +98,8 @@ class PublicProfile extends Equatable {
     likes,
     viewerFollows,
     avatarUrl,
+    coverUrl,
+    website,
+    posts,
   ];
 }
