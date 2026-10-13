@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/demo_accounts.dart';
 import '../../../../core/mock/mock_platform.dart';
@@ -16,6 +18,10 @@ class MockFollowRepository implements FollowRepository {
 
   final MockPlatform _platform;
   final MockSocialStore _store;
+  final _changes = StreamController<void>.broadcast();
+
+  @override
+  Stream<void> changes() => _changes.stream;
 
   @override
   Future<FollowState> follow(String userId) => _set(userId, following: true);
@@ -30,6 +36,9 @@ class MockFollowRepository implements FollowRepository {
     final username = _usernameOf(userId);
     if (_store.isFollowing(username) != following) {
       await _store.toggleFollowing(username);
+      // Sólo si cambió algo: idempotente también en los avisos, o un segundo
+      // toque sobre lo mismo releería el feed para nada.
+      if (!_changes.isClosed) _changes.add(null);
     }
     return FollowState(userId: userId, viewerFollows: following);
   }
