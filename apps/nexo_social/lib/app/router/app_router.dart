@@ -15,7 +15,6 @@ import '../../features/admin/presentation/pages/account_detail_page.dart';
 import '../../features/admin/presentation/pages/admin_console_page.dart';
 import '../../features/feed/presentation/pages/feed_page.dart';
 import '../../features/feed/presentation/pages/post_detail_page.dart';
-import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import '../../features/live/presentation/pages/creator_studio_page.dart';
 import '../../features/live/presentation/pages/live_room_page.dart';
@@ -136,6 +135,27 @@ GoRouter createRouter(
       ),
     ),
 
+    // Explorar dejó de ser una pestaña: lo que tenía vive en Inicio. Un enlace
+    // viejo (compartido, guardado, de una notificación anterior) redirige en
+    // vez de caer en la pantalla de ruta no encontrada.
+    GoRoute(
+      path: AppRoutes.legacyExplore,
+      // El redirect de un padre también corre para sus sub-rutas: sólo
+      // `/explore` pelado va al feed, y `/explore/live/<id>` sigue al hijo.
+      redirect: (context, state) =>
+          state.uri.path.replaceAll(RegExp(r'/+$'), '') ==
+              AppRoutes.legacyExplore
+          ? AppRoutes.feed
+          : null,
+      routes: [
+        GoRoute(
+          path: AppRoutes.liveRoomSegment,
+          redirect: (context, state) =>
+              AppRoutes.liveRoom(state.pathParameters['liveId'] ?? 'preview'),
+        ),
+      ],
+    ),
+
     StatefulShellRoute.indexedStack(
       // Sólo el shell escucha los conteos: el router no se reconstruye por un
       // aviso o un mensaje nuevo, y las pestañas conservan su pila.
@@ -164,19 +184,11 @@ GoRouter createRouter(
             GoRoute(
               path: AppRoutes.feed,
               builder: (context, state) => const FeedPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: AppRoutes.explore,
-              builder: (context, state) => const ExplorePage(),
               routes: [
-                // La sala vive dentro del branch de Explorar: se entra a un
-                // vivo desde el descubrimiento, y ponerla en otro branch sería
-                // el empuje entre branches que deja la página en un Navigator
-                // que no está en pantalla.
+                // La sala vive dentro del branch de Inicio: se entra a un vivo
+                // desde el feed, y ponerla en otro branch sería el empuje
+                // entre branches que deja la página en un Navigator que no
+                // está en pantalla.
                 GoRoute(
                   path: AppRoutes.liveRoomSegment,
                   builder: (context, state) => LiveRoomPage(

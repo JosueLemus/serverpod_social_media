@@ -33,13 +33,9 @@ void main() {
               Text('perfil de ${state.pathParameters['username']}'),
         ),
         GoRoute(
-          path: '${AppRoutes.explore}/${AppRoutes.liveRoomSegment}',
+          path: '/${AppRoutes.liveRoomSegment}',
           builder: (context, state) =>
               Text('sala ${state.pathParameters['liveId']}'),
-        ),
-        GoRoute(
-          path: AppRoutes.explore,
-          builder: (context, state) => const Text('explorar'),
         ),
       ],
     );

@@ -86,7 +86,7 @@ class _RoomViewState extends State<_RoomView> {
     _composer.clear();
   }
 
-  void _leave() => context.go(AppRoutes.explore);
+  void _leave() => context.go(AppRoutes.feed);
 
   /// Atrás de verdad cuando se llegó empujando (desde el feed o un perfil);
   /// si la sala se abrió directo, Explorar es el único "atrás" que existe.

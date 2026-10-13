@@ -489,7 +489,7 @@ class _SidePanel extends StatelessWidget {
       color: AppColors.background,
       border: Border(left: BorderSide(color: AppColors.border)),
     ),
-    // Reusa las mismas secciones que Explorar y el feed vacío, con su propio
+    // Reusa las mismas secciones que Inicio y el feed vacío, con su propio
     // cubit. Tres copias del mismo bloque se separan, y el panel es donde
     // menos se mira: sería el último en enterarse.
     child: BlocProvider(

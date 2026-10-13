@@ -141,8 +141,8 @@ class _PublicProfileView extends StatelessWidget {
               message:
                   'Puede que haya cambiado de nombre de usuario o que ya no '
                   'esté en Nexo.',
-              actionLabel: 'Explorar creadores',
-              onAction: () => context.go(AppRoutes.explore),
+              actionLabel: 'Descubrir creadores',
+              onAction: () => context.go(AppRoutes.feed),
             ),
           ),
           PublicProfileFailure(:final offline) => _ProfileStatusFrame(

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
-import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/widgets/nexo_icon.dart';
@@ -16,17 +14,21 @@ import '../../domain/entities/feed_filter.dart';
 ///
 /// No es un estado vacío genérico: alguien que no sigue a nadie no necesita
 /// que le digan que no hay nada, necesita a quién seguir. Por eso trae los
-/// mismos temas y creadores que Explorar debajo del gato, en vez de sólo un
-/// botón que lleva a otra pantalla a empezar de nuevo.
+/// temas y creadores para seguir debajo del gato, y el CTA lleva al buscador
+/// de Inicio en vez de a otra pantalla a empezar de nuevo.
 class EmptyFeedView extends StatelessWidget {
   const EmptyFeedView({
     super.key,
     required this.filter,
     required this.onShowAll,
+    this.onSearch,
   });
 
   final FeedFilter filter;
   final VoidCallback onShowAll;
+
+  /// Enfoca el buscador de Inicio. Sin él, el CTA no se dibuja.
+  final VoidCallback? onSearch;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +40,7 @@ class EmptyFeedView extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => ExploreCubit(sl(), sl())..load(),
-      child: const _OnboardingEmpty(),
+      child: _OnboardingEmpty(onSearch: onSearch),
     );
   }
 }
@@ -84,7 +86,9 @@ class _FilterEmpty extends StatelessWidget {
 }
 
 class _OnboardingEmpty extends StatelessWidget {
-  const _OnboardingEmpty();
+  const _OnboardingEmpty({this.onSearch});
+
+  final VoidCallback? onSearch;
 
   @override
   Widget build(BuildContext context) => BlocBuilder<ExploreCubit, ExploreState>(
@@ -124,20 +128,22 @@ class _OnboardingEmpty extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.lg),
           // Sólo opacidad: es el CTA de la pantalla y tiene que ser tocable en
-          // el frame en que aparece.
-          EnterStatic(
-            index: 3,
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const Key('empty-feed-explore'),
-                onPressed: () => context.go(AppRoutes.explore),
-                iconAlignment: IconAlignment.end,
-                icon: const NexoIcon(NexoGlyph.forward, size: 18),
-                label: const Text('Explorar creadores destacados'),
+          // el frame en que aparece. Lleva al buscador de Inicio: Explorar ya
+          // no es una pestaña aparte.
+          if (onSearch case final search?)
+            EnterStatic(
+              index: 3,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  key: const Key('empty-feed-explore'),
+                  onPressed: search,
+                  iconAlignment: IconAlignment.end,
+                  icon: const NexoIcon(NexoGlyph.search, size: 18),
+                  label: const Text('Buscar creadores y temas'),
+                ),
               ),
             ),
-          ),
           TrendingTopicsSection(
             topics: state.topics,
             onToggle: cubit.toggleTopic,

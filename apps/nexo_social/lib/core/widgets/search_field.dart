@@ -13,6 +13,7 @@ class SearchField extends StatelessWidget {
     super.key,
     required this.hint,
     this.controller,
+    this.focusNode,
     this.onChanged,
     this.onTap,
     this.readOnly = false,
@@ -21,6 +22,9 @@ class SearchField extends StatelessWidget {
 
   final String hint;
   final TextEditingController? controller;
+
+  /// Para enfocarlo desde afuera: el CTA del feed vacío lleva al buscador.
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
 
   /// Con [readOnly] en true el campo no abre teclado y el tap sale por acá —
@@ -35,6 +39,7 @@ class SearchField extends StatelessWidget {
     height: AppSizes.searchHeight,
     child: TextField(
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
       onTap: onTap,
       readOnly: readOnly,

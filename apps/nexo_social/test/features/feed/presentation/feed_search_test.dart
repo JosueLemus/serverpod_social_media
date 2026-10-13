@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
-import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
+import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
 
 import '../../../support/app_harness.dart';
 
@@ -17,26 +17,27 @@ void main() {
     await sl<AuthCubit>().restore();
   });
 
-  Future<void> pumpExplore(WidgetTester tester, {double width = 390}) async {
+  /// Inicio: el buscador vive arriba del feed desde que Explorar dejó de ser
+  /// una pestaña.
+  Future<void> pumpHome(WidgetTester tester, {double width = 390}) async {
     tester.view.physicalSize = Size(width, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(AppHarness.wrap(const ExplorePage()));
+    await tester.pumpWidget(AppHarness.wrap(const FeedPage()));
     await AppHarness.settle(tester);
   }
 
   Future<void> type(WidgetTester tester, String text) async {
-    await tester.enterText(find.byKey(const Key('explore-search')), text);
+    await tester.enterText(find.byKey(const Key('feed-search')), text);
     // El debounce, y después la respuesta.
     await tester.pump(const Duration(milliseconds: 350));
     await AppHarness.settle(tester);
   }
 
-  testWidgets('typing shows accounts instead of the explore content', (
-    tester,
-  ) async {
-    await pumpExplore(tester);
+  testWidgets('typing shows accounts instead of the feed', (tester) async {
+    await pumpHome(tester);
     expect(find.byKey(const Key('search-results')), findsNothing);
+    expect(find.byKey(const Key('filter-forYou')), findsOneWidget);
 
     await type(tester, 'carlos');
 
@@ -50,24 +51,27 @@ void main() {
       find.byKey(const Key('search-follow-carlos_mendez')),
       findsOneWidget,
     );
+    // Los resultados reemplazan al feed: no quedan los filtros abajo.
+    expect(find.byKey(const Key('filter-forYou')), findsNothing);
   });
 
-  testWidgets('nothing found says so, and clearing goes back to explore', (
+  testWidgets('nothing found says so, and clearing brings the feed back', (
     tester,
   ) async {
-    await pumpExplore(tester);
+    await pumpHome(tester);
 
     await type(tester, 'zzzzqq');
     expect(find.byKey(const Key('search-empty')), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('explore-search-clear')));
+    await tester.tap(find.byKey(const Key('feed-search-clear')));
     await AppHarness.settle(tester);
     expect(find.byKey(const Key('search-empty')), findsNothing);
     expect(find.byKey(const Key('search-results')), findsNothing);
+    expect(find.byKey(const Key('filter-forYou')), findsOneWidget);
   });
 
   testWidgets('one letter does not search', (tester) async {
-    await pumpExplore(tester);
+    await pumpHome(tester);
 
     await type(tester, 'c');
 
@@ -76,11 +80,26 @@ void main() {
   });
 
   testWidgets('results do not overflow at 320', (tester) async {
-    await pumpExplore(tester, width: 320);
+    await pumpHome(tester, width: 320);
 
     await type(tester, 'elena');
 
     expect(find.byKey(const Key('search-results')), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Inicio also shows what Explore had: upcoming, replays, topics', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 9000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(AppHarness.wrap(const FeedPage()));
+    await AppHarness.settle(tester);
+
+    // El mock trae un vivo programado (live-2) y un replay (live-3).
+    expect(find.byKey(const Key('feed-section-upcoming')), findsOneWidget);
+    expect(find.byKey(const Key('feed-section-replays')), findsOneWidget);
+    expect(find.text('Temas en tendencia'), findsOneWidget);
   });
 }
