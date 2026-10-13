@@ -15,8 +15,8 @@ import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/profile_changes.dart';
 import '../bloc/edit_profile_cubit.dart';
 
-/// "Editar perfil": foto, nombre de usuario, nombre visible, bio y el paso a
-/// creador. Al guardar vuelve con `true`, y quien la abrió relee el perfil.
+/// "Editar perfil": banner, foto, nombre de usuario, nombre visible, bio,
+/// enlace y el paso a creador. Al guardar vuelve con `true`, y quien la abrió relee el perfil.
 class EditProfilePage extends StatelessWidget {
   const EditProfilePage({super.key});
 
@@ -163,12 +163,14 @@ class _FormState extends State<_Form> {
   late final _username = TextEditingController(text: widget.state.username);
   late final _name = TextEditingController(text: widget.state.name);
   late final _bio = TextEditingController(text: widget.state.bio);
+  late final _website = TextEditingController(text: widget.state.website);
 
   @override
   void dispose() {
     _username.dispose();
     _name.dispose();
     _bio.dispose();
+    _website.dispose();
     super.dispose();
   }
 
@@ -184,6 +186,8 @@ class _FormState extends State<_Form> {
         AppSpacing.xl,
       ),
       children: [
+        _CoverPicker(state: state),
+        const SizedBox(height: AppSpacing.lg),
         Center(
           child: Semantics(
             button: true,
@@ -252,8 +256,103 @@ class _FormState extends State<_Form> {
             errorText: state.bioIssue?.message,
           ),
         ),
+        const SizedBox(height: AppSpacing.md),
+        TextField(
+          key: const Key('edit-profile-website'),
+          controller: _website,
+          onChanged: cubit.setWebsite,
+          autocorrect: false,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            labelText: 'Enlace',
+            hintText: 'tusitio.com',
+            prefixIcon: const Padding(
+              padding: EdgeInsets.all(12),
+              child: NexoIcon(NexoGlyph.link, size: 18),
+            ),
+            helperText: 'Tu web, portafolio o red. Se abre desde tu perfil.',
+            errorText: state.websiteIssue?.message,
+          ),
+        ),
         const SizedBox(height: AppSpacing.xl),
         _CreatorCard(state: state),
+      ],
+    );
+  }
+}
+
+/// El banner del perfil, ancho como en el encabezado: la foto nueva, la que
+/// ya tiene o el vinilo de la cuenta, con sus acciones debajo.
+class _CoverPicker extends StatelessWidget {
+  const _CoverPicker({required this.state});
+
+  final EditProfileState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<EditProfileCubit>();
+    final picked = state.pickedCover;
+    final current = state.removeCover ? null : state.coverUrl;
+    final Widget image = picked != null
+        ? Image.memory(
+            picked.bytes,
+            fit: BoxFit.cover,
+            // Al ancho en que se ve: una foto de galería pesa decenas de MB
+            // decodificada a resolución nativa.
+            cacheWidth: 1200,
+          )
+        : current != null
+        ? Image.network(
+            current,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => ColoredBox(color: AppColors.linerHigh),
+          )
+        : ColoredBox(
+            color: vinylFor(state.username),
+            child: Center(
+              child: NexoIcon(
+                NexoGlyph.media,
+                size: 28,
+                color: AppColors.ink.withValues(alpha: .5),
+              ),
+            ),
+          );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          button: true,
+          label: state.hasCover ? 'Cambiar banner' : 'Elegir banner',
+          child: GestureDetector(
+            key: const Key('edit-profile-cover'),
+            onTap: () => unawaited(cubit.pickCover()),
+            child: ClipRRect(
+              borderRadius: AppRadii.medium,
+              child: AspectRatio(aspectRatio: 3, child: image),
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Wrap(
+          spacing: AppSpacing.xs,
+          alignment: WrapAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: () => unawaited(cubit.pickCover()),
+              icon: const NexoIcon(NexoGlyph.media, size: 18),
+              label: Text(state.hasCover ? 'Cambiar banner' : 'Elegir banner'),
+            ),
+            if (state.hasCover)
+              TextButton(
+                key: const Key('edit-profile-remove-cover'),
+                onPressed: cubit.removeCover,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.textSecondary,
+                ),
+                child: const Text('Quitar banner'),
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -421,6 +520,10 @@ extension on ProfileFieldIssue {
     ProfileFieldIssue.nameTooLong =>
       'Hasta ${ProfileRules.nameMax} caracteres.',
     ProfileFieldIssue.bioTooLong => 'Hasta ${ProfileRules.bioMax} caracteres.',
+    ProfileFieldIssue.websiteTooLong =>
+      'Hasta ${ProfileRules.websiteMax} caracteres.',
+    ProfileFieldIssue.websiteInvalid =>
+      'Escribe un enlace válido, como tusitio.com.',
   };
 }
 
@@ -435,6 +538,8 @@ extension on EditProfileIssue {
       'Tu cuenta está suspendida: no puede editar el perfil.',
     EditProfileIssue.avatarTooLarge => 'La foto supera los 5 MB.',
     EditProfileIssue.avatarType => 'Usa una foto JPG, PNG o WebP.',
+    EditProfileIssue.coverTooLarge => 'El banner supera los 8 MB.',
+    EditProfileIssue.coverType => 'Usa un banner JPG, PNG o WebP.',
     EditProfileIssue.other =>
       'No pudimos completar la acción. Inténtalo de nuevo.',
   };

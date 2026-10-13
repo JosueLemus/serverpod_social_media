@@ -131,4 +131,13 @@ abstract final class AppRoutes {
   /// significa que la sesión se acaba de restaurar, así que el redirect manda
   /// al usuario adentro.
   static const publicOnly = <String>{splash, signIn, signUp, passwordReset};
+
+  /// Las páginas que se comparten por enlace: un perfil (`/u/<usuario>`) y
+  /// una publicación (`/p/<id>`). Las abre cualquiera, con o sin sesión: es
+  /// lo que recibe alguien por WhatsApp, y mandarlo a iniciar sesión antes de
+  /// ver lo que le pasaron lo pierde en la puerta.
+  static bool isSharedPage(String location) {
+    final path = Uri.parse(location).path;
+    return path.startsWith('$userProfile/') || path.startsWith('$postPrefix/');
+  }
 }

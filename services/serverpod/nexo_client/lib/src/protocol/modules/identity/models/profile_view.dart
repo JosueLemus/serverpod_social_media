@@ -23,15 +23,19 @@ abstract class ProfileView
     required this.displayName,
     this.bio,
     this.avatarUrl,
+    this.coverUrl,
+    this.website,
     required this.isCreator,
     required this.verification,
     required this.status,
     int? followerCount,
     int? followingCount,
+    int? postCount,
     bool? viewerFollows,
     required this.createdAt,
   }) : followerCount = followerCount ?? 0,
        followingCount = followingCount ?? 0,
+       postCount = postCount ?? 0,
        viewerFollows = viewerFollows ?? false;
 
   factory ProfileView({
@@ -40,11 +44,14 @@ abstract class ProfileView
     required String displayName,
     String? bio,
     String? avatarUrl,
+    String? coverUrl,
+    String? website,
     required bool isCreator,
     required _il3i3d2n.VerificationStatus verification,
     required _ijvat8p8.AccountStatus status,
     int? followerCount,
     int? followingCount,
+    int? postCount,
     bool? viewerFollows,
     required DateTime createdAt,
   }) = _ProfileViewImpl;
@@ -56,6 +63,8 @@ abstract class ProfileView
       displayName: jsonSerialization['displayName'] as String,
       bio: jsonSerialization['bio'] as String?,
       avatarUrl: jsonSerialization['avatarUrl'] as String?,
+      coverUrl: jsonSerialization['coverUrl'] as String?,
+      website: jsonSerialization['website'] as String?,
       isCreator: _isc.BoolJsonExtension.fromJson(
         jsonSerialization['isCreator'],
       ),
@@ -67,6 +76,7 @@ abstract class ProfileView
       ),
       followerCount: jsonSerialization['followerCount'] as int?,
       followingCount: jsonSerialization['followingCount'] as int?,
+      postCount: jsonSerialization['postCount'] as int?,
       viewerFollows: jsonSerialization['viewerFollows'] == null
           ? null
           : _isc.BoolJsonExtension.fromJson(jsonSerialization['viewerFollows']),
@@ -86,6 +96,11 @@ abstract class ProfileView
 
   String? avatarUrl;
 
+  /// El banner del perfil, si tiene.
+  String? coverUrl;
+
+  String? website;
+
   bool isCreator;
 
   _il3i3d2n.VerificationStatus verification;
@@ -97,6 +112,10 @@ abstract class ProfileView
   int followerCount;
 
   int followingCount;
+
+  /// Publicaciones no borradas de la cuenta. Se cuenta en el servidor, por
+  /// lote: la grilla del perfil pagina y su largo no es el total.
+  int postCount;
 
   /// Si quien pregunta sigue a esta cuenta. Siempre `false` para un
   /// invitado y para el propio perfil.
@@ -113,11 +132,14 @@ abstract class ProfileView
     String? displayName,
     String? bio,
     String? avatarUrl,
+    String? coverUrl,
+    String? website,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
     int? followerCount,
     int? followingCount,
+    int? postCount,
     bool? viewerFollows,
     DateTime? createdAt,
   });
@@ -130,11 +152,14 @@ abstract class ProfileView
       'displayName': displayName,
       if (bio != null) 'bio': bio,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+      if (website != null) 'website': website,
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
       'followerCount': followerCount,
       'followingCount': followingCount,
+      'postCount': postCount,
       'viewerFollows': viewerFollows,
       'createdAt': createdAt.toJson(),
     };
@@ -149,11 +174,14 @@ abstract class ProfileView
       'displayName': displayName,
       if (bio != null) 'bio': bio,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+      if (website != null) 'website': website,
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
       'followerCount': followerCount,
       'followingCount': followingCount,
+      'postCount': postCount,
       'viewerFollows': viewerFollows,
       'createdAt': createdAt.toJson(),
     };
@@ -174,11 +202,14 @@ class _ProfileViewImpl extends ProfileView {
     required String displayName,
     String? bio,
     String? avatarUrl,
+    String? coverUrl,
+    String? website,
     required bool isCreator,
     required _il3i3d2n.VerificationStatus verification,
     required _ijvat8p8.AccountStatus status,
     int? followerCount,
     int? followingCount,
+    int? postCount,
     bool? viewerFollows,
     required DateTime createdAt,
   }) : super._(
@@ -187,11 +218,14 @@ class _ProfileViewImpl extends ProfileView {
          displayName: displayName,
          bio: bio,
          avatarUrl: avatarUrl,
+         coverUrl: coverUrl,
+         website: website,
          isCreator: isCreator,
          verification: verification,
          status: status,
          followerCount: followerCount,
          followingCount: followingCount,
+         postCount: postCount,
          viewerFollows: viewerFollows,
          createdAt: createdAt,
        );
@@ -206,11 +240,14 @@ class _ProfileViewImpl extends ProfileView {
     String? displayName,
     Object? bio = _Undefined,
     Object? avatarUrl = _Undefined,
+    Object? coverUrl = _Undefined,
+    Object? website = _Undefined,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
     int? followerCount,
     int? followingCount,
+    int? postCount,
     bool? viewerFollows,
     DateTime? createdAt,
   }) {
@@ -220,11 +257,14 @@ class _ProfileViewImpl extends ProfileView {
       displayName: displayName ?? this.displayName,
       bio: bio is String? ? bio : this.bio,
       avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
+      coverUrl: coverUrl is String? ? coverUrl : this.coverUrl,
+      website: website is String? ? website : this.website,
       isCreator: isCreator ?? this.isCreator,
       verification: verification ?? this.verification,
       status: status ?? this.status,
       followerCount: followerCount ?? this.followerCount,
       followingCount: followingCount ?? this.followingCount,
+      postCount: postCount ?? this.postCount,
       viewerFollows: viewerFollows ?? this.viewerFollows,
       createdAt: createdAt ?? this.createdAt,
     );

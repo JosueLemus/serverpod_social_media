@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../app/theme/nexo_themes.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/constants/environment.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/nexo_icon.dart';
@@ -19,6 +21,7 @@ import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../../feed/domain/entities/post.dart';
+import '../../../feed/presentation/widgets/photo_viewer.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/utils/live_status_ui.dart';
 import '../../domain/entities/follow.dart';
@@ -30,8 +33,6 @@ import '../widgets/follow_list_sheet.dart';
 import '../../../live/presentation/utils/live_navigation.dart';
 import '../../../../core/share/share_sheet.dart';
 import '../utils/profile_share_text.dart';
-
-part 'account_profile_view.dart';
 
 /// El perfil de una cuenta. La portada y las pestañas comparten un solo
 /// scroll view, que es lo que mantiene la tab bar fijada sin pelearse con las
@@ -69,10 +70,11 @@ class ProfilePage extends StatelessWidget {
       );
     }
     if (isVisitor) return const _GuestProfileView();
-    // El perfil propio de una cuenta que no crea contenido: su cuenta y su
-    // rol. Antes todas caían en la vista de creadora, escrita con el
-    // contenido de Elena: el operador abría "su" perfil y leía @elena_ux.
-    if (!user.isCreator) return _AccountProfileView(user: user);
+    // El perfil propio es el perfil real de la cuenta, sea creadora o no: su
+    // banner, su foto y sus publicaciones. Antes una cuenta que no creaba
+    // contenido veía otra pantalla, sin su grilla ni su foto; los accesos de
+    // esa pantalla (consola, moderación, temas, ajustes, salir) están en el
+    // menú de opciones.
     return _PublicProfileView(
       // Con otra key si cambia el nombre de usuario: el cubit del perfil se
       // crea una vez con el username, y renombrarse lo dejaba buscando una
@@ -191,6 +193,12 @@ class _ProfileStatusFrame extends StatelessWidget {
   );
 }
 
+/// Las membresías pagas no tienen backend: con el servidor real no hay pase
+/// VIP ni contenido premium que mostrar, así que no se ofrecen. En el modo
+/// mock se ven, y el paywall dice que el pago es simulado.
+bool get _membershipsAvailable =>
+    Environment.authSourceMode == AuthSourceMode.mock;
+
 class _LoadedProfile extends StatelessWidget {
   const _LoadedProfile({
     required this.state,
@@ -209,12 +217,13 @@ class _LoadedProfile extends StatelessWidget {
     // tiene qué poner ahí, y una pestaña vacía por diseño se lee como un
     // error de carga.
     final tabs = profile.isCreator;
+    final premium = tabs && _membershipsAvailable;
     final posts = _PostsTab(state: state, isOwn: isOwn);
     // Al aire ahora: el avatar lleva el foil holo, la marca de "está pasando"
     // en toda la app.
     final onAir = state.lives.any((live) => live.status.isOnAir);
     return DefaultTabController(
-      length: 3,
+      length: premium ? 3 : 2,
       child: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _ProfileHeader(
@@ -226,7 +235,7 @@ class _LoadedProfile extends StatelessWidget {
           if (tabs)
             SliverPersistentHeader(
               pinned: true,
-              delegate: _TabsHeaderDelegate(),
+              delegate: _TabsHeaderDelegate(premium: premium),
             ),
         ],
         body: tabs
@@ -234,7 +243,8 @@ class _LoadedProfile extends StatelessWidget {
                 children: [
                   posts,
                   _LivesTab(lives: state.lives),
-                  _PremiumTab(profile: profile, canUnlock: canAct && !isOwn),
+                  if (premium)
+                    _PremiumTab(profile: profile, canUnlock: canAct && !isOwn),
                 ],
               )
             : posts,
@@ -359,6 +369,8 @@ class _ProfileHeader extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _CoverBackground(color: cover),
+                if (profile.coverUrl case final coverUrl?)
+                  _CoverImage(url: coverUrl),
                 // La insignia de creador va pegada sobre la portada, apenas
                 // torcida, como un sticker puesto a mano.
                 if (profile.isCreator)
@@ -391,6 +403,34 @@ class _ProfileHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+/// El banner propio de la cuenta, encima del vinilo: mientras carga, o si
+/// falla, se sigue viendo el vinilo. Tocarlo lo abre entero en el visor.
+class _CoverImage extends StatelessWidget {
+  const _CoverImage({required this.url});
+
+  final String url;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Ver banner',
+    child: GestureDetector(
+      key: const Key('profile-cover'),
+      // Opaco: mientras la imagen carga el hijo es una caja vacía, y sin esto
+      // el toque atravesaba el banner.
+      behavior: HitTestBehavior.opaque,
+      onTap: () => unawaited(showPhotoViewer(context, url: url)),
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        frameBuilder: (context, child, frame, sync) =>
+            frame == null && !sync ? const SizedBox.expand() : child,
+        errorBuilder: (_, _, _) => const SizedBox.expand(),
+      ),
+    ),
+  );
 }
 
 /// Una sanción que no se ve desde afuera no se puede demostrar. Va pegada a
@@ -735,19 +775,33 @@ class _ProfileSummary extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 2),
-              Text(
-                '@${profile.username}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: text.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w700,
-                ),
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '@${profile.username}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  // El rol de staff, sólo en el perfil propio: es de la
+                  // sesión, no algo que se le muestre a quien visita.
+                  if (isOwn) const _StaffRoleBadge(),
+                ],
               ),
               const _SanctionBanner(),
               if (bio != null) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(bio, style: text.bodyMedium?.copyWith(height: 1.45)),
+              ],
+              if (profile.website case final website?) ...[
+                const SizedBox(height: AppSpacing.xs),
+                _WebsiteLink(url: website),
               ],
               if (_ProfileMetrics.hasAny(profile)) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -756,6 +810,23 @@ class _ProfileSummary extends StatelessWidget {
               if (canAct && !isOwn) ...[
                 const SizedBox(height: AppSpacing.md),
                 _ProfileActions(profile: profile),
+              ],
+              // Sin cuenta (un enlace compartido, o un invitado): en lugar de
+              // botones que no puede usar, la forma de empezar.
+              if (!canAct && !isOwn) ...[
+                const SizedBox(height: AppSpacing.md),
+                FilledButton(
+                  key: const Key('profile-join'),
+                  onPressed: () => context.go(AppRoutes.signIn),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(0, AppSizes.buttonHeightDense),
+                  ),
+                  child: Text(
+                    'Únete a Nexo para seguir a ${profile.name.split(' ').first}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
               if (isOwn) ...[
                 const SizedBox(height: AppSpacing.md),
@@ -768,7 +839,10 @@ class _ProfileSummary extends StatelessWidget {
                   child: const Text('Editar perfil'),
                 ),
               ],
-              if (profile.isCreator && canAct && !isOwn) ...[
+              if (profile.isCreator &&
+                  canAct &&
+                  !isOwn &&
+                  _membershipsAvailable) ...[
                 const SizedBox(height: AppSpacing.lg),
                 _VipCard(creatorName: profile.name),
               ],
@@ -780,9 +854,8 @@ class _ProfileSummary extends StatelessWidget {
         Positioned(
           top: -extent / 2,
           left: AppSpacing.md,
-          child: UserAvatar(
-            name: profile.name,
-            imageUrl: profile.avatarUrl,
+          child: _ProfileAvatar(
+            profile: profile,
             size: _avatarSize,
             onAir: onAir,
           ),
@@ -790,6 +863,118 @@ class _ProfileSummary extends StatelessWidget {
       ],
     );
   }
+}
+
+/// "Operador" o "Moderador" en el perfil propio de una cuenta de staff. Una
+/// cuenta común no lleva nada: "usuario" no le dice nada a nadie.
+class _StaffRoleBadge extends StatelessWidget {
+  const _StaffRoleBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthCubit>().state;
+    final role = auth is AuthAuthenticated ? auth.user.role : null;
+    final label = switch (role) {
+      UserRole.operator => 'Operador',
+      UserRole.moderator => 'Moderador',
+      _ => null,
+    };
+    if (label == null) return const SizedBox.shrink();
+    return StatusBadge(
+      key: const Key('profile-staff-role'),
+      label: label.toUpperCase(),
+      color: AppColors.vinylLime,
+      foreground: AppColors.ink,
+    );
+  }
+}
+
+/// La foto del perfil. Con foto, tocarla la abre a pantalla completa; sin
+/// foto, es la inicial y no hay nada que ampliar.
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({
+    required this.profile,
+    required this.size,
+    required this.onAir,
+  });
+
+  final PublicProfile profile;
+  final double size;
+  final bool onAir;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatar = UserAvatar(
+      name: profile.name,
+      imageUrl: profile.avatarUrl,
+      size: size,
+      onAir: onAir,
+    );
+    final url = profile.avatarUrl;
+    if (url == null) return avatar;
+    return Semantics(
+      button: true,
+      label: 'Ver foto de perfil',
+      child: GestureDetector(
+        key: const Key('profile-avatar'),
+        onTap: () => unawaited(showPhotoViewer(context, url: url)),
+        child: avatar,
+      ),
+    );
+  }
+}
+
+/// El enlace propio: se muestra sin el esquema y se abre afuera de la app.
+class _WebsiteLink extends StatelessWidget {
+  const _WebsiteLink({required this.url});
+
+  final String url;
+
+  String get _label {
+    final shown = url.replaceFirst(RegExp(r'^https?://'), '');
+    return shown.endsWith('/') ? shown.substring(0, shown.length - 1) : shown;
+  }
+
+  Future<void> _open(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = Uri.tryParse(url);
+    final opened =
+        uri != null &&
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('No pudimos abrir el enlace.')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    key: const Key('profile-website'),
+    onTap: () => unawaited(_open(context)),
+    borderRadius: AppRadii.small,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          NexoIcon(NexoGlyph.link, size: 16, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              _label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Abre "Editar perfil" y, si se guardó, relee el perfil: la bio y la foto
@@ -810,6 +995,7 @@ class _ProfileMetrics extends StatelessWidget {
   final PublicProfile profile;
 
   static bool hasAny(PublicProfile profile) =>
+      profile.posts != null ||
       profile.followers != null ||
       profile.following != null ||
       profile.likes != null;
@@ -819,6 +1005,12 @@ class _ProfileMetrics extends StatelessWidget {
     spacing: AppSpacing.lg,
     runSpacing: AppSpacing.xs,
     children: [
+      if (profile.posts case final posts?)
+        _Metric(
+          key: const Key('profile-posts'),
+          value: compactCount(posts),
+          label: posts == 1 ? 'Publicación' : 'Publicaciones',
+        ),
       if (profile.followers case final followers?)
         _Metric(
           key: const Key('profile-followers'),
@@ -1089,6 +1281,12 @@ class _VipBody extends StatelessWidget {
 }
 
 class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _TabsHeaderDelegate({required this.premium});
+
+  /// Sin membresías reales, la pestaña Premium no existe (ver
+  /// [_membershipsAvailable]).
+  final bool premium;
+
   @override
   double get minExtent => kTextTabBarHeight;
 
@@ -1109,26 +1307,28 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
       isScrollable: true,
       tabAlignment: TabAlignment.start,
       tabs: [
-        Tab(text: 'Publicaciones'),
-        Tab(text: 'En vivos'),
+        const Tab(text: 'Publicaciones'),
+        const Tab(text: 'En vivos'),
         // El candado dice que la pestaña existe y está cerrada. Esconderla
         // haría que el pase VIP prometa algo sin lugar donde verse.
-        Tab(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Premium'),
-              SizedBox(width: 6),
-              NexoIcon(NexoGlyph.lock, size: 14),
-            ],
+        if (premium)
+          const Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Premium'),
+                SizedBox(width: 6),
+                NexoIcon(NexoGlyph.lock, size: 14),
+              ],
+            ),
           ),
-        ),
       ],
     ),
   );
 
   @override
-  bool shouldRebuild(covariant _TabsHeaderDelegate oldDelegate) => false;
+  bool shouldRebuild(covariant _TabsHeaderDelegate oldDelegate) =>
+      oldDelegate.premium != premium;
 }
 
 /// Las publicaciones de la cuenta, de `posts.byAuthor`. Antes era una grilla

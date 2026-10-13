@@ -68,13 +68,16 @@ class CommentPage extends Equatable {
 }
 
 class PostLiker extends Equatable {
-  const PostLiker({required this.username, required this.name});
+  const PostLiker({required this.username, required this.name, this.avatarUrl});
 
   final String username;
   final String name;
 
+  /// La foto de perfil. Null: se dibuja la inicial.
+  final String? avatarUrl;
+
   @override
-  List<Object?> get props => [username, name];
+  List<Object?> get props => [username, name, avatarUrl];
 }
 
 /// El resultado de dar o quitar like: lo que dice el servidor, que reemplaza

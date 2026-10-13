@@ -3,4 +3,5 @@ fields:
   userId: UuidValue
   username: String?
   name: String?
+  avatarUrl: String?
   likedAt: DateTime

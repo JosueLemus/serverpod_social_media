@@ -64,6 +64,9 @@ class ServerpodProfileRepository implements ProfileRepository {
     following: view.followingCount,
     viewerFollows: view.viewerFollows,
     avatarUrl: view.avatarUrl,
+    coverUrl: view.coverUrl,
+    website: (view.website?.trim().isEmpty ?? true) ? null : view.website,
+    posts: view.postCount,
   );
 
   static Future<T> _guard<T>(Future<T> Function() call) async {

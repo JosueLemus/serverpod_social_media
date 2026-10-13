@@ -112,6 +112,7 @@ class ServerpodPostRepository implements PostRepository {
         PostLiker(
           username: liker.username ?? '',
           name: liker.name ?? liker.username ?? '',
+          avatarUrl: liker.avatarUrl,
         ),
     ];
   });

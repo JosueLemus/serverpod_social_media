@@ -24,6 +24,8 @@ profiles:
   - update:
   - requestAvatarUpload:
   - setAvatar:
+  - requestCoverUpload:
+  - setCover:
   - becomeCreator:
   - byUsername:
 live:

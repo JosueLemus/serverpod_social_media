@@ -304,4 +304,14 @@ void main() {
       }
     });
   });
+
+  test('a shared profile or post opens without any session', () {
+    // Lo que llega por WhatsApp: sin sesión, ni siquiera de invitado.
+    const nobody = AuthUnauthenticated();
+    expect(guardRedirect(nobody, '/u/elena_ux'), isNull);
+    expect(guardRedirect(nobody, '/p/12'), isNull);
+    // El resto sigue pidiendo entrar.
+    expect(guardRedirect(nobody, '/messages'), '/sign-in');
+    expect(guardRedirect(nobody, '/u'), '/sign-in');
+  });
 }

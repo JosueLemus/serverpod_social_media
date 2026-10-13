@@ -29,6 +29,8 @@ abstract class AccountProfile
     required this.username,
     this.bio,
     this.avatarKey,
+    this.coverKey,
+    this.website,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
@@ -49,6 +51,8 @@ abstract class AccountProfile
     required String username,
     String? bio,
     String? avatarKey,
+    String? coverKey,
+    String? website,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
@@ -67,6 +71,8 @@ abstract class AccountProfile
       username: jsonSerialization['username'] as String,
       bio: jsonSerialization['bio'] as String?,
       avatarKey: jsonSerialization['avatarKey'] as String?,
+      coverKey: jsonSerialization['coverKey'] as String?,
+      website: jsonSerialization['website'] as String?,
       isCreator: jsonSerialization['isCreator'] == null
           ? null
           : _is.BoolJsonExtension.fromJson(jsonSerialization['isCreator']),
@@ -110,6 +116,13 @@ abstract class AccountProfile
   /// servidor.
   String? avatarKey;
 
+  /// La clave del banner del perfil en el storage público
+  /// (`covers/<userId>/…`). Mismo criterio que [avatarKey].
+  String? coverKey;
+
+  /// Un enlace propio (http/https), el que se muestra bajo la bio.
+  String? website;
+
   /// "Creador" no es un scope: es un dato del perfil.
   bool isCreator;
 
@@ -140,6 +153,8 @@ abstract class AccountProfile
     String? username,
     String? bio,
     String? avatarKey,
+    String? coverKey,
+    String? website,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
@@ -157,6 +172,8 @@ abstract class AccountProfile
       'username': username,
       if (bio != null) 'bio': bio,
       if (avatarKey != null) 'avatarKey': avatarKey,
+      if (coverKey != null) 'coverKey': coverKey,
+      if (website != null) 'website': website,
       'isCreator': isCreator,
       'verification': verification.toJson(),
       'status': status.toJson(),
@@ -209,6 +226,8 @@ class _AccountProfileImpl extends AccountProfile {
     required String username,
     String? bio,
     String? avatarKey,
+    String? coverKey,
+    String? website,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
@@ -222,6 +241,8 @@ class _AccountProfileImpl extends AccountProfile {
          username: username,
          bio: bio,
          avatarKey: avatarKey,
+         coverKey: coverKey,
+         website: website,
          isCreator: isCreator,
          verification: verification,
          status: status,
@@ -241,6 +262,8 @@ class _AccountProfileImpl extends AccountProfile {
     String? username,
     Object? bio = _Undefined,
     Object? avatarKey = _Undefined,
+    Object? coverKey = _Undefined,
+    Object? website = _Undefined,
     bool? isCreator,
     _il3i3d2n.VerificationStatus? verification,
     _ijvat8p8.AccountStatus? status,
@@ -255,6 +278,8 @@ class _AccountProfileImpl extends AccountProfile {
       username: username ?? this.username,
       bio: bio is String? ? bio : this.bio,
       avatarKey: avatarKey is String? ? avatarKey : this.avatarKey,
+      coverKey: coverKey is String? ? coverKey : this.coverKey,
+      website: website is String? ? website : this.website,
       isCreator: isCreator ?? this.isCreator,
       verification: verification ?? this.verification,
       status: status ?? this.status,
@@ -288,6 +313,16 @@ class AccountProfileUpdateTable extends _is.UpdateTable<AccountProfileTable> {
 
   _is.ColumnValue<String, String> avatarKey(String? value) => _is.ColumnValue(
     table.avatarKey,
+    value,
+  );
+
+  _is.ColumnValue<String, String> coverKey(String? value) => _is.ColumnValue(
+    table.coverKey,
+    value,
+  );
+
+  _is.ColumnValue<String, String> website(String? value) => _is.ColumnValue(
+    table.website,
     value,
   );
 
@@ -352,6 +387,14 @@ class AccountProfileTable extends _is.Table<int?> {
       'avatarKey',
       this,
     );
+    coverKey = _is.ColumnString(
+      'coverKey',
+      this,
+    );
+    website = _is.ColumnString(
+      'website',
+      this,
+    );
     isCreator = _is.ColumnBool(
       'isCreator',
       this,
@@ -404,6 +447,13 @@ class AccountProfileTable extends _is.Table<int?> {
   /// servidor.
   late final _is.ColumnString avatarKey;
 
+  /// La clave del banner del perfil en el storage público
+  /// (`covers/<userId>/…`). Mismo criterio que [avatarKey].
+  late final _is.ColumnString coverKey;
+
+  /// Un enlace propio (http/https), el que se muestra bajo la bio.
+  late final _is.ColumnString website;
+
   /// "Creador" no es un scope: es un dato del perfil.
   late final _is.ColumnBool isCreator;
 
@@ -429,6 +479,8 @@ class AccountProfileTable extends _is.Table<int?> {
     username,
     bio,
     avatarKey,
+    coverKey,
+    website,
     isCreator,
     verification,
     status,

@@ -18,6 +18,7 @@ abstract class PostLiker
     required this.userId,
     this.username,
     this.name,
+    this.avatarUrl,
     required this.likedAt,
   });
 
@@ -25,6 +26,7 @@ abstract class PostLiker
     required _isc.UuidValue userId,
     String? username,
     String? name,
+    String? avatarUrl,
     required DateTime likedAt,
   }) = _PostLikerImpl;
 
@@ -33,6 +35,7 @@ abstract class PostLiker
       userId: _isc.UuidValueJsonExtension.fromJson(jsonSerialization['userId']),
       username: jsonSerialization['username'] as String?,
       name: jsonSerialization['name'] as String?,
+      avatarUrl: jsonSerialization['avatarUrl'] as String?,
       likedAt: _isc.DateTimeJsonExtension.fromJson(
         jsonSerialization['likedAt'],
       ),
@@ -45,6 +48,8 @@ abstract class PostLiker
 
   String? name;
 
+  String? avatarUrl;
+
   DateTime likedAt;
 
   /// Returns a shallow copy of this [PostLiker]
@@ -54,6 +59,7 @@ abstract class PostLiker
     _isc.UuidValue? userId,
     String? username,
     String? name,
+    String? avatarUrl,
     DateTime? likedAt,
   });
   @override
@@ -63,6 +69,7 @@ abstract class PostLiker
       'userId': userId.toJson(),
       if (username != null) 'username': username,
       if (name != null) 'name': name,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'likedAt': likedAt.toJson(),
     };
   }
@@ -74,6 +81,7 @@ abstract class PostLiker
       'userId': userId.toJson(),
       if (username != null) 'username': username,
       if (name != null) 'name': name,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
       'likedAt': likedAt.toJson(),
     };
   }
@@ -91,11 +99,13 @@ class _PostLikerImpl extends PostLiker {
     required _isc.UuidValue userId,
     String? username,
     String? name,
+    String? avatarUrl,
     required DateTime likedAt,
   }) : super._(
          userId: userId,
          username: username,
          name: name,
+         avatarUrl: avatarUrl,
          likedAt: likedAt,
        );
 
@@ -107,12 +117,14 @@ class _PostLikerImpl extends PostLiker {
     _isc.UuidValue? userId,
     Object? username = _Undefined,
     Object? name = _Undefined,
+    Object? avatarUrl = _Undefined,
     DateTime? likedAt,
   }) {
     return PostLiker(
       userId: userId ?? this.userId,
       username: username is String? ? username : this.username,
       name: name is String? ? name : this.name,
+      avatarUrl: avatarUrl is String? ? avatarUrl : this.avatarUrl,
       likedAt: likedAt ?? this.likedAt,
     );
   }

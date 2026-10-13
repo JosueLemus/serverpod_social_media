@@ -216,7 +216,11 @@ Future<void> showLikersSheet(
               ),
               for (final liker in items)
                 ListTile(
-                  leading: UserAvatar(name: liker.name, size: 34),
+                  leading: UserAvatar(
+                    name: liker.name,
+                    imageUrl: liker.avatarUrl,
+                    size: 34,
+                  ),
                   title: Text(
                     liker.name,
                     maxLines: 1,

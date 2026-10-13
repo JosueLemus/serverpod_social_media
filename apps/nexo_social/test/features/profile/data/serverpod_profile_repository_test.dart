@@ -13,6 +13,9 @@ void main() {
     int? followingCount,
     bool? viewerFollows,
     String? avatarUrl,
+    String? coverUrl,
+    String? website,
+    int? postCount,
   }) => api.ProfileView(
     userId: api.UuidValue.fromString('550e8400-e29b-41d4-a716-446655440000'),
     username: 'carlos_mendez',
@@ -25,6 +28,9 @@ void main() {
     followingCount: followingCount,
     viewerFollows: viewerFollows,
     avatarUrl: avatarUrl,
+    coverUrl: coverUrl,
+    website: website,
+    postCount: postCount,
     createdAt: DateTime.utc(2026, 9, 1),
   );
 
@@ -72,6 +78,25 @@ void main() {
         view(status: api.AccountStatus.suspended),
       ).status,
       AccountStatus.suspended,
+    );
+  });
+
+  test('the banner, the link and the post count come from the server', () {
+    final profile = ServerpodProfileRepository.toProfile(
+      view(
+        coverUrl: 'https://api.nexo.dev/covers/c.jpg',
+        website: 'https://carlos.dev',
+        postCount: 12,
+      ),
+    );
+    expect(profile.coverUrl, 'https://api.nexo.dev/covers/c.jpg');
+    expect(profile.website, 'https://carlos.dev');
+    expect(profile.posts, 12);
+
+    // Un enlace en blanco es lo mismo que no tener.
+    expect(
+      ServerpodProfileRepository.toProfile(view(website: '  ')).website,
+      isNull,
     );
   });
 }
