@@ -21,11 +21,32 @@ class MockSearchRepository implements SearchRepository {
     return value;
   }
 
+  /// Sin tildes, como compara el servidor: "jose" encuentra a José y
+  /// "cancion" a "canción". Las marcas combinables (texto en NFD) se borran.
+  static String fold(String text) => text
+      .replaceAll(RegExp('[\u0300-\u036f]'), '')
+      .replaceAllMapped(
+        RegExp('[áàäâãåéèëêíìïîóòöôõúùüûñç]'),
+        (match) => _folds[match[0]]!,
+      );
+
+  static const _folds = {
+    'á': 'a', 'à': 'a', 'ä': 'a', 'â': 'a', 'ã': 'a', 'å': 'a', //
+    'é': 'e', 'è': 'e', 'ë': 'e', 'ê': 'e', //
+    'í': 'i', 'ì': 'i', 'ï': 'i', 'î': 'i', //
+    'ó': 'o', 'ò': 'o', 'ö': 'o', 'ô': 'o', 'õ': 'o', //
+    'ú': 'u', 'ù': 'u', 'ü': 'u', 'û': 'u', //
+    'ñ': 'n', 'ç': 'c', //
+  };
+
   @override
   Future<SearchResults> search(String text) async {
     final query = normalize(text);
     if (query.length < 2) return SearchResults(query: query);
-    bool has(String? value) => value?.toLowerCase().contains(query) ?? false;
+    // `query` vuelve tal cual se escribió; sólo la comparación se pliega.
+    final folded = fold(query);
+    bool has(String? value) =>
+        value != null && fold(value.toLowerCase()).contains(folded);
 
     final posts = (await _posts.feed()).posts;
     final lives = await _lives.list();

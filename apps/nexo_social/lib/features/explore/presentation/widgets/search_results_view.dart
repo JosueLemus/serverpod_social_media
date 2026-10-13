@@ -42,10 +42,15 @@ class SearchResultsView extends StatelessWidget {
     final results = state.results;
     final cubit = context.read<SearchCubit>();
 
-    if (state.status == SearchStatus.failed && results == null) {
+    // El fallo gana aunque haya resultados de antes: son de otro texto, y
+    // mostrarlos como si fueran de éste esconde que la búsqueda no anduvo.
+    if (state.status == SearchStatus.failed) {
       return Padding(
         padding: const EdgeInsets.only(top: AppSpacing.md),
-        child: AppErrorView(onRetry: () => unawaited(cubit.retry())),
+        child: AppErrorView(
+          key: const Key('search-failed'),
+          onRetry: () => unawaited(cubit.retry()),
+        ),
       );
     }
     if (results == null) {

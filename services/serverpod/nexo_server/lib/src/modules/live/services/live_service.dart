@@ -9,6 +9,7 @@ import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import '../../identity/services/identity_service.dart';
 import '../../notifications/services/notification_service.dart';
+import '../../search/services/search_rules.dart';
 import '../../social/services/follow_service.dart';
 import 'live_presence.dart';
 import 'live_rules.dart';
@@ -71,21 +72,39 @@ class LiveService {
   }
 
   /// Los shows cuyo título coincide con [pattern], un patrón de `ILIKE` ya
-  /// escapado, con los mismos estados y el mismo orden que [list].
+  /// escapado y plegado, con los mismos estados y el mismo orden que [list].
   Future<List<LiveShowView>> search(
     Session session,
     String pattern, {
     required int limit,
   }) async {
+    // El título se compara sin tildes (`SearchRules.foldSql`), y el ORM no
+    // compara una columna transformada: los ids salen de SQL, con lo de
+    // afuera como parámetro, y los estados los filtra el ORM.
+    final rows = await session.db.unsafeQuery(
+      'SELECT id FROM live_show '
+      "WHERE ${SearchRules.foldSql('title')} ILIKE @pattern ESCAPE '\\' "
+      'ORDER BY "startsAt" DESC LIMIT @cap',
+      parameters: QueryParameters.named({
+        'pattern': pattern,
+        'cap': _searchCandidates,
+      }),
+    );
+    final matching = {for (final row in rows) row[0] as int};
+    if (matching.isEmpty) return const [];
     final shows = await LiveShow.db.find(
       session,
-      where: (t) => t.status.inSet(_listed) & t.title.ilike(pattern),
+      where: (t) => t.status.inSet(_listed) & t.id.inSet(matching),
       orderByList: (t) => [t.startsAt.desc()],
       limit: LiveRules.listLimit,
     );
     shows.sort(_listOrder);
     return _toViews(session, shows.take(limit).toList());
   }
+
+  /// Tope de candidatos de [search] antes de filtrar por estado: la búsqueda
+  /// muestra una página, no recorre la tabla entera.
+  static const _searchCandidates = 200;
 
   /// Lo que se lista: nada cancelado, fallido ni retirado.
   static const _listed = {

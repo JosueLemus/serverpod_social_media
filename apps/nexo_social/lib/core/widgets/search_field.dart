@@ -13,7 +13,9 @@ class SearchField extends StatelessWidget {
     super.key,
     required this.hint,
     this.controller,
+    this.focusNode,
     this.onChanged,
+    this.onSubmitted,
     this.onTap,
     this.readOnly = false,
     this.trailing,
@@ -21,7 +23,14 @@ class SearchField extends StatelessWidget {
 
   final String hint;
   final TextEditingController? controller;
+
+  /// Lo pasa la pantalla dueña del campo, para que el foco (y el teclado)
+  /// no dependa de que el `TextField` sobreviva a cada rebuild.
+  final FocusNode? focusNode;
   final ValueChanged<String>? onChanged;
+
+  /// La tecla de buscar del teclado: buscar ya, sin esperar el debounce.
+  final ValueChanged<String>? onSubmitted;
 
   /// Con [readOnly] en true el campo no abre teclado y el tap sale por acá —
   /// la forma de usarlo como acceso a una pantalla de búsqueda propia.
@@ -35,7 +44,9 @@ class SearchField extends StatelessWidget {
     height: AppSizes.searchHeight,
     child: TextField(
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
+      onSubmitted: onSubmitted,
       onTap: onTap,
       readOnly: readOnly,
       textInputAction: TextInputAction.search,

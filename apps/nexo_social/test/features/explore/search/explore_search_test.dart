@@ -75,6 +75,44 @@ void main() {
     expect(find.byKey(const Key('search-empty')), findsNothing);
   });
 
+  testWidgets('the keyboard stays open while the results come and go', (
+    tester,
+  ) async {
+    await pumpExplore(tester);
+    final field = find.byKey(const Key('explore-search'));
+    EditableTextState editable() => tester.state<EditableTextState>(
+      find.descendant(of: field, matching: find.byType(EditableText)),
+    );
+
+    await tester.tap(field);
+    await tester.pump();
+    final mounted = editable();
+    expect(mounted.widget.focusNode.hasFocus, isTrue);
+
+    // Por el teclado y no con `tester.enterText`, que vuelve a enfocar el
+    // campo antes de escribir y escondería justamente el bug. Pasa por dos
+    // letras (aparecen los resultados) y vuelve a una y a nada (se van).
+    for (final text in ['c', 'ca', 'car', 'ca', 'c', '']) {
+      tester.testTextInput.enterText(text);
+      await tester.pump(const Duration(milliseconds: 350));
+      await AppHarness.settle(tester);
+
+      expect(editable(), same(mounted), reason: '"$text" remontó el campo');
+      expect(mounted.widget.focusNode.hasFocus, isTrue, reason: text);
+      expect(FocusManager.instance.primaryFocus, mounted.widget.focusNode);
+      expect(tester.testTextInput.isVisible, isTrue, reason: text);
+    }
+  });
+
+  testWidgets('accents are optional: "rios" finds Tomás Ríos', (tester) async {
+    await pumpExplore(tester);
+
+    // Sólo el nombre visible ("Ríos") lo tiene: el usuario es `tomas`.
+    await type(tester, 'rios');
+
+    expect(find.byKey(const Key('search-account-tomas')), findsOneWidget);
+  });
+
   testWidgets('results do not overflow at 320', (tester) async {
     await pumpExplore(tester, width: 320);
 
