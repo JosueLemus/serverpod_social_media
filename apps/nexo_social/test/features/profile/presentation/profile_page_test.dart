@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/app/router/app_routes.dart';
+import 'package:nexo_social/app/theme/app_theme.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/profile/presentation/pages/profile_page.dart';
 
@@ -125,5 +129,40 @@ void main() {
       find.descendant(of: button, matching: find.text('Siguiendo')),
       findsOneWidget,
     );
+  });
+
+  // Regresión: "Unirme" abría `/premium`, que era siempre el muro de Elena.
+  testWidgets('joining the VIP pass opens that creator\'s wall', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (_, _) =>
+              const Scaffold(body: ProfilePage(username: 'carlos_mendez')),
+        ),
+        GoRoute(
+          path: AppRoutes.premiumPath,
+          builder: (_, state) =>
+              Text('muro-${state.pathParameters['username']}'),
+        ),
+      ],
+    );
+    await tester.pumpWidget(
+      BlocProvider.value(
+        value: sl<AuthCubit>(),
+        child: MaterialApp.router(theme: AppTheme.nexo, routerConfig: router),
+      ),
+    );
+    await AppHarness.settle(tester);
+
+    await tester.tap(find.byKey(const Key('profile-join-vip')));
+    await AppHarness.settle(tester);
+
+    expect(find.text('muro-carlos_mendez'), findsOneWidget);
   });
 }

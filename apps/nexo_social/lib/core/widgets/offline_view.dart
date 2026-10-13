@@ -12,12 +12,17 @@ class SavedReading {
     required this.summary,
     required this.author,
     required this.minutes,
+    this.onOpen,
   });
 
   final String title;
   final String summary;
   final String author;
   final int minutes;
+
+  /// Abre la lectura. Sin él no se ofrece "Leer ahora": un botón que no hace
+  /// nada se lee como que la app está rota, justo cuando no hay red.
+  final VoidCallback? onOpen;
 }
 
 /// El modo sin conexión.
@@ -29,26 +34,37 @@ class SavedReading {
 ///
 /// Pendiente: no hay detección de conectividad todavía, así que esta vista se
 /// muestra sólo cuando quien la invoca ya sabe que el fallo fue de red.
+///
+/// Lo que ofrece es sólo lo que existe: sin [savedReadings] ni
+/// [onViewDrafts] queda el reintento. Antes listaba lecturas guardadas de
+/// mentira con un "Leer ahora" que no abría nada.
 class AppOfflineView extends StatelessWidget {
   const AppOfflineView({
     super.key,
     required this.onRetry,
     this.draftCount = 0,
+    this.onViewDrafts,
     this.savedReadings = const [],
   });
 
   final VoidCallback onRetry;
   final int draftCount;
+
+  /// Abre los borradores locales. Sin él el botón no se dibuja.
+  final VoidCallback? onViewDrafts;
   final List<SavedReading> savedReadings;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final viewDrafts = onViewDrafts;
+    final showDrafts = viewDrafts != null && draftCount > 0;
+    final hasOffline = showDrafts || savedReadings.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: AppSpacing.md),
-        const _OfflineStrip(),
+        _OfflineStrip(showsSaved: hasOffline),
         const SizedBox(height: AppSpacing.lg),
         const Center(child: MascotIllustration(NexoMascot.offline)),
         const SizedBox(height: AppSpacing.md),
@@ -59,9 +75,11 @@ class AppOfflineView extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          'Verifica tu red Wi-Fi o datos móviles. Puedes seguir disfrutando de '
-          'tus publicaciones guardadas y borradores locales mientras '
-          'restablecemos la señal.',
+          hasOffline
+              ? 'Verifica tu red Wi-Fi o datos móviles. Puedes seguir '
+                    'disfrutando de tus publicaciones guardadas y borradores '
+                    'locales mientras restablecemos la señal.'
+              : 'Verifica tu red Wi-Fi o datos móviles y vuelve a intentarlo.',
           textAlign: TextAlign.center,
           style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
@@ -74,12 +92,13 @@ class AppOfflineView extends StatelessWidget {
             child: const Text('Reintentar conexión'),
           ),
         ),
-        if (draftCount > 0) ...[
+        if (showDrafts) ...[
           const SizedBox(height: AppSpacing.xs),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () {},
+              key: const Key('offline-drafts'),
+              onPressed: viewDrafts,
               child: Text('Ver borradores guardados ($draftCount)'),
             ),
           ),
@@ -116,7 +135,10 @@ class AppOfflineView extends StatelessWidget {
 /// Dónde está parado el usuario, antes del porqué: modo sin conexión,
 /// mostrando lo guardado.
 class _OfflineStrip extends StatelessWidget {
-  const _OfflineStrip();
+  const _OfflineStrip({required this.showsSaved});
+
+  /// "Contenido guardado" sólo si de verdad se muestra algo guardado.
+  final bool showsSaved;
 
   @override
   Widget build(BuildContext context) {
@@ -146,15 +168,16 @@ class _OfflineStrip extends StatelessWidget {
               style: text.titleSmall,
             ),
           ),
-          Flexible(
-            child: Text(
-              'Contenido guardado',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: text.bodySmall,
+          if (showsSaved)
+            Flexible(
+              child: Text(
+                'Contenido guardado',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: text.bodySmall,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -216,16 +239,17 @@ class _SavedReadingCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: () {},
-                  iconAlignment: IconAlignment.end,
-                  icon: const NexoIcon(NexoGlyph.forward, size: 14),
-                  label: const Text('Leer ahora'),
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: text.labelMedium,
+                if (reading.onOpen case final open?)
+                  TextButton.icon(
+                    onPressed: open,
+                    iconAlignment: IconAlignment.end,
+                    icon: const NexoIcon(NexoGlyph.forward, size: 14),
+                    label: const Text('Leer ahora'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      textStyle: text.labelMedium,
+                    ),
                   ),
-                ),
               ],
             ),
           ],
