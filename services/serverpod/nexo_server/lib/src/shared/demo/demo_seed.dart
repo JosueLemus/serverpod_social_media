@@ -3,6 +3,7 @@ import 'package:serverpod_auth_idp_server/core.dart';
 
 import '../../generated/protocol.dart';
 import '../auth/auth_context.dart';
+import '../../modules/messages/services/messages_rules.dart';
 
 /// Crea la contraseña de una cuenta. En el servidor es el admin del
 /// proveedor de email de Serverpod; en los tests, un registro.
@@ -116,6 +117,7 @@ class DemoSeed {
     await _seedContent(session, ids);
     await _seedLive(session, ids);
     await _seedFollows(session, ids);
+    await _seedMessages(session, ids);
     return created;
   }
 
@@ -405,6 +407,65 @@ class DemoSeed {
         );
       }
       await UserNotification.db.insert(session, notices, transaction: tx);
+    });
+  }
+
+  /// Una conversación de ejemplo entre Tomás y Elena (SDD 0010), con el
+  /// último mensaje de Tomás sin leer para Elena: la bandeja y el badge no
+  /// arrancan vacíos. Guarda propia: no depende de las otras semillas.
+  Future<void> _seedMessages(
+    Session session,
+    Map<String, UuidValue> ids,
+  ) async {
+    final (a, b) = MessagesRules.pair(ids['tomas']!, ids['elena_ux']!);
+    final existing = await DmConversation.db.count(
+      session,
+      where: (t) => t.userA.equals(a) & t.userB.equals(b),
+    );
+    if (existing > 0) return;
+
+    final tomas = ids['tomas']!;
+    final elena = ids['elena_ux']!;
+    final lines = <(UuidValue, String)>[
+      (tomas, '¡Hola Elena! Me encantó la masterclass de diseño mobile.'),
+      (elena, '¡Gracias, Tomás! ¿Qué te gustaría ver en la próxima?'),
+      (tomas, 'Algo de design systems en Flutter, del Figma al código.'),
+    ];
+    await session.db.transaction((tx) async {
+      final conversation = await DmConversation.db.insertRow(
+        session,
+        DmConversation(userA: a, userB: b),
+        transaction: tx,
+      );
+      final start = DateTime.now().toUtc().subtract(const Duration(hours: 2));
+      final rows = <DmMessage>[];
+      for (final (i, (author, body)) in lines.indexed) {
+        rows.add(
+          await DmMessage.db.insertRow(
+            session,
+            DmMessage(
+              conversationId: conversation.id!,
+              authorId: author,
+              body: body,
+              createdAt: start.add(Duration(minutes: 5 * i)),
+            ),
+            transaction: tx,
+          ),
+        );
+      }
+      // Cada uno leyó hasta su último mensaje: Elena tiene uno sin leer.
+      int lastBy(UuidValue author) =>
+          rows.lastWhere((m) => m.authorId == author).id!;
+      await DmConversation.db.updateRow(
+        session,
+        conversation.copyWith(
+          lastMessageId: rows.last.id,
+          lastActivityAt: rows.last.createdAt,
+          lastReadA: lastBy(a),
+          lastReadB: lastBy(b),
+        ),
+        transaction: tx,
+      );
     });
   }
 }

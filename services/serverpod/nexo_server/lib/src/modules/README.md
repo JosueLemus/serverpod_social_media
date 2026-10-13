@@ -18,7 +18,8 @@ Una carpeta por módulo: `identity`, `content`, `social`, `live`, `moderation`,
 | `social` | Likes y comentarios: `client.likes`, `client.comments` | [SDD 0003](../../../../../../docs/sdd/0003-social-y-moderation.md) |
 | `moderation` | Reportes y cola: `client.moderation` | [SDD 0003](../../../../../../docs/sdd/0003-social-y-moderation.md) |
 | `live` | Vivos: programar, iniciar, chat y espectadores en tiempo real (`client.live`, `watch`, `watchIndex`) | [SDD 0006](../../../../../../docs/sdd/0006-vivos-reales.md) |
-| `billing`, `notifications`, `ai` | Sin empezar | — |
+| `messages` | Mensajes directos 1 a 1 en tiempo real: `client.messages` (`watch`) | [SDD 0010](../../../../../../docs/sdd/0010-mensajes-directos.md) |
+| `billing`, `ai` | Sin empezar | — |
 
 Para cada funcionalidad nueva:
 

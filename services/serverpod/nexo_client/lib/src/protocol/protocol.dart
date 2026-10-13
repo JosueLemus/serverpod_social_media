@@ -54,6 +54,12 @@ import 'modules/live/models/live_show_guest_status.dart' as _ixmm5757;
 import 'modules/live/models/live_show_role.dart' as _ibpln05y;
 import 'modules/live/models/live_show_status.dart' as _i60g3ahg;
 import 'modules/live/models/live_show_view.dart' as _iky3rvks;
+import 'modules/messages/models/conversation_page.dart' as _i54ek7if;
+import 'modules/messages/models/conversation_view.dart' as _iea0s5ku;
+import 'modules/messages/models/direct_message_event.dart' as _i56rpfla;
+import 'modules/messages/models/direct_message_event_kind.dart' as _ixoqahhg;
+import 'modules/messages/models/direct_message_page.dart' as _igwk6oho;
+import 'modules/messages/models/direct_message_view.dart' as _ikbrq2q8;
 import 'modules/moderation/models/moderation_reason.dart' as _ipkc12ge;
 import 'modules/moderation/models/report_decision.dart' as _ib61hwyt;
 import 'modules/moderation/models/report_queue_item.dart' as _itr0x2qd;
@@ -103,6 +109,12 @@ export 'modules/live/models/live_show_guest_status.dart';
 export 'modules/live/models/live_show_role.dart';
 export 'modules/live/models/live_show_status.dart';
 export 'modules/live/models/live_show_view.dart';
+export 'modules/messages/models/conversation_page.dart';
+export 'modules/messages/models/conversation_view.dart';
+export 'modules/messages/models/direct_message_event.dart';
+export 'modules/messages/models/direct_message_event_kind.dart';
+export 'modules/messages/models/direct_message_page.dart';
+export 'modules/messages/models/direct_message_view.dart';
 export 'modules/moderation/models/moderation_reason.dart';
 export 'modules/moderation/models/report_decision.dart';
 export 'modules/moderation/models/report_queue_item.dart';
@@ -247,6 +259,24 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _iky3rvks.LiveShowView) {
       return _iky3rvks.LiveShowView.fromJson(data) as T;
+    }
+    if (t == _i54ek7if.ConversationPage) {
+      return _i54ek7if.ConversationPage.fromJson(data) as T;
+    }
+    if (t == _iea0s5ku.ConversationView) {
+      return _iea0s5ku.ConversationView.fromJson(data) as T;
+    }
+    if (t == _i56rpfla.DirectMessageEvent) {
+      return _i56rpfla.DirectMessageEvent.fromJson(data) as T;
+    }
+    if (t == _ixoqahhg.DirectMessageEventKind) {
+      return _ixoqahhg.DirectMessageEventKind.fromJson(data) as T;
+    }
+    if (t == _igwk6oho.DirectMessagePage) {
+      return _igwk6oho.DirectMessagePage.fromJson(data) as T;
+    }
+    if (t == _ikbrq2q8.DirectMessageView) {
+      return _ikbrq2q8.DirectMessageView.fromJson(data) as T;
     }
     if (t == _ipkc12ge.ModerationReason) {
       return _ipkc12ge.ModerationReason.fromJson(data) as T;
@@ -415,6 +445,32 @@ class Protocol extends _isc.SerializationManager {
     if (t == _isc.getType<_iky3rvks.LiveShowView?>()) {
       return (data != null ? _iky3rvks.LiveShowView.fromJson(data) : null) as T;
     }
+    if (t == _isc.getType<_i54ek7if.ConversationPage?>()) {
+      return (data != null ? _i54ek7if.ConversationPage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_iea0s5ku.ConversationView?>()) {
+      return (data != null ? _iea0s5ku.ConversationView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_i56rpfla.DirectMessageEvent?>()) {
+      return (data != null ? _i56rpfla.DirectMessageEvent.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_ixoqahhg.DirectMessageEventKind?>()) {
+      return (data != null
+              ? _ixoqahhg.DirectMessageEventKind.fromJson(data)
+              : null)
+          as T;
+    }
+    if (t == _isc.getType<_igwk6oho.DirectMessagePage?>()) {
+      return (data != null ? _igwk6oho.DirectMessagePage.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_ikbrq2q8.DirectMessageView?>()) {
+      return (data != null ? _ikbrq2q8.DirectMessageView.fromJson(data) : null)
+          as T;
+    }
     if (t == _isc.getType<_ipkc12ge.ModerationReason?>()) {
       return (data != null ? _ipkc12ge.ModerationReason.fromJson(data) : null)
           as T;
@@ -543,6 +599,18 @@ class Protocol extends _isc.SerializationManager {
       return (data as List).map((e) => deserialize<_isc.UuidValue>(e)).toList()
           as T;
     }
+    if (t == List<_iea0s5ku.ConversationView>) {
+      return (data as List)
+              .map((e) => deserialize<_iea0s5ku.ConversationView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ikbrq2q8.DirectMessageView>) {
+      return (data as List)
+              .map((e) => deserialize<_ikbrq2q8.DirectMessageView>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_imgpiqz3.NotificationView>) {
       return (data as List)
               .map((e) => deserialize<_imgpiqz3.NotificationView>(e))
@@ -635,6 +703,12 @@ class Protocol extends _isc.SerializationManager {
       _ibpln05y.LiveShowRole => 'LiveShowRole',
       _i60g3ahg.LiveShowStatus => 'LiveShowStatus',
       _iky3rvks.LiveShowView => 'LiveShowView',
+      _i54ek7if.ConversationPage => 'ConversationPage',
+      _iea0s5ku.ConversationView => 'ConversationView',
+      _i56rpfla.DirectMessageEvent => 'DirectMessageEvent',
+      _ixoqahhg.DirectMessageEventKind => 'DirectMessageEventKind',
+      _igwk6oho.DirectMessagePage => 'DirectMessagePage',
+      _ikbrq2q8.DirectMessageView => 'DirectMessageView',
       _ipkc12ge.ModerationReason => 'ModerationReason',
       _ib61hwyt.ReportDecision => 'ReportDecision',
       _itr0x2qd.ReportQueueItem => 'ReportQueueItem',
@@ -728,6 +802,18 @@ class Protocol extends _isc.SerializationManager {
         return 'LiveShowStatus';
       case _iky3rvks.LiveShowView():
         return 'LiveShowView';
+      case _i54ek7if.ConversationPage():
+        return 'ConversationPage';
+      case _iea0s5ku.ConversationView():
+        return 'ConversationView';
+      case _i56rpfla.DirectMessageEvent():
+        return 'DirectMessageEvent';
+      case _ixoqahhg.DirectMessageEventKind():
+        return 'DirectMessageEventKind';
+      case _igwk6oho.DirectMessagePage():
+        return 'DirectMessagePage';
+      case _ikbrq2q8.DirectMessageView():
+        return 'DirectMessageView';
       case _ipkc12ge.ModerationReason():
         return 'ModerationReason';
       case _ib61hwyt.ReportDecision():
@@ -877,6 +963,24 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'LiveShowView') {
       return deserialize<_iky3rvks.LiveShowView>(data['data']);
+    }
+    if (dataClassName == 'ConversationPage') {
+      return deserialize<_i54ek7if.ConversationPage>(data['data']);
+    }
+    if (dataClassName == 'ConversationView') {
+      return deserialize<_iea0s5ku.ConversationView>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageEvent') {
+      return deserialize<_i56rpfla.DirectMessageEvent>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageEventKind') {
+      return deserialize<_ixoqahhg.DirectMessageEventKind>(data['data']);
+    }
+    if (dataClassName == 'DirectMessagePage') {
+      return deserialize<_igwk6oho.DirectMessagePage>(data['data']);
+    }
+    if (dataClassName == 'DirectMessageView') {
+      return deserialize<_ikbrq2q8.DirectMessageView>(data['data']);
     }
     if (dataClassName == 'ModerationReason') {
       return deserialize<_ipkc12ge.ModerationReason>(data['data']);

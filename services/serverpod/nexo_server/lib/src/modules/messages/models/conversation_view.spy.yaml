@@ -1,0 +1,9 @@
+### Una conversación desde el punto de vista de quien pregunta: [other] es el
+### otro miembro y [unreadCount] lo que esta cuenta todavía no leyó.
+class: ConversationView
+fields:
+  id: int
+  other: ProfileView
+  lastMessage: DirectMessageView?
+  unreadCount: int
+  lastActivityAt: DateTime

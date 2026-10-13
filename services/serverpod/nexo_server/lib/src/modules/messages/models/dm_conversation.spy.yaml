@@ -1,0 +1,23 @@
+### Una conversación 1 a 1. El par se guarda ordenado (`userA` < `userB` como
+### texto) con un índice único: una sola conversación por par (SDD 0010, M2).
+class: DmConversation
+table: dm_conversation
+serverOnly: true
+fields:
+  userA: UuidValue
+  userB: UuidValue
+  ### El id del último mensaje que cada miembro leyó. `null` = nada leído.
+  lastReadA: int?
+  lastReadB: int?
+  ### Para ordenar la bandeja y saber si hay algo sin leer sin contar filas.
+  lastMessageId: int?
+  lastActivityAt: DateTime, default=now
+  createdAt: DateTime, default=now
+indexes:
+  dm_conversation_pair_idx:
+    fields: userA, userB
+    unique: true
+  dm_conversation_a_idx:
+    fields: userA, lastActivityAt
+  dm_conversation_b_idx:
+    fields: userB, lastActivityAt

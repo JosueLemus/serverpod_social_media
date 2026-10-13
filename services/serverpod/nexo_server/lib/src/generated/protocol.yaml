@@ -43,6 +43,15 @@ live:
   - hideChat:
   - watch:
   - watchIndex:
+messages:
+  - conversations:
+  - open:
+  - conversation:
+  - history:
+  - send:
+  - markRead:
+  - unreadCount:
+  - watch:
 moderation:
   - report:
   - queue:

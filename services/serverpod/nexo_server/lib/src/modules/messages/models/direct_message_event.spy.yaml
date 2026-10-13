@@ -1,0 +1,12 @@
+### Lo que llega por `messages.watch()`. [unreadConversations] es el total de
+### quien lo recibe, así el badge cambia sin otra consulta (SDD 0010, M8).
+class: DirectMessageEvent
+fields:
+  kind: DirectMessageEventKind
+  conversationId: int
+  ### Con `message`: el mensaje nuevo.
+  message: DirectMessageView?
+  ### Con `read`: quién leyó y hasta qué mensaje.
+  readerId: UuidValue?
+  lastReadMessageId: int?
+  unreadConversations: int

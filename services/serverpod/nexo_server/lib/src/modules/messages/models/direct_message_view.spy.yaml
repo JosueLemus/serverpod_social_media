@@ -1,0 +1,9 @@
+### Un mensaje tal como lo ven los dos miembros. Quién es "yo" lo decide la
+### app comparando [authorId] con la sesión: el mismo evento va a los dos.
+class: DirectMessageView
+fields:
+  id: int
+  conversationId: int
+  authorId: UuidValue
+  body: String
+  createdAt: DateTime

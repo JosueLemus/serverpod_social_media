@@ -46,6 +46,16 @@ import 'package:nexo_client/src/protocol/modules/live/models/live_show_role.dart
     as _iim040ig;
 import 'package:nexo_client/src/protocol/modules/live/models/live_show_view.dart'
     as _igcmn4rt;
+import 'package:nexo_client/src/protocol/modules/messages/models/conversation_page.dart'
+    as _inyp06xy;
+import 'package:nexo_client/src/protocol/modules/messages/models/conversation_view.dart'
+    as _ij19srvj;
+import 'package:nexo_client/src/protocol/modules/messages/models/direct_message_event.dart'
+    as _i5xhp5ut;
+import 'package:nexo_client/src/protocol/modules/messages/models/direct_message_page.dart'
+    as _iqf2mvpx;
+import 'package:nexo_client/src/protocol/modules/messages/models/direct_message_view.dart'
+    as _ijlq9btc;
 import 'package:nexo_client/src/protocol/modules/moderation/models/moderation_reason.dart'
     as _ie0oo619;
 import 'package:nexo_client/src/protocol/modules/moderation/models/report_decision.dart'
@@ -660,6 +670,102 @@ class EndpointLive extends _isc.EndpointRef {
       );
 }
 
+/// Mensajes directos 1 a 1 (SDD 0010). Desde Flutter: `client.messages`.
+/// Todo exige sesión.
+/// {@category Endpoint}
+class EndpointMessages extends _isc.EndpointRef {
+  EndpointMessages(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'messages';
+
+  /// La bandeja: la conversación con actividad más reciente primero. No
+  /// lista las conversaciones sin mensajes.
+  _ida.Future<_inyp06xy.ConversationPage> conversations({
+    _ir35iwx2.PageCursor? after,
+    int? limit,
+  }) => caller.callServerEndpoint<_inyp06xy.ConversationPage>(
+    'messages',
+    'conversations',
+    {
+      'after': after,
+      'limit': limit,
+    },
+  );
+
+  /// La conversación con [userId], creándola si no existía.
+  _ida.Future<_ij19srvj.ConversationView> open(_isc.UuidValue userId) =>
+      caller.callServerEndpoint<_ij19srvj.ConversationView>(
+        'messages',
+        'open',
+        {'userId': userId},
+      );
+
+  /// Una conversación de la sesión, con el otro miembro y los no leídos.
+  _ida.Future<_ij19srvj.ConversationView> conversation(int conversationId) =>
+      caller.callServerEndpoint<_ij19srvj.ConversationView>(
+        'messages',
+        'conversation',
+        {'conversationId': conversationId},
+      );
+
+  /// Mensajes anteriores a [beforeId] (o los últimos), del más viejo al más
+  /// nuevo.
+  _ida.Future<_iqf2mvpx.DirectMessagePage> history(
+    int conversationId, {
+    int? beforeId,
+    int? limit,
+  }) => caller.callServerEndpoint<_iqf2mvpx.DirectMessagePage>(
+    'messages',
+    'history',
+    {
+      'conversationId': conversationId,
+      'beforeId': beforeId,
+      'limit': limit,
+    },
+  );
+
+  _ida.Future<_ijlq9btc.DirectMessageView> send(
+    int conversationId,
+    String body,
+  ) => caller.callServerEndpoint<_ijlq9btc.DirectMessageView>(
+    'messages',
+    'send',
+    {
+      'conversationId': conversationId,
+      'body': body,
+    },
+  );
+
+  /// Marca leída la conversación. Devuelve las que quedan sin leer.
+  _ida.Future<int> markRead(int conversationId) =>
+      caller.callServerEndpoint<int>(
+        'messages',
+        'markRead',
+        {'conversationId': conversationId},
+      );
+
+  /// Conversaciones con algo sin leer: el número del badge.
+  _ida.Future<int> unreadCount() => caller.callServerEndpoint<int>(
+    'messages',
+    'unreadCount',
+    {},
+  );
+
+  /// Mensajes nuevos y lecturas de las conversaciones de la sesión, en el
+  /// momento.
+  _ida.Stream<_i5xhp5ut.DirectMessageEvent> watch() =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_i5xhp5ut.DirectMessageEvent>,
+        _i5xhp5ut.DirectMessageEvent
+      >(
+        'messages',
+        'watch',
+        {},
+        {},
+      );
+}
+
 /// Reportes y cola de moderación. Desde Flutter: `client.moderation`.
 ///
 /// Reportar lo puede hacer cualquiera con sesión. La cola y resolver exigen
@@ -1014,6 +1120,7 @@ class Client extends _isc.ServerpodClientShared {
     feed = EndpointFeed(this);
     profiles = EndpointProfiles(this);
     live = EndpointLive(this);
+    messages = EndpointMessages(this);
     moderation = EndpointModeration(this);
     notifications = EndpointNotifications(this);
     search = EndpointSearch(this);
@@ -1035,6 +1142,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointProfiles profiles;
 
   late final EndpointLive live;
+
+  late final EndpointMessages messages;
 
   late final EndpointModeration moderation;
 
@@ -1060,6 +1169,7 @@ class Client extends _isc.ServerpodClientShared {
     'feed': feed,
     'profiles': profiles,
     'live': live,
+    'messages': messages,
     'moderation': moderation,
     'notifications': notifications,
     'search': search,
