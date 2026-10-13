@@ -83,9 +83,12 @@ class AccountDetailCubit extends Cubit<AccountDetailState> {
       emit(state.copyWith(detail: detail, isLoading: false));
     } on Failure catch (failure) {
       if (isClosed) return;
+      // La ficha que ya se mostraba se queda: una relectura fallida no la
+      // cambia por la pantalla de error.
       emit(
-        AccountDetailState(
+        state.copyWith(
           isLoading: false,
+          clearFeedback: true,
           issue: adminIssueFor(failure),
           serial: state.serial + 1,
         ),
@@ -120,6 +123,7 @@ class AccountDetailCubit extends Cubit<AccountDetailState> {
     try {
       await action();
       await _read();
+      if (isClosed) return;
       emit(
         state.copyWith(
           isWorking: false,
@@ -129,6 +133,7 @@ class AccountDetailCubit extends Cubit<AccountDetailState> {
         ),
       );
     } on Failure catch (failure) {
+      if (isClosed) return;
       emit(
         state.copyWith(
           isWorking: false,

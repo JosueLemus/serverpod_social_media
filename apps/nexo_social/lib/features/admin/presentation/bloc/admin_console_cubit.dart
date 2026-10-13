@@ -19,6 +19,7 @@ class AdminConsoleState extends Equatable {
     this.creators = const [],
     this.lives = const [],
     this.isLoading = true,
+    this.loadFailed = false,
     this.issue,
     this.notice,
     this.serial = 0,
@@ -29,6 +30,11 @@ class AdminConsoleState extends Equatable {
   final List<AppUser> creators;
   final List<LiveSession> lives;
   final bool isLoading;
+
+  /// La última lectura falló. Lo que se había leído antes se queda en
+  /// pantalla; sin nada anterior, la sección muestra el error y su reintento
+  /// en vez de "ninguna cuenta coincide".
+  final bool loadFailed;
 
   /// El rechazo o la confirmación de la última acción. [serial] crece con
   /// cada una, así que la misma dos veces seguidas también se avisa.
@@ -47,6 +53,7 @@ class AdminConsoleState extends Equatable {
     List<AppUser>? creators,
     List<LiveSession>? lives,
     bool? isLoading,
+    bool? loadFailed,
     AdminIssue? issue,
     AdminNotice? notice,
     bool clearFeedback = false,
@@ -57,6 +64,7 @@ class AdminConsoleState extends Equatable {
     creators: creators ?? this.creators,
     lives: lives ?? this.lives,
     isLoading: isLoading ?? this.isLoading,
+    loadFailed: loadFailed ?? this.loadFailed,
     // Lo nuevo gana; [clearFeedback] sólo descarta lo anterior. Al revés,
     // una confirmación recién emitida se borraba en el mismo copyWith.
     issue: issue ?? (clearFeedback ? null : this.issue),
@@ -71,6 +79,7 @@ class AdminConsoleState extends Equatable {
     creators,
     lives,
     isLoading,
+    loadFailed,
     issue,
     notice,
     serial,
@@ -91,9 +100,26 @@ class AdminConsoleCubit extends Cubit<AdminConsoleState> {
     _changes ??= _repository.changes().listen((_) => unawaited(_read()));
   }
 
+  /// Sólo relee las cuentas: creadores y vivos no dependen de lo escrito, y
+  /// releer las tres cosas por tecla eran tres pedidos por letra.
   Future<void> search(String query) async {
+    if (query == state.query) return;
     emit(state.copyWith(query: query));
-    await _read();
+    try {
+      final accounts = await _repository.searchAccounts(query);
+      // Una respuesta que llega después de otra búsqueda ya no es de ésta.
+      if (isClosed || state.query != query) return;
+      emit(
+        state.copyWith(
+          accounts: accounts.items,
+          isLoading: false,
+          loadFailed: false,
+        ),
+      );
+    } on Failure catch (failure) {
+      if (isClosed || state.query != query) return;
+      _readFailed(failure);
+    }
   }
 
   Future<void> _read() async {
@@ -108,20 +134,27 @@ class AdminConsoleCubit extends Cubit<AdminConsoleState> {
           creators: creators,
           lives: lives,
           isLoading: false,
+          loadFailed: false,
         ),
       );
     } on Failure catch (failure) {
       if (isClosed) return;
-      emit(
-        AdminConsoleState(
-          query: state.query,
-          isLoading: false,
-          issue: adminIssueFor(failure),
-          serial: state.serial + 1,
-        ),
-      );
+      _readFailed(failure);
     }
   }
+
+  /// Lo que ya se había leído se queda. Antes se emitía un estado nuevo con
+  /// las listas vacías, y una relectura fallida —un tirón para refrescar, un
+  /// cambio desde otra pestaña— se veía como "no hay cuentas".
+  void _readFailed(Failure failure) => emit(
+    state.copyWith(
+      isLoading: false,
+      loadFailed: true,
+      clearFeedback: true,
+      issue: adminIssueFor(failure),
+      serial: state.serial + 1,
+    ),
+  );
 
   Future<void> setVerification(
     AppUser creator, {
@@ -147,6 +180,7 @@ class AdminConsoleCubit extends Cubit<AdminConsoleState> {
   Future<void> _act(Future<void> Function() action, AdminNotice notice) async {
     try {
       await action();
+      if (isClosed) return;
       emit(
         state.copyWith(
           clearFeedback: true,
@@ -156,6 +190,7 @@ class AdminConsoleCubit extends Cubit<AdminConsoleState> {
       );
       await _read();
     } on Failure catch (failure) {
+      if (isClosed) return;
       emit(
         state.copyWith(
           clearFeedback: true,
