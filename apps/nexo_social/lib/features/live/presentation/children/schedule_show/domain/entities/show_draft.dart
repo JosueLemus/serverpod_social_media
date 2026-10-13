@@ -61,6 +61,7 @@ class ShowDraft extends Equatable {
       ShowDraft(startsAt: DateTime(now.year, now.month, now.day + 1, 19));
 
   static const maxTitleLength = 100;
+
   /// Lugares en el escenario además del host (SDD 0011, S4). El mismo
   /// número que `LiveRules.maxGuests` del servidor.
   static const maxGuests = 16;

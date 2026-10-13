@@ -78,8 +78,64 @@ class LiveEndpoint extends Endpoint {
   Future<void> hideChat(Session session, int messageId) =>
       _live.hideChat(session, messageId);
 
+  // --- Escenario (SDD 0011) -------------------------------------------------
+  //
+  // Todo exige sesión activa y el show al aire, y responde `forbidden` si el
+  // rol en la sala no lo permite (la tabla de `LivePermissions`). Los cambios
+  // llegan por [watch] como `stage` y, si cambió un rol, `roleChanged`.
+
+  /// Quién está en el escenario y quién pidió la palabra.
+  Future<LiveStageView> stage(Session session, int showId) =>
+      _live.stage(session, showId);
+
+  /// Pedir la palabra. Oyentes y moderador.
+  Future<void> raiseHand(Session session, int showId) =>
+      _live.stageService.raiseHand(session, showId);
+
+  /// Retirar el pedido propio.
+  Future<void> lowerHand(Session session, int showId) =>
+      _live.stageService.lowerHand(session, showId);
+
+  /// Subir a quien pidió la palabra. Host o moderador; `conflict` si no la
+  /// pidió o si el escenario está lleno.
+  Future<void> approveRequest(Session session, int showId, UuidValue userId) =>
+      _live.stageService.approveRequest(session, showId, userId);
+
+  /// Rechazar un pedido de palabra. Host o moderador.
+  Future<void> denyRequest(Session session, int showId, UuidValue userId) =>
+      _live.stageService.denyRequest(session, showId, userId);
+
+  /// Subir a alguien directo. Sólo el host.
+  Future<void> inviteToStage(Session session, int showId, UuidValue userId) =>
+      _live.stageService.inviteToStage(session, showId, userId);
+
+  /// Bajar a alguien del escenario. Sólo el host.
+  Future<void> removeFromStage(
+    Session session,
+    int showId,
+    UuidValue userId,
+  ) => _live.stageService.removeFromStage(session, showId, userId);
+
+  /// Bajarse del escenario.
+  Future<void> leaveStage(Session session, int showId) =>
+      _live.stageService.leaveStage(session, showId);
+
+  /// El micrófono propio, o silenciar el de otro (host o moderador, sólo
+  /// para apagarlo).
+  Future<void> setMicMuted(
+    Session session,
+    int showId,
+    UuidValue userId,
+    bool muted,
+  ) => _live.stageService.setMicMuted(session, showId, userId, muted);
+
+  /// La cámara propia, estando en el escenario.
+  Future<void> setCamera(Session session, int showId, bool on) =>
+      _live.stageService.setCamera(session, showId, on);
+
   /// Lo que pasa en un show, en tiempo real. El primer evento es
-  /// `snapshot`; después llegan `status`, `viewers`, `chat` y `chatHidden`.
+  /// `snapshot`; después llegan `status`, `viewers`, `chat`, `chatHidden`,
+  /// `stage` y `roleChanged`.
   /// Mientras la conexión está abierta, cuenta como espectador.
   Stream<LiveEvent> watch(Session session, int showId) async* {
     // Primero la suscripción y después la foto: en el orden inverso, un

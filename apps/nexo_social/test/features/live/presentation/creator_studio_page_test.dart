@@ -12,11 +12,13 @@ import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/domain/repositories/live_repository.dart';
 import 'package:nexo_social/features/live/presentation/pages/creator_studio_page.dart';
 
+import '../../../support/stage_stubs.dart';
+
 import '../../../support/app_harness.dart';
 
 /// El servidor de mentira del Studio: devuelve los shows del host y deja que
 /// el test empuje eventos de la sala.
-class _FakeLiveRepository implements LiveRepository {
+class _FakeLiveRepository with StageStubs implements LiveRepository {
   final shows = <LiveSession>[];
   final calls = <String>[];
   var seeded = <LiveComment>[];

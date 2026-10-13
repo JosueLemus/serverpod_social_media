@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import 'live_comment.dart';
 import 'live_session.dart';
+import 'live_stage.dart';
 
 /// Lo que llega de una sala en tiempo real (`LiveRepository.watch`).
 ///
@@ -19,6 +20,7 @@ class LiveRoomSnapshot extends LiveRoomEvent {
     required this.session,
     required this.role,
     required this.comments,
+    this.stage = LiveStage.empty,
   });
 
   final LiveSession session;
@@ -26,9 +28,10 @@ class LiveRoomSnapshot extends LiveRoomEvent {
   /// Calculado para quien mira: es el único evento que trae el rol.
   final LiveRole role;
   final List<LiveComment> comments;
+  final LiveStage stage;
 
   @override
-  List<Object?> get props => [session, role, comments];
+  List<Object?> get props => [session, role, comments, stage];
 }
 
 /// El vivo cambió de estado (empezó, terminó, lo cortó un operador).
@@ -67,4 +70,31 @@ class LiveCommentHidden extends LiveRoomEvent {
 
   @override
   List<Object?> get props => [commentId];
+}
+
+/// El escenario cambió: alguien subió, bajó, pidió la palabra o silenció.
+class LiveStageChanged extends LiveRoomEvent {
+  const LiveStageChanged(this.stage);
+
+  final LiveStage stage;
+
+  @override
+  List<Object?> get props => [stage];
+}
+
+/// Cambió el rol de alguien en la sala. Se publica igual para todos; la sala
+/// sólo lo aplica si [isMine].
+class LiveRoleChanged extends LiveRoomEvent {
+  const LiveRoleChanged({
+    required this.userId,
+    required this.role,
+    required this.isMine,
+  });
+
+  final String userId;
+  final LiveRole role;
+  final bool isMine;
+
+  @override
+  List<Object?> get props => [userId, role, isMine];
 }

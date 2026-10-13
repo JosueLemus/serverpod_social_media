@@ -27,7 +27,13 @@ enum LiveEventKind implements _isc.SerializableModel {
   chat,
 
   /// Un mensaje se ocultó.
-  chatHidden;
+  chatHidden,
+
+  /// El escenario cambió: alguien subió, bajó, pidió la palabra o silenció.
+  stage,
+
+  /// Cambió el rol de una persona (`targetId`). Cada app mira si es ella.
+  roleChanged;
 
   static LiveEventKind fromJson(String name) {
     switch (name) {
@@ -41,6 +47,10 @@ enum LiveEventKind implements _isc.SerializableModel {
         return LiveEventKind.chat;
       case 'chatHidden':
         return LiveEventKind.chatHidden;
+      case 'stage':
+        return LiveEventKind.stage;
+      case 'roleChanged':
+        return LiveEventKind.roleChanged;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "LiveEventKind"',

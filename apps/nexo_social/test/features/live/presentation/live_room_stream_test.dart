@@ -9,11 +9,13 @@ import 'package:nexo_social/features/live/domain/repositories/live_repository.da
 import 'package:nexo_social/features/live/presentation/bloc/live_room_cubit.dart';
 import 'package:nexo_social/features/moderation/data/repositories/mock_moderation_repository.dart';
 
+import '../../../support/stage_stubs.dart';
+
 import '../../../support/platform_harness.dart';
 
 /// La sala contra un repositorio cuyo stream maneja el test: lo que con
 /// Serverpod llega por `live.watch`.
-class _FakeLiveRepository implements LiveRepository {
+class _FakeLiveRepository with StageStubs implements LiveRepository {
   final rooms = <StreamController<LiveRoomEvent>>[];
   final watched = <String>[];
   List<LiveSession> shows = const [];

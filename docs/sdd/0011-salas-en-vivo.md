@@ -37,6 +37,7 @@
 | S12 | **Ocultar es reversible y borrar es definitivo para la vista**, pero **borrar no borra la fila**: queda con `deletedAt` / `deletedBy` y fuera del replay | La auditoría es append-only (decisión ya tomada): una auditoría que borra lo que audita no prueba nada |
 | S13 | **Todo lo que hacen host y moderador queda en la auditoría** (`AuditService`), con actor, objetivo y vivo | Probar que la moderación queda registrada es parte de la demo |
 | S14 | **La lista de oradores y la cola de pedidos viajan en eventos de `live.watch`**; la cola la ve todo el mundo en el evento, pero la app sólo la **dibuja** para host y moderador | Un solo canal por show (0006). Esconder la cola en el cliente alcanza para la demo; filtrarla por rol en el servidor queda para después |
+| S15 | **Un invitado de la agenda cuenta como invitado mientras no haya rechazado** (`invited` o `accepted`). Al salir al aire sube al escenario junto al host | No existe todavía un paso de "aceptar" la invitación: todo invitado queda en `invited`, y filtrar por `accepted` dejaba a la agenda entera abajo |
 
 ## 3. La tabla de permisos
 
@@ -135,13 +136,28 @@ Y cambia lo que ya existe:
 
 **Corte del hackathon: Etapas 0 a 5**, con el audio simulado.
 
-## 8. Riesgos
+## 8. Avance
+
+- **Etapas 0 y 1** — hechas.
+- **Etapa 2** — hecha en servidor, mock y capa de datos de la app:
+  - `LiveParticipant` y la migración `live-stage`; `LiveStageService` con los
+    nueve métodos; `mediaToken` publica para todo el escenario; `watch` manda
+    `stage` y `roleChanged`.
+  - En la app: `LiveStage`, los dos eventos, el repositorio (Serverpod y mock,
+    con las mismas reglas) y el cubit (`raiseHand`, `approveRequest`,
+    `toggleMyMic`…).
+  - **Pendiente para la Etapa 4:** la UI que lo usa.
+  - **Pendiente para la Etapa 6:** la app no pide una credencial de video
+    nueva al subir o bajar del escenario (`LiveMediaSync` todavía sólo mira
+    si es host).
+
+## 9. Riesgos
 
 - **El límite de 17 publicadores de Agora** es lo que dimensiona el escenario. Si resulta menor, baja `LiveRules.maxStage` y nada más cambia.
 - **El cambio de rol de Agora en caliente** (subscriber → publisher) necesita un token nuevo. Si la renovación falla, el invitado queda arriba sin micrófono: la app tiene que decirlo, no fallar en silencio.
 - **La cola de pedidos se publica a todos** (S14). Si molesta, el servidor la filtra por rol antes de publicarla.
 
-## 9. Fuera de alcance
+## 10. Fuera de alcance
 
 Varios moderadores por vivo, co-host con poderes de host, salas privadas por
 invitación, grabación por pista, subtítulos y traducción, y monetización por

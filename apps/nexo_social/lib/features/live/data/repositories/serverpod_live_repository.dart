@@ -9,6 +9,7 @@ import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 
 /// Vivos contra el módulo `live` de Serverpod (SDD 0006).
@@ -126,6 +127,55 @@ class ServerpodLiveRepository implements LiveRepository {
     return toRole(await _client.live.roleIn(showId));
   });
 
+  // --- Escenario (SDD 0011) -------------------------------------------------
+
+  @override
+  Future<LiveStage> stage(String liveId) => _guard(
+    () async => toStage(await _client.live.stage(_showId(liveId)), me: _me),
+  );
+
+  @override
+  Future<void> raiseHand(String liveId) =>
+      _guard(() => _client.live.raiseHand(_showId(liveId)));
+
+  @override
+  Future<void> lowerHand(String liveId) =>
+      _guard(() => _client.live.lowerHand(_showId(liveId)));
+
+  @override
+  Future<void> approveRequest(String liveId, String userId) =>
+      _guard(() => _client.live.approveRequest(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> denyRequest(String liveId, String userId) =>
+      _guard(() => _client.live.denyRequest(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> inviteToStage(String liveId, String userId) =>
+      _guard(() => _client.live.inviteToStage(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> removeFromStage(String liveId, String userId) => _guard(
+    () => _client.live.removeFromStage(_showId(liveId), _uuid(userId)),
+  );
+
+  @override
+  Future<void> leaveStage(String liveId) =>
+      _guard(() => _client.live.leaveStage(_showId(liveId)));
+
+  @override
+  Future<void> setMicMuted(
+    String liveId,
+    String userId, {
+    required bool muted,
+  }) => _guard(
+    () => _client.live.setMicMuted(_showId(liveId), _uuid(userId), muted),
+  );
+
+  @override
+  Future<void> setCamera(String liveId, {required bool on}) =>
+      _guard(() => _client.live.setCamera(_showId(liveId), on));
+
   @override
   Stream<LiveRoomEvent> watch(String liveId) {
     final showId = int.tryParse(liveId);
@@ -193,6 +243,9 @@ class ServerpodLiveRepository implements LiveRepository {
         for (final m in event.history ?? const <api.LiveChatMessageView>[])
           toComment(m, me: me),
       ],
+      stage: event.stage == null
+          ? LiveStage.empty
+          : toStage(event.stage!, me: me),
     ),
     api.LiveEventKind.status when event.liveShow != null => LiveSessionChanged(
       toSession(event.liveShow!),
@@ -204,12 +257,58 @@ class ServerpodLiveRepository implements LiveRepository {
     ),
     api.LiveEventKind.chatHidden when event.hiddenMessageId != null =>
       LiveCommentHidden('${event.hiddenMessageId}'),
+    api.LiveEventKind.stage when event.stage != null => LiveStageChanged(
+      toStage(event.stage!, me: me),
+    ),
+    api.LiveEventKind.roleChanged
+        when event.targetId != null && event.role != null =>
+      LiveRoleChanged(
+        userId: event.targetId.toString(),
+        role: toRole(event.role!),
+        isMine: me != null && event.targetId.toString() == me,
+      ),
     _ => null,
   };
+
+  static LiveStage toStage(api.LiveStageView view, {required String? me}) =>
+      LiveStage(
+        speakers: [
+          for (final s in view.speakers)
+            LiveSpeaker(
+              userId: s.userId.toString(),
+              name: s.name ?? s.username ?? '',
+              username: s.username ?? '',
+              avatarUrl: s.avatarUrl,
+              role: toRole(s.role),
+              micMuted: s.micMuted,
+              cameraOn: s.cameraOn,
+              isMe: me != null && s.userId.toString() == me,
+            ),
+        ],
+        hands: [
+          for (final h in view.hands)
+            LiveHand(
+              userId: h.userId.toString(),
+              name: h.name ?? h.username ?? '',
+              username: h.username ?? '',
+              avatarUrl: h.avatarUrl,
+              raisedAt: h.raisedAt.toLocal(),
+              isMe: me != null && h.userId.toString() == me,
+            ),
+        ],
+      );
 
   // --- Internos ------------------------------------------------------------
 
   String? get _me => _auth.authInfo?.authUserId.toString();
+
+  static api.UuidValue _uuid(String id) {
+    try {
+      return api.UuidValue.fromString(id);
+    } on FormatException {
+      throw const NotFoundFailure('account');
+    }
+  }
 
   static int _showId(String id) {
     final showId = int.tryParse(id);

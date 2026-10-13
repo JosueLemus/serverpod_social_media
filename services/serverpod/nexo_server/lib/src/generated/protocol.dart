@@ -57,8 +57,10 @@ import 'modules/live/models/live_chat_message.dart' as _i4vd7apv;
 import 'modules/live/models/live_chat_message_view.dart' as _il6n38yd;
 import 'modules/live/models/live_event.dart' as _i7dasvmg;
 import 'modules/live/models/live_event_kind.dart' as _ilchcp3h;
+import 'modules/live/models/live_hand_view.dart' as _igpp3v1h;
 import 'modules/live/models/live_media_grant.dart' as _ij3uatdc;
 import 'modules/live/models/live_media_grant_role.dart' as _ildi0w8j;
+import 'modules/live/models/live_participant.dart' as _i7uaaqjc;
 import 'modules/live/models/live_show.dart' as _i1mej27o;
 import 'modules/live/models/live_show_access.dart' as _irbd4xwy;
 import 'modules/live/models/live_show_draft.dart' as _ixjiwb6f;
@@ -67,6 +69,8 @@ import 'modules/live/models/live_show_guest_status.dart' as _ixmm5757;
 import 'modules/live/models/live_show_role.dart' as _ibpln05y;
 import 'modules/live/models/live_show_status.dart' as _i60g3ahg;
 import 'modules/live/models/live_show_view.dart' as _iky3rvks;
+import 'modules/live/models/live_speaker_view.dart' as _iafzpzjd;
+import 'modules/live/models/live_stage_view.dart' as _ivrg75i3;
 import 'modules/messages/models/conversation_page.dart' as _i54ek7if;
 import 'modules/messages/models/conversation_view.dart' as _iea0s5ku;
 import 'modules/messages/models/direct_message_event.dart' as _i56rpfla;
@@ -126,8 +130,10 @@ export 'modules/live/models/live_chat_message.dart';
 export 'modules/live/models/live_chat_message_view.dart';
 export 'modules/live/models/live_event.dart';
 export 'modules/live/models/live_event_kind.dart';
+export 'modules/live/models/live_hand_view.dart';
 export 'modules/live/models/live_media_grant.dart';
 export 'modules/live/models/live_media_grant_role.dart';
+export 'modules/live/models/live_participant.dart';
 export 'modules/live/models/live_show.dart';
 export 'modules/live/models/live_show_access.dart';
 export 'modules/live/models/live_show_draft.dart';
@@ -136,6 +142,8 @@ export 'modules/live/models/live_show_guest_status.dart';
 export 'modules/live/models/live_show_role.dart';
 export 'modules/live/models/live_show_status.dart';
 export 'modules/live/models/live_show_view.dart';
+export 'modules/live/models/live_speaker_view.dart';
+export 'modules/live/models/live_stage_view.dart';
 export 'modules/messages/models/conversation_page.dart';
 export 'modules/messages/models/conversation_view.dart';
 export 'modules/messages/models/direct_message_event.dart';
@@ -855,6 +863,105 @@ class Protocol extends _is.DatabaseSerializationManager {
           ],
           type: 'btree',
           isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'live_participant',
+      dartName: 'LiveParticipant',
+      schema: 'public',
+      module: 'nexo',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'showId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'userId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'role',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'protocol:LiveShowRole',
+        ),
+        _isp.ColumnDefinition(
+          name: 'onStage',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'handRaisedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'micMuted',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'cameraOn',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'updatedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+          columnDefault: 'now',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'live_participant_fk_0',
+          columns: ['showId'],
+          referenceTable: 'live_show',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'live_participant_unique_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'showId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'userId',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
           isPrimary: false,
         ),
       ],
@@ -1681,11 +1788,17 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _ilchcp3h.LiveEventKind) {
       return _ilchcp3h.LiveEventKind.fromJson(data) as T;
     }
+    if (t == _igpp3v1h.LiveHandView) {
+      return _igpp3v1h.LiveHandView.fromJson(data) as T;
+    }
     if (t == _ij3uatdc.LiveMediaGrant) {
       return _ij3uatdc.LiveMediaGrant.fromJson(data) as T;
     }
     if (t == _ildi0w8j.LiveMediaGrantRole) {
       return _ildi0w8j.LiveMediaGrantRole.fromJson(data) as T;
+    }
+    if (t == _i7uaaqjc.LiveParticipant) {
+      return _i7uaaqjc.LiveParticipant.fromJson(data) as T;
     }
     if (t == _i1mej27o.LiveShow) {
       return _i1mej27o.LiveShow.fromJson(data) as T;
@@ -1710,6 +1823,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _iky3rvks.LiveShowView) {
       return _iky3rvks.LiveShowView.fromJson(data) as T;
+    }
+    if (t == _iafzpzjd.LiveSpeakerView) {
+      return _iafzpzjd.LiveSpeakerView.fromJson(data) as T;
+    }
+    if (t == _ivrg75i3.LiveStageView) {
+      return _ivrg75i3.LiveStageView.fromJson(data) as T;
     }
     if (t == _i54ek7if.ConversationPage) {
       return _i54ek7if.ConversationPage.fromJson(data) as T;
@@ -1920,12 +2039,19 @@ class Protocol extends _is.DatabaseSerializationManager {
       return (data != null ? _ilchcp3h.LiveEventKind.fromJson(data) : null)
           as T;
     }
+    if (t == _is.getType<_igpp3v1h.LiveHandView?>()) {
+      return (data != null ? _igpp3v1h.LiveHandView.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_ij3uatdc.LiveMediaGrant?>()) {
       return (data != null ? _ij3uatdc.LiveMediaGrant.fromJson(data) : null)
           as T;
     }
     if (t == _is.getType<_ildi0w8j.LiveMediaGrantRole?>()) {
       return (data != null ? _ildi0w8j.LiveMediaGrantRole.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i7uaaqjc.LiveParticipant?>()) {
+      return (data != null ? _i7uaaqjc.LiveParticipant.fromJson(data) : null)
           as T;
     }
     if (t == _is.getType<_i1mej27o.LiveShow?>()) {
@@ -1958,6 +2084,14 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_iky3rvks.LiveShowView?>()) {
       return (data != null ? _iky3rvks.LiveShowView.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iafzpzjd.LiveSpeakerView?>()) {
+      return (data != null ? _iafzpzjd.LiveSpeakerView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ivrg75i3.LiveStageView?>()) {
+      return (data != null ? _ivrg75i3.LiveStageView.fromJson(data) : null)
+          as T;
     }
     if (t == _is.getType<_i54ek7if.ConversationPage?>()) {
       return (data != null ? _i54ek7if.ConversationPage.fromJson(data) : null)
@@ -2154,6 +2288,18 @@ class Protocol extends _is.DatabaseSerializationManager {
       return (data as List).map((e) => deserialize<_is.UuidValue>(e)).toList()
           as T;
     }
+    if (t == List<_iafzpzjd.LiveSpeakerView>) {
+      return (data as List)
+              .map((e) => deserialize<_iafzpzjd.LiveSpeakerView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_igpp3v1h.LiveHandView>) {
+      return (data as List)
+              .map((e) => deserialize<_igpp3v1h.LiveHandView>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_iea0s5ku.ConversationView>) {
       return (data as List)
               .map((e) => deserialize<_iea0s5ku.ConversationView>(e))
@@ -2263,8 +2409,10 @@ class Protocol extends _is.DatabaseSerializationManager {
       _il6n38yd.LiveChatMessageView => 'LiveChatMessageView',
       _i7dasvmg.LiveEvent => 'LiveEvent',
       _ilchcp3h.LiveEventKind => 'LiveEventKind',
+      _igpp3v1h.LiveHandView => 'LiveHandView',
       _ij3uatdc.LiveMediaGrant => 'LiveMediaGrant',
       _ildi0w8j.LiveMediaGrantRole => 'LiveMediaGrantRole',
+      _i7uaaqjc.LiveParticipant => 'LiveParticipant',
       _i1mej27o.LiveShow => 'LiveShow',
       _irbd4xwy.LiveShowAccess => 'LiveShowAccess',
       _ixjiwb6f.LiveShowDraft => 'LiveShowDraft',
@@ -2273,6 +2421,8 @@ class Protocol extends _is.DatabaseSerializationManager {
       _ibpln05y.LiveShowRole => 'LiveShowRole',
       _i60g3ahg.LiveShowStatus => 'LiveShowStatus',
       _iky3rvks.LiveShowView => 'LiveShowView',
+      _iafzpzjd.LiveSpeakerView => 'LiveSpeakerView',
+      _ivrg75i3.LiveStageView => 'LiveStageView',
       _i54ek7if.ConversationPage => 'ConversationPage',
       _iea0s5ku.ConversationView => 'ConversationView',
       _i56rpfla.DirectMessageEvent => 'DirectMessageEvent',
@@ -2378,10 +2528,14 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'LiveEvent';
       case _ilchcp3h.LiveEventKind():
         return 'LiveEventKind';
+      case _igpp3v1h.LiveHandView():
+        return 'LiveHandView';
       case _ij3uatdc.LiveMediaGrant():
         return 'LiveMediaGrant';
       case _ildi0w8j.LiveMediaGrantRole():
         return 'LiveMediaGrantRole';
+      case _i7uaaqjc.LiveParticipant():
+        return 'LiveParticipant';
       case _i1mej27o.LiveShow():
         return 'LiveShow';
       case _irbd4xwy.LiveShowAccess():
@@ -2398,6 +2552,10 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'LiveShowStatus';
       case _iky3rvks.LiveShowView():
         return 'LiveShowView';
+      case _iafzpzjd.LiveSpeakerView():
+        return 'LiveSpeakerView';
+      case _ivrg75i3.LiveStageView():
+        return 'LiveStageView';
       case _i54ek7if.ConversationPage():
         return 'ConversationPage';
       case _iea0s5ku.ConversationView():
@@ -2579,11 +2737,17 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (dataClassName == 'LiveEventKind') {
       return deserialize<_ilchcp3h.LiveEventKind>(data['data']);
     }
+    if (dataClassName == 'LiveHandView') {
+      return deserialize<_igpp3v1h.LiveHandView>(data['data']);
+    }
     if (dataClassName == 'LiveMediaGrant') {
       return deserialize<_ij3uatdc.LiveMediaGrant>(data['data']);
     }
     if (dataClassName == 'LiveMediaGrantRole') {
       return deserialize<_ildi0w8j.LiveMediaGrantRole>(data['data']);
+    }
+    if (dataClassName == 'LiveParticipant') {
+      return deserialize<_i7uaaqjc.LiveParticipant>(data['data']);
     }
     if (dataClassName == 'LiveShow') {
       return deserialize<_i1mej27o.LiveShow>(data['data']);
@@ -2608,6 +2772,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'LiveShowView') {
       return deserialize<_iky3rvks.LiveShowView>(data['data']);
+    }
+    if (dataClassName == 'LiveSpeakerView') {
+      return deserialize<_iafzpzjd.LiveSpeakerView>(data['data']);
+    }
+    if (dataClassName == 'LiveStageView') {
+      return deserialize<_ivrg75i3.LiveStageView>(data['data']);
     }
     if (dataClassName == 'ConversationPage') {
       return deserialize<_i54ek7if.ConversationPage>(data['data']);
@@ -2757,6 +2927,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return _i85zfh3f.AccountProfile.t;
       case _i4vd7apv.LiveChatMessage:
         return _i4vd7apv.LiveChatMessage.t;
+      case _i7uaaqjc.LiveParticipant:
+        return _i7uaaqjc.LiveParticipant.t;
       case _i1mej27o.LiveShow:
         return _i1mej27o.LiveShow.t;
       case _iavthlak.LiveShowGuest:

@@ -673,6 +673,12 @@ flutter test
   caballo entre portada y resumen, y un sliver recorta lo que se sale de su
   caja: con la portada en su propio sliver, la mitad superior del avatar
   desaparecía. Portada, avatar y resumen comparten una sola caja.
+- **Las salas en vivo son tipo podcast: host, hasta 16 invitados, un
+  moderador opcional y oyentes** (SDD 0011). Qué puede hacer cada rol lo dice
+  **una sola tabla**, `LivePermissions`, escrita en el servidor y con su espejo
+  en la app; `live_permissions_contract_test.dart` falla si se separan. Una
+  regla nueva va en los dos lados o en ninguno. En el contrato el invitado se
+  llama `cohost`; en pantalla, "Invitado".
 - **La sala en vivo es inmersiva.** El video ocupa todo y el chrome flota
   encima con un velo en degradado; el chat no vive en una hoja blanca debajo.
   Partir la pantalla en dos deja el video del tamaño de una miniatura, que es

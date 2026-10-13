@@ -41,6 +41,16 @@ live:
   - chatHistory:
   - sendChat:
   - hideChat:
+  - stage:
+  - raiseHand:
+  - lowerHand:
+  - approveRequest:
+  - denyRequest:
+  - inviteToStage:
+  - removeFromStage:
+  - leaveStage:
+  - setMicMuted:
+  - setCamera:
   - watch:
   - watchIndex:
 messages:

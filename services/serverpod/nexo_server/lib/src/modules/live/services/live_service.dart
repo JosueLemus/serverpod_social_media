@@ -12,6 +12,7 @@ import '../../notifications/services/notification_service.dart';
 import '../../social/services/follow_service.dart';
 import 'live_presence.dart';
 import 'live_rules.dart';
+import 'live_stage_service.dart';
 import 'show_scheduler.dart';
 
 /// Reglas de negocio de los vivos: programar, iniciar, terminar, mirar y
@@ -29,10 +30,12 @@ class LiveService {
     this._scheduler = const FutureCallShowScheduler(),
     LivePresence? presence,
     LiveChatThrottle? throttle,
+    LiveStageService? stage,
     LiveMediaGateway Function(Session session)? mediaGateway,
     DateTime Function()? now,
   }) : _presence = presence ?? LivePresence.instance,
        _throttle = throttle ?? LiveChatThrottle.instance,
+       _stage = stage ?? LiveStageService(now: now),
        _mediaGateway =
            mediaGateway ??
            ((session) => liveMediaGatewayFrom(session.passwords)),
@@ -47,6 +50,9 @@ class LiveService {
   final ShowScheduler _scheduler;
   final LivePresence _presence;
   final LiveChatThrottle _throttle;
+
+  /// El escenario: roles en la sala, quién habla y quién pidió la palabra.
+  final LiveStageService _stage;
 
   /// Se resuelve por sesión porque los secretos se leen de ahí: con App
   /// Certificate, tokens firmados; sin él, el modo de prueba de Agora.
@@ -277,6 +283,7 @@ class LiveService {
         entityId: '${show.id}',
         transaction: tx,
       );
+      await _stage.seedOnAir(session, show, tx);
       notices = await _notifyLiveStarted(session, show, tx);
       return show;
     });
@@ -288,8 +295,10 @@ class LiveService {
   }
 
   /// La credencial de video para entrar al canal del show. El rol lo decide
-  /// el servidor: publica sólo el host con el show al aire; el resto, incluso
-  /// sin sesión, mira. El cliente nunca pide ser publicador (D9).
+  /// el servidor: con el show al aire publica el host **y quien esté en el
+  /// escenario** (SDD 0011); el resto, incluso sin sesión, mira. El cliente
+  /// nunca pide ser publicador (D9). Cuando alguien sube o baja, el evento
+  /// `stage` le avisa que pida una credencial nueva.
   Future<LiveMediaGrant> mediaToken(Session session, int showId) async {
     final show = await requireVisible(session, showId);
     final onAir = LiveRules.isOnAir(show.status);
@@ -299,7 +308,11 @@ class LiveService {
       throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
     }
     final viewer = session.userIdOrNull;
-    final isPublisher = onAir && viewer == show.hostId;
+    final isPublisher =
+        onAir &&
+        viewer != null &&
+        (viewer == show.hostId ||
+            await _stage.isOnStage(session, showId, viewer));
     final channel = LiveRules.mediaChannel(showId);
     final uid = LiveRules.mediaUid(viewer);
     final token = await _mediaGateway(session).issueToken(
@@ -421,6 +434,7 @@ class LiveService {
     role: await _roleIn(session, show),
     viewerCount: _viewerCount(show),
     history: await chatHistory(session, show.id!),
+    stage: await _stage.view(session, show.id!),
   );
 
   /// Suma la sesión a los espectadores, salvo que sea el host.
@@ -536,6 +550,13 @@ class LiveService {
     await _publishStatus(session, await _toView(session, updated));
   }
 
+  // --- Escenario (SDD 0011) -------------------------------------------------
+
+  Future<LiveStageView> stage(Session session, int showId) async =>
+      _stage.view(session, (await requireVisible(session, showId)).id!);
+
+  LiveStageService get stageService => _stage;
+
   // --- Internos ------------------------------------------------------------
 
   Future<LiveShowView> _transition(
@@ -610,6 +631,7 @@ class LiveService {
         transaction: tx,
       );
       if (to == LiveShowStatus.live) {
+        await _stage.seedOnAir(session, saved, tx);
         notices = await _notifyLiveStarted(session, saved, tx);
       }
       return saved;
@@ -736,20 +758,12 @@ class LiveService {
     ];
   }
 
-  Future<LiveShowRole> _roleIn(Session session, LiveShow show) async {
-    final viewer = session.userIdOrNull;
-    if (viewer == null) return LiveShowRole.audience;
-    if (show.hostId == viewer) return LiveShowRole.host;
-    if (session.isStaff) return LiveShowRole.moderator;
-    final cohost = await LiveShowGuest.db.count(
-      session,
-      where: (t) =>
-          t.showId.equals(show.id) &
-          t.userId.equals(viewer) &
-          t.status.equals(LiveShowGuestStatus.accepted),
-    );
-    return cohost > 0 ? LiveShowRole.cohost : LiveShowRole.audience;
-  }
+  Future<LiveShowRole> _roleIn(Session session, LiveShow show) => _stage.roleOf(
+    session,
+    show,
+    session.userIdOrNull,
+    isStaff: session.isStaff,
+  );
 
   int _viewerCount(LiveShow show) {
     if (LiveRules.isOnAir(show.status)) return _presence.count(show.id!);

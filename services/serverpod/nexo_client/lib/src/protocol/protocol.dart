@@ -46,6 +46,7 @@ import 'modules/identity/models/verification_status.dart' as _i1f8s3dp;
 import 'modules/live/models/live_chat_message_view.dart' as _il6n38yd;
 import 'modules/live/models/live_event.dart' as _i7dasvmg;
 import 'modules/live/models/live_event_kind.dart' as _ilchcp3h;
+import 'modules/live/models/live_hand_view.dart' as _igpp3v1h;
 import 'modules/live/models/live_media_grant.dart' as _ij3uatdc;
 import 'modules/live/models/live_media_grant_role.dart' as _ildi0w8j;
 import 'modules/live/models/live_show_access.dart' as _irbd4xwy;
@@ -54,6 +55,8 @@ import 'modules/live/models/live_show_guest_status.dart' as _ixmm5757;
 import 'modules/live/models/live_show_role.dart' as _ibpln05y;
 import 'modules/live/models/live_show_status.dart' as _i60g3ahg;
 import 'modules/live/models/live_show_view.dart' as _iky3rvks;
+import 'modules/live/models/live_speaker_view.dart' as _iafzpzjd;
+import 'modules/live/models/live_stage_view.dart' as _ivrg75i3;
 import 'modules/messages/models/conversation_page.dart' as _i54ek7if;
 import 'modules/messages/models/conversation_view.dart' as _iea0s5ku;
 import 'modules/messages/models/direct_message_event.dart' as _i56rpfla;
@@ -101,6 +104,7 @@ export 'modules/identity/models/verification_status.dart';
 export 'modules/live/models/live_chat_message_view.dart';
 export 'modules/live/models/live_event.dart';
 export 'modules/live/models/live_event_kind.dart';
+export 'modules/live/models/live_hand_view.dart';
 export 'modules/live/models/live_media_grant.dart';
 export 'modules/live/models/live_media_grant_role.dart';
 export 'modules/live/models/live_show_access.dart';
@@ -109,6 +113,8 @@ export 'modules/live/models/live_show_guest_status.dart';
 export 'modules/live/models/live_show_role.dart';
 export 'modules/live/models/live_show_status.dart';
 export 'modules/live/models/live_show_view.dart';
+export 'modules/live/models/live_speaker_view.dart';
+export 'modules/live/models/live_stage_view.dart';
 export 'modules/messages/models/conversation_page.dart';
 export 'modules/messages/models/conversation_view.dart';
 export 'modules/messages/models/direct_message_event.dart';
@@ -236,6 +242,9 @@ class Protocol extends _isc.SerializationManager {
     if (t == _ilchcp3h.LiveEventKind) {
       return _ilchcp3h.LiveEventKind.fromJson(data) as T;
     }
+    if (t == _igpp3v1h.LiveHandView) {
+      return _igpp3v1h.LiveHandView.fromJson(data) as T;
+    }
     if (t == _ij3uatdc.LiveMediaGrant) {
       return _ij3uatdc.LiveMediaGrant.fromJson(data) as T;
     }
@@ -259,6 +268,12 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _iky3rvks.LiveShowView) {
       return _iky3rvks.LiveShowView.fromJson(data) as T;
+    }
+    if (t == _iafzpzjd.LiveSpeakerView) {
+      return _iafzpzjd.LiveSpeakerView.fromJson(data) as T;
+    }
+    if (t == _ivrg75i3.LiveStageView) {
+      return _ivrg75i3.LiveStageView.fromJson(data) as T;
     }
     if (t == _i54ek7if.ConversationPage) {
       return _i54ek7if.ConversationPage.fromJson(data) as T;
@@ -413,6 +428,9 @@ class Protocol extends _isc.SerializationManager {
       return (data != null ? _ilchcp3h.LiveEventKind.fromJson(data) : null)
           as T;
     }
+    if (t == _isc.getType<_igpp3v1h.LiveHandView?>()) {
+      return (data != null ? _igpp3v1h.LiveHandView.fromJson(data) : null) as T;
+    }
     if (t == _isc.getType<_ij3uatdc.LiveMediaGrant?>()) {
       return (data != null ? _ij3uatdc.LiveMediaGrant.fromJson(data) : null)
           as T;
@@ -444,6 +462,14 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _isc.getType<_iky3rvks.LiveShowView?>()) {
       return (data != null ? _iky3rvks.LiveShowView.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_iafzpzjd.LiveSpeakerView?>()) {
+      return (data != null ? _iafzpzjd.LiveSpeakerView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _isc.getType<_ivrg75i3.LiveStageView?>()) {
+      return (data != null ? _ivrg75i3.LiveStageView.fromJson(data) : null)
+          as T;
     }
     if (t == _isc.getType<_i54ek7if.ConversationPage?>()) {
       return (data != null ? _i54ek7if.ConversationPage.fromJson(data) : null)
@@ -599,6 +625,18 @@ class Protocol extends _isc.SerializationManager {
       return (data as List).map((e) => deserialize<_isc.UuidValue>(e)).toList()
           as T;
     }
+    if (t == List<_iafzpzjd.LiveSpeakerView>) {
+      return (data as List)
+              .map((e) => deserialize<_iafzpzjd.LiveSpeakerView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_igpp3v1h.LiveHandView>) {
+      return (data as List)
+              .map((e) => deserialize<_igpp3v1h.LiveHandView>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_iea0s5ku.ConversationView>) {
       return (data as List)
               .map((e) => deserialize<_iea0s5ku.ConversationView>(e))
@@ -695,6 +733,7 @@ class Protocol extends _isc.SerializationManager {
       _il6n38yd.LiveChatMessageView => 'LiveChatMessageView',
       _i7dasvmg.LiveEvent => 'LiveEvent',
       _ilchcp3h.LiveEventKind => 'LiveEventKind',
+      _igpp3v1h.LiveHandView => 'LiveHandView',
       _ij3uatdc.LiveMediaGrant => 'LiveMediaGrant',
       _ildi0w8j.LiveMediaGrantRole => 'LiveMediaGrantRole',
       _irbd4xwy.LiveShowAccess => 'LiveShowAccess',
@@ -703,6 +742,8 @@ class Protocol extends _isc.SerializationManager {
       _ibpln05y.LiveShowRole => 'LiveShowRole',
       _i60g3ahg.LiveShowStatus => 'LiveShowStatus',
       _iky3rvks.LiveShowView => 'LiveShowView',
+      _iafzpzjd.LiveSpeakerView => 'LiveSpeakerView',
+      _ivrg75i3.LiveStageView => 'LiveStageView',
       _i54ek7if.ConversationPage => 'ConversationPage',
       _iea0s5ku.ConversationView => 'ConversationView',
       _i56rpfla.DirectMessageEvent => 'DirectMessageEvent',
@@ -786,6 +827,8 @@ class Protocol extends _isc.SerializationManager {
         return 'LiveEvent';
       case _ilchcp3h.LiveEventKind():
         return 'LiveEventKind';
+      case _igpp3v1h.LiveHandView():
+        return 'LiveHandView';
       case _ij3uatdc.LiveMediaGrant():
         return 'LiveMediaGrant';
       case _ildi0w8j.LiveMediaGrantRole():
@@ -802,6 +845,10 @@ class Protocol extends _isc.SerializationManager {
         return 'LiveShowStatus';
       case _iky3rvks.LiveShowView():
         return 'LiveShowView';
+      case _iafzpzjd.LiveSpeakerView():
+        return 'LiveSpeakerView';
+      case _ivrg75i3.LiveStageView():
+        return 'LiveStageView';
       case _i54ek7if.ConversationPage():
         return 'ConversationPage';
       case _iea0s5ku.ConversationView():
@@ -940,6 +987,9 @@ class Protocol extends _isc.SerializationManager {
     if (dataClassName == 'LiveEventKind') {
       return deserialize<_ilchcp3h.LiveEventKind>(data['data']);
     }
+    if (dataClassName == 'LiveHandView') {
+      return deserialize<_igpp3v1h.LiveHandView>(data['data']);
+    }
     if (dataClassName == 'LiveMediaGrant') {
       return deserialize<_ij3uatdc.LiveMediaGrant>(data['data']);
     }
@@ -963,6 +1013,12 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'LiveShowView') {
       return deserialize<_iky3rvks.LiveShowView>(data['data']);
+    }
+    if (dataClassName == 'LiveSpeakerView') {
+      return deserialize<_iafzpzjd.LiveSpeakerView>(data['data']);
+    }
+    if (dataClassName == 'LiveStageView') {
+      return deserialize<_ivrg75i3.LiveStageView>(data['data']);
     }
     if (dataClassName == 'ConversationPage') {
       return deserialize<_i54ek7if.ConversationPage>(data['data']);

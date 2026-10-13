@@ -6,6 +6,7 @@ import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 
 /// Capa fina sobre [MockPlatform]: las reglas —el gate de verificación, la
@@ -60,7 +61,8 @@ class MockLiveRepository implements LiveRepository {
   }
 
   /// Modo de prueba: token vacío y uid 0. El rol sigue la regla del
-  /// servidor: publica sólo el host con el vivo al aire.
+  /// servidor: con el vivo al aire publican el host y quien esté en el
+  /// escenario.
   @override
   Future<LiveMediaGrant> mediaToken(String liveId) async {
     final live = _platform.live(liveId);
@@ -68,10 +70,12 @@ class MockLiveRepository implements LiveRepository {
     if (!_onAir(live) && live.status != LiveStatus.scheduled) {
       throw const ConflictFailure('live.mediaToken: not on air');
     }
-    final isHost = live.hostId == _platform.sessionAccountId;
+    final me = _platform.sessionAccountId;
+    final publishes =
+        me != null && (live.hostId == me || _platform.isOnStage(liveId, me));
     return LiveMediaGrant(
       channel: 'nexo_live_${liveId.replaceAll(RegExp('[^A-Za-z0-9_]'), '_')}',
-      role: isHost && _onAir(live)
+      role: publishes && _onAir(live)
           ? LiveMediaGrantRole.publisher
           : LiveMediaGrantRole.subscriber,
     );
@@ -130,9 +134,51 @@ class MockLiveRepository implements LiveRepository {
       session: session,
       role: _platform.roleIn(liveId),
       comments: _platform.comments(liveId),
+      stage: _platform.stage(liveId),
     );
   }
 
   @override
   Stream<void> changes() => _platform.changes;
+
+  // --- Escenario (SDD 0011): las reglas viven en la plataforma ---------------
+
+  @override
+  Future<LiveStage> stage(String liveId) async => _platform.stage(liveId);
+
+  @override
+  Future<void> raiseHand(String liveId) async => _platform.raiseHand(liveId);
+
+  @override
+  Future<void> lowerHand(String liveId) async => _platform.lowerHand(liveId);
+
+  @override
+  Future<void> approveRequest(String liveId, String userId) async =>
+      _platform.approveRequest(liveId, userId);
+
+  @override
+  Future<void> denyRequest(String liveId, String userId) async =>
+      _platform.denyRequest(liveId, userId);
+
+  @override
+  Future<void> inviteToStage(String liveId, String userId) async =>
+      _platform.inviteToStage(liveId, userId);
+
+  @override
+  Future<void> removeFromStage(String liveId, String userId) async =>
+      _platform.removeFromStage(liveId, userId);
+
+  @override
+  Future<void> leaveStage(String liveId) async => _platform.leaveStage(liveId);
+
+  @override
+  Future<void> setMicMuted(
+    String liveId,
+    String userId, {
+    required bool muted,
+  }) async => _platform.setMicMuted(liveId, userId, muted: muted);
+
+  @override
+  Future<void> setCamera(String liveId, {required bool on}) async =>
+      _platform.setCamera(liveId, on: on);
 }

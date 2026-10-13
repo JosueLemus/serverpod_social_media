@@ -9,6 +9,7 @@ abstract final class LiveRules {
   static const maxDescriptionLength = 2000;
   static const minDurationMinutes = 15;
   static const maxDurationMinutes = 240;
+
   /// Lugares en el escenario además del host (SDD 0011, S4). Cuenta a los
   /// invitados de la agenda y a los que suben durante el vivo: 1 + 16 es el
   /// tope de publicadores por canal de Agora.
@@ -67,6 +68,10 @@ abstract final class LiveRules {
 
   static bool canTransition(LiveShowStatus from, LiveShowStatus to) =>
       transitions[from]?.contains(to) ?? false;
+
+  /// Si con [guestsOnStage] invitados arriba (sin contar al host) ya no entra
+  /// nadie más.
+  static bool stageFull(int guestsOnStage) => guestsOnStage >= maxGuests;
 
   static bool isOnAir(LiveShowStatus status) =>
       status == LiveShowStatus.live || status == LiveShowStatus.ending;

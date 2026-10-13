@@ -7,7 +7,9 @@ import '../../features/admin/domain/entities/account_detail.dart';
 import '../../features/admin/domain/entities/audit_entry.dart';
 import '../../features/auth/domain/entities/app_user.dart';
 import '../../features/live/domain/entities/live_comment.dart';
+import '../../features/live/domain/entities/live_permissions.dart';
 import '../../features/live/domain/entities/live_session.dart';
+import '../../features/live/domain/entities/live_stage.dart';
 import '../../features/moderation/domain/entities/moderation_action.dart';
 import '../errors/failures.dart';
 import 'demo_accounts.dart';
@@ -59,6 +61,10 @@ class MockPlatform {
   late List<_Report> _reports;
   late List<_SanctionRecord> _sanctions;
   late List<_AuditRecord> _audit;
+
+  /// El escenario de cada sala (SDD 0011). Como en el servidor, una fila
+  /// existente manda sobre la agenda: un invitado que se baja es oyente.
+  late List<_Participant> _participants;
 
   /// Quién está usando **esta** instancia. Es por pestaña y no se persiste:
   /// lo fija el repositorio de auth al restaurar o iniciar sesión.
@@ -152,6 +158,7 @@ class MockPlatform {
     _commit(() {
       updated = session.copyWith(status: to);
       _lives[id] = updated;
+      if (to == LiveStatus.live) _seedStage(updated);
       if (to == LiveStatus.live || to == LiveStatus.recorded) {
         _record(
           to == LiveStatus.live
@@ -285,13 +292,247 @@ class MockPlatform {
   LiveRole roleIn(String liveId) {
     final actor = _actorId == null ? null : _accounts[_actorId]?.user;
     if (actor == null) return LiveRole.audience;
-    if (_lives[liveId]?.hostId == actor.id) return LiveRole.host;
-    if (actor.canModerate) return LiveRole.moderator;
-    // Un invitado de la agenda es invitado en la sala, como en el servidor.
-    if (_lives[liveId]?.cohostIds.contains(actor.id) ?? false) {
-      return LiveRole.cohost;
-    }
+    return _roleOf(liveId, actor.id, isStaff: actor.canModerate);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Escenario (SDD 0011). Las mismas reglas que `LiveStageService`.
+  // ---------------------------------------------------------------------------
+
+  /// El host, después el staff, después la fila de la sala y, sin fila, la
+  /// agenda.
+  LiveRole _roleOf(String liveId, String userId, {bool isStaff = false}) {
+    final live = _lives[liveId];
+    if (live?.hostId == userId) return LiveRole.host;
+    if (isStaff) return LiveRole.moderator;
+    final row = _participant(liveId, userId);
+    if (row != null) return row.role;
+    if (live?.cohostIds.contains(userId) ?? false) return LiveRole.cohost;
     return LiveRole.audience;
+  }
+
+  _Participant? _participant(String liveId, String userId) => _participants
+      .where((p) => p.liveId == liveId && p.userId == userId)
+      .firstOrNull;
+
+  bool isOnStage(String liveId, String userId) =>
+      _participant(liveId, userId)?.onStage ?? false;
+
+  void _seedStage(LiveSession live) {
+    for (final (userId, role) in [
+      (live.hostId, LiveRole.host),
+      for (final id in live.cohostIds.take(maxCohosts)) (id, LiveRole.cohost),
+    ]) {
+      if (_participant(live.id, userId) == null) {
+        _participants.add(
+          _Participant(
+            seq: _sequence++,
+            liveId: live.id,
+            userId: userId,
+            role: role,
+            onStage: true,
+          ),
+        );
+      }
+    }
+  }
+
+  LiveStage stage(String liveId) {
+    final me = _actorId;
+    final rows = _participants.where((p) => p.liveId == liveId).toList();
+    final speakers = rows.where((p) => p.onStage).toList()
+      ..sort((a, b) {
+        final host =
+            (b.role == LiveRole.host ? 1 : 0) -
+            (a.role == LiveRole.host ? 1 : 0);
+        return host != 0 ? host : a.seq.compareTo(b.seq);
+      });
+    final hands =
+        rows.where((p) => !p.onStage && p.handRaisedAt != null).toList()
+          ..sort((a, b) => a.handRaisedAt!.compareTo(b.handRaisedAt!));
+    String name(String id) => _accounts[id]?.user.name ?? '';
+    String username(String id) => _accounts[id]?.user.username ?? '';
+    return LiveStage(
+      speakers: [
+        for (final p in speakers)
+          LiveSpeaker(
+            userId: p.userId,
+            name: name(p.userId),
+            username: username(p.userId),
+            role: p.role,
+            micMuted: p.micMuted,
+            cameraOn: p.cameraOn,
+            isMe: p.userId == me,
+          ),
+      ],
+      hands: [
+        for (final p in hands)
+          LiveHand(
+            userId: p.userId,
+            name: name(p.userId),
+            username: username(p.userId),
+            raisedAt: p.handRaisedAt!,
+            isMe: p.userId == me,
+          ),
+      ],
+    );
+  }
+
+  void raiseHand(String liveId) => _stageChange(liveId, (actor, role) {
+    _requireCan(role, LiveAction.raiseHand);
+    final row = _participant(liveId, actor.id);
+    if (row?.onStage ?? false) {
+      throw const ConflictFailure('stage.raiseHand: already on stage');
+    }
+    if (row?.handRaisedAt != null) return;
+    _upsert(liveId, actor.id, role, (p) => p.handRaisedAt = _now());
+  });
+
+  void lowerHand(String liveId) => _stageChange(liveId, (actor, role) {
+    _participant(liveId, actor.id)?.handRaisedAt = null;
+  });
+
+  void leaveStage(String liveId) => _stageChange(liveId, (actor, role) {
+    _requireCan(role, LiveAction.leaveStage);
+    final row = _participant(liveId, actor.id);
+    if (row != null && row.onStage) _takeDown(row);
+  });
+
+  void approveRequest(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.approveRequest, userId);
+        final row = _participant(liveId, userId);
+        if (row?.handRaisedAt == null) {
+          throw const ConflictFailure('stage.approve: no hand raised');
+        }
+        _putUp(liveId, row!);
+      });
+
+  void denyRequest(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.approveRequest, userId);
+        _participant(liveId, userId)?.handRaisedAt = null;
+      });
+
+  void inviteToStage(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.inviteToStage, userId);
+        final user = _accounts[userId]?.user;
+        if (user == null) throw const NotFoundFailure('account');
+        if (!user.isActive) throw const ForbiddenFailure('stage.invite');
+        final row =
+            _participant(liveId, userId) ??
+            _upsert(liveId, userId, _roleOf(liveId, userId), (_) {});
+        if (!row.onStage) _putUp(liveId, row);
+      });
+
+  void removeFromStage(String liveId, String userId) =>
+      _stageChange(liveId, (actor, role) {
+        _requireOver(liveId, role, LiveAction.removeFromStage, userId);
+        final row = _participant(liveId, userId);
+        if (row != null && row.onStage) _takeDown(row);
+      });
+
+  void setMicMuted(String liveId, String userId, {required bool muted}) =>
+      _stageChange(liveId, (actor, role) {
+        if (userId == actor.id) {
+          _requireCan(role, LiveAction.speak);
+        } else {
+          if (!muted) throw const ForbiddenFailure('stage.unmute: not yours');
+          _requireOver(liveId, role, LiveAction.muteMic, userId);
+        }
+        final row = _participant(liveId, userId);
+        if (row == null || !row.onStage) {
+          throw const ConflictFailure('stage.mute: not on stage');
+        }
+        row.micMuted = muted;
+      });
+
+  void setCamera(String liveId, {required bool on}) =>
+      _stageChange(liveId, (actor, role) {
+        _requireCan(role, LiveAction.speak);
+        final row = _participant(liveId, actor.id);
+        if (row == null || !row.onStage) {
+          throw const ConflictFailure('stage.camera: not on stage');
+        }
+        row.cameraOn = on;
+      });
+
+  /// Sesión activa, vivo al aire, y [change] dentro de un [_commit].
+  void _stageChange(
+    String liveId,
+    void Function(AppUser actor, LiveRole role) change,
+  ) {
+    final actor = _requireActor();
+    final live = _lives[liveId];
+    if (live == null) throw const NotFoundFailure('live');
+    if (live.status != LiveStatus.live) {
+      throw const ConflictFailure('stage: not on air');
+    }
+    final role = _roleOf(liveId, actor.id, isStaff: actor.canModerate);
+    _commit(() => change(actor, role));
+  }
+
+  void _putUp(String liveId, _Participant row) {
+    final taken = _participants
+        .where(
+          (p) => p.liveId == liveId && p.onStage && p.role != LiveRole.host,
+        )
+        .length;
+    if (taken >= maxCohosts) throw const ConflictFailure('stage: full');
+    row
+      ..onStage = true
+      ..handRaisedAt = null
+      ..micMuted = false
+      ..cameraOn = false
+      ..role = row.role == LiveRole.moderator
+          ? LiveRole.moderator
+          : LiveRole.cohost;
+  }
+
+  void _takeDown(_Participant row) => row
+    ..onStage = false
+    ..micMuted = false
+    ..cameraOn = false
+    ..role = row.role == LiveRole.moderator
+        ? LiveRole.moderator
+        : LiveRole.audience;
+
+  _Participant _upsert(
+    String liveId,
+    String userId,
+    LiveRole role,
+    void Function(_Participant) change,
+  ) {
+    var row = _participant(liveId, userId);
+    if (row == null) {
+      row = _Participant(
+        seq: _sequence++,
+        liveId: liveId,
+        userId: userId,
+        role: role,
+      );
+      _participants.add(row);
+    }
+    change(row);
+    return row;
+  }
+
+  void _requireCan(LiveRole role, LiveAction action) {
+    if (!LivePermissions.can(role, action)) {
+      throw ForbiddenFailure('stage.${action.name}');
+    }
+  }
+
+  void _requireOver(
+    String liveId,
+    LiveRole role,
+    LiveAction action,
+    String target,
+  ) {
+    if (!LivePermissions.can(role, action, target: _roleOf(liveId, target))) {
+      throw ForbiddenFailure('stage.${action.name}: rank');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -911,6 +1152,7 @@ class MockPlatform {
     'reports': [for (final report in _reports) report.toJson()],
     'sanctions': [for (final sanction in _sanctions) sanction.toJson()],
     'audit': [for (final record in _audit) record.toJson()],
+    'participants': [for (final p in _participants) p.toJson()],
   });
 
   void _decode(String raw) {
@@ -929,6 +1171,13 @@ class MockPlatform {
     _reports = list('reports').map(_Report.fromJson).toList();
     _sanctions = list('sanctions').map(_SanctionRecord.fromJson).toList();
     _audit = list('audit').map(_AuditRecord.fromJson).toList();
+    // Opcional: un estado guardado antes del escenario no lo trae.
+    _participants = [
+      for (final item
+          in (json['participants'] as List<dynamic>? ?? const [])
+              .cast<Map<String, dynamic>>())
+        _Participant.fromJson(item),
+    ];
   }
 
   void _seed() {
@@ -1070,6 +1319,11 @@ class MockPlatform {
     ];
     _sanctions = [];
     _audit = [];
+    // Los vivos que la demo arranca al aire ya tienen su escenario.
+    _participants = [];
+    for (final live in _lives.values) {
+      if (live.status == LiveStatus.live) _seedStage(live);
+    }
   }
 
   static AppUser _copyUser(
@@ -1329,5 +1583,53 @@ class _AuditRecord {
     'reason': reason?.name,
     'liveId': liveId,
     'createdAt': createdAt.toIso8601String(),
+  };
+}
+
+/// Un lugar en la sala: el espejo de la fila `live_participant` del servidor.
+class _Participant {
+  _Participant({
+    required this.seq,
+    required this.liveId,
+    required this.userId,
+    required this.role,
+    this.onStage = false,
+    this.handRaisedAt,
+    this.micMuted = false,
+    this.cameraOn = false,
+  });
+
+  factory _Participant.fromJson(Map<String, dynamic> json) => _Participant(
+    seq: json['seq'] as int,
+    liveId: json['liveId'] as String,
+    userId: json['userId'] as String,
+    role: LiveRole.values.byName(json['role'] as String),
+    onStage: json['onStage'] as bool,
+    handRaisedAt: json['handRaisedAt'] == null
+        ? null
+        : DateTime.parse(json['handRaisedAt'] as String),
+    micMuted: json['micMuted'] as bool,
+    cameraOn: json['cameraOn'] as bool,
+  );
+
+  /// Orden de llegada a la sala.
+  final int seq;
+  final String liveId;
+  final String userId;
+  LiveRole role;
+  bool onStage;
+  DateTime? handRaisedAt;
+  bool micMuted;
+  bool cameraOn;
+
+  Map<String, Object?> toJson() => {
+    'seq': seq,
+    'liveId': liveId,
+    'userId': userId,
+    'role': role.name,
+    'onStage': onStage,
+    'handRaisedAt': handRaisedAt?.toIso8601String(),
+    'micMuted': micMuted,
+    'cameraOn': cameraOn,
   };
 }

@@ -10,6 +10,7 @@ import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_permissions.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 import '../../domain/studio_show.dart';
 
@@ -44,6 +45,7 @@ class LiveRoomState extends Equatable {
     this.issue,
     this.issueSerial = 0,
     this.reconnecting = false,
+    this.stage = LiveStage.empty,
   });
 
   /// Null while loading, and when the id does not resolve.
@@ -91,6 +93,16 @@ class LiveRoomState extends Equatable {
   /// conectarse. La View lo dice en vez de quedarse congelada.
   final bool reconnecting;
 
+  /// Quién habla y quién pidió la palabra (SDD 0011).
+  final LiveStage stage;
+
+  bool get isOnStage => stage.meOnStage;
+  bool get handRaised => stage.myHandRaised;
+
+  /// Si se dibuja el control de una acción propia: el repertorio del rol. La
+  /// hoja de una persona usa `LivePermissions.on`.
+  bool can(LiveAction action) => LivePermissions.hasAction(role, action);
+
   bool get canModerate => LivePermissions.hasAction(role, LiveAction.hideChat);
 
   LiveRoomState copyWith({
@@ -109,6 +121,7 @@ class LiveRoomState extends Equatable {
     LiveRoomIssue? issue,
     int? issueSerial,
     bool? reconnecting,
+    LiveStage? stage,
   }) => LiveRoomState(
     session: session ?? this.session,
     role: role ?? this.role,
@@ -125,6 +138,7 @@ class LiveRoomState extends Equatable {
     issue: issue ?? this.issue,
     issueSerial: issueSerial ?? this.issueSerial,
     reconnecting: reconnecting ?? this.reconnecting,
+    stage: stage ?? this.stage,
   );
 
   @override
@@ -144,6 +158,7 @@ class LiveRoomState extends Equatable {
     issue,
     issueSerial,
     reconnecting,
+    stage,
   ];
 }
 
@@ -247,12 +262,18 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
 
   void _apply(LiveRoomEvent event) {
     switch (event) {
-      case LiveRoomSnapshot(:final session, :final role, :final comments):
+      case LiveRoomSnapshot(
+        :final session,
+        :final role,
+        :final comments,
+        :final stage,
+      ):
         emit(
           state.copyWith(
             session: session,
             role: role,
             comments: comments,
+            stage: stage,
             isLoading: false,
             notFound: false,
             reconnecting: false,
@@ -269,6 +290,12 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
         _addComment(comment);
       case LiveCommentHidden(:final commentId):
         _dropComment(commentId);
+      case LiveStageChanged(:final stage):
+        emit(state.copyWith(stage: stage));
+      case LiveRoleChanged(:final role, isMine: true):
+        emit(state.copyWith(role: role));
+      case LiveRoleChanged():
+        break;
     }
     _syncClock();
   }
@@ -429,6 +456,54 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
       audit: [...state.audit, 'Se rechazó la solicitud de $guest'],
     ),
   );
+
+  // --- Escenario (SDD 0011) -------------------------------------------------
+  //
+  // El servidor decide y el resultado vuelve por `watch` (`stage` y, si
+  // cambió un rol, `roleChanged`): acá no se aplica nada a mano, así que la
+  // sala nunca muestra un escenario que el servidor no aceptó. Un rechazo
+  // llega como `issue`.
+
+  Future<void> raiseHand() => _onStage((id) => _repository.raiseHand(id));
+  Future<void> lowerHand() => _onStage((id) => _repository.lowerHand(id));
+  Future<void> leaveStage() => _onStage((id) => _repository.leaveStage(id));
+
+  Future<void> approveRequest(String userId) =>
+      _onStage((id) => _repository.approveRequest(id, userId));
+
+  Future<void> denyRequest(String userId) =>
+      _onStage((id) => _repository.denyRequest(id, userId));
+
+  Future<void> inviteToStage(String userId) =>
+      _onStage((id) => _repository.inviteToStage(id, userId));
+
+  Future<void> removeFromStage(String userId) =>
+      _onStage((id) => _repository.removeFromStage(id, userId));
+
+  /// El micrófono propio: lo apaga o lo prende.
+  Future<void> toggleMyMic() {
+    final me = state.stage.me;
+    if (me == null) return Future.value();
+    return _onStage(
+      (id) => _repository.setMicMuted(id, me.userId, muted: !me.micMuted),
+    );
+  }
+
+  /// Silenciar el micrófono de otro. Reactivarlo es de esa persona (S11).
+  Future<void> muteSpeaker(String userId) =>
+      _onStage((id) => _repository.setMicMuted(id, userId, muted: true));
+
+  Future<void> toggleMyCamera() {
+    final me = state.stage.me;
+    if (me == null) return Future.value();
+    return _onStage((id) => _repository.setCamera(id, on: !me.cameraOn));
+  }
+
+  Future<void> _onStage(Future<void> Function(String liveId) action) async {
+    final session = state.session;
+    if (session == null) return;
+    await _try(() => action(session.id));
+  }
 
   /// El servidor decide. Un creador desverificado ve el botón de iniciar
   /// igual —esconderlo sería justo la trampa que la demo refuta— y es acá

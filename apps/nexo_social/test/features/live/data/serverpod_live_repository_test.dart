@@ -179,4 +179,85 @@ void main() {
       ),
     );
   });
+
+  group('el escenario', () {
+    final stage = api.LiveStageView(
+      speakers: [
+        api.LiveSpeakerView(
+          userId: elena,
+          username: 'elena_ux',
+          name: 'Elena Vega',
+          role: api.LiveShowRole.host,
+          micMuted: false,
+          cameraOn: true,
+        ),
+      ],
+      hands: [
+        api.LiveHandView(
+          userId: tomas,
+          username: 'tomas',
+          raisedAt: DateTime.utc(2026, 10, 12, 20),
+        ),
+      ],
+    );
+
+    test('se traduce con quién es "yo"', () {
+      final result = ServerpodLiveRepository.toStage(
+        stage,
+        me: tomas.toString(),
+      );
+
+      expect(result.speakers.single.role, LiveRole.host);
+      expect(result.speakers.single.cameraOn, isTrue);
+      expect(result.speakers.single.isMe, isFalse);
+      // Sin nombre, el handle: nunca una fila en blanco.
+      expect(result.hands.single.name, 'tomas');
+      expect(result.myHandRaised, isTrue);
+    });
+
+    test('llega en el snapshot y como evento propio', () {
+      final event = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(kind: api.LiveEventKind.stage, stage: stage),
+        me: elena.toString(),
+      );
+      expect(event, isA<LiveStageChanged>());
+      expect((event! as LiveStageChanged).stage.meOnStage, isTrue);
+
+      final snapshot = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(
+          kind: api.LiveEventKind.snapshot,
+          liveShow: view(),
+          stage: stage,
+        ),
+        me: null,
+      );
+      expect((snapshot! as LiveRoomSnapshot).stage.speakers, hasLength(1));
+    });
+
+    test('un cambio de rol dice si es mío', () {
+      api.LiveEvent changed(api.UuidValue who) => api.LiveEvent(
+        kind: api.LiveEventKind.roleChanged,
+        targetId: who,
+        role: api.LiveShowRole.cohost,
+      );
+
+      final mine = ServerpodLiveRepository.toEvent(
+        changed(tomas),
+        me: tomas.toString(),
+      );
+      expect(
+        mine,
+        LiveRoleChanged(
+          userId: tomas.toString(),
+          role: LiveRole.cohost,
+          isMine: true,
+        ),
+      );
+      final theirs = ServerpodLiveRepository.toEvent(
+        changed(elena),
+        me: tomas.toString(),
+      );
+      expect((theirs! as LiveRoleChanged).isMine, isFalse);
+    });
+  });
 }

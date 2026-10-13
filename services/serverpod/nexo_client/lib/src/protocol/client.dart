@@ -46,6 +46,8 @@ import 'package:nexo_client/src/protocol/modules/live/models/live_show_role.dart
     as _iim040ig;
 import 'package:nexo_client/src/protocol/modules/live/models/live_show_view.dart'
     as _igcmn4rt;
+import 'package:nexo_client/src/protocol/modules/live/models/live_stage_view.dart'
+    as _i27y29c3;
 import 'package:nexo_client/src/protocol/modules/messages/models/conversation_page.dart'
     as _inyp06xy;
 import 'package:nexo_client/src/protocol/modules/messages/models/conversation_view.dart'
@@ -642,8 +644,120 @@ class EndpointLive extends _isc.EndpointRef {
     {'messageId': messageId},
   );
 
+  /// Quién está en el escenario y quién pidió la palabra.
+  _ida.Future<_i27y29c3.LiveStageView> stage(int showId) =>
+      caller.callServerEndpoint<_i27y29c3.LiveStageView>(
+        'live',
+        'stage',
+        {'showId': showId},
+      );
+
+  /// Pedir la palabra. Oyentes y moderador.
+  _ida.Future<void> raiseHand(int showId) => caller.callServerEndpoint<void>(
+    'live',
+    'raiseHand',
+    {'showId': showId},
+  );
+
+  /// Retirar el pedido propio.
+  _ida.Future<void> lowerHand(int showId) => caller.callServerEndpoint<void>(
+    'live',
+    'lowerHand',
+    {'showId': showId},
+  );
+
+  /// Subir a quien pidió la palabra. Host o moderador; `conflict` si no la
+  /// pidió o si el escenario está lleno.
+  _ida.Future<void> approveRequest(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'approveRequest',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Rechazar un pedido de palabra. Host o moderador.
+  _ida.Future<void> denyRequest(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'denyRequest',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Subir a alguien directo. Sólo el host.
+  _ida.Future<void> inviteToStage(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'inviteToStage',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Bajar a alguien del escenario. Sólo el host.
+  _ida.Future<void> removeFromStage(
+    int showId,
+    _isc.UuidValue userId,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'removeFromStage',
+    {
+      'showId': showId,
+      'userId': userId,
+    },
+  );
+
+  /// Bajarse del escenario.
+  _ida.Future<void> leaveStage(int showId) => caller.callServerEndpoint<void>(
+    'live',
+    'leaveStage',
+    {'showId': showId},
+  );
+
+  /// El micrófono propio, o silenciar el de otro (host o moderador, sólo
+  /// para apagarlo).
+  _ida.Future<void> setMicMuted(
+    int showId,
+    _isc.UuidValue userId,
+    bool muted,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'setMicMuted',
+    {
+      'showId': showId,
+      'userId': userId,
+      'muted': muted,
+    },
+  );
+
+  /// La cámara propia, estando en el escenario.
+  _ida.Future<void> setCamera(
+    int showId,
+    bool on,
+  ) => caller.callServerEndpoint<void>(
+    'live',
+    'setCamera',
+    {
+      'showId': showId,
+      'on': on,
+    },
+  );
+
   /// Lo que pasa en un show, en tiempo real. El primer evento es
-  /// `snapshot`; después llegan `status`, `viewers`, `chat` y `chatHidden`.
+  /// `snapshot`; después llegan `status`, `viewers`, `chat`, `chatHidden`,
+  /// `stage` y `roleChanged`.
   /// Mientras la conexión está abierta, cuenta como espectador.
   _ida.Stream<_ihybkmik.LiveEvent> watch(int showId) =>
       caller.callStreamingServerEndpoint<
