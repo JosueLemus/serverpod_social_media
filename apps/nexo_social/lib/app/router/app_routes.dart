@@ -60,6 +60,17 @@ abstract final class AppRoutes {
   /// compositor, para que la barra no invite a dejarla a medias.
   static const editProfile = '/edit-profile';
 
+  /// Mensajes directos (SDD 0010): la bandeja y cada chat son rutas raíz
+  /// empujadas sobre el shell, como editar perfil.
+  static const messages = '/messages';
+  static const conversationSegment = ':conversationId';
+  static const conversationWithSegment = 'with/:userId';
+  static String conversation(String id) => '$messages/$id';
+
+  /// El chat con [userId]: lo abre (o lo crea) al entrar. Es lo que usa el
+  /// botón "Enviar mensaje" del perfil.
+  static String conversationWith(String userId) => '$messages/with/$userId';
+
   /// Segmentos de sub-ruta. Relativos, porque go_router resuelve el `path` de
   /// un hijo contra su padre — una barra al principio lo volvería una ruta de
   /// nivel superior en silencio y rompería el branch en el que debía vivir.
@@ -95,6 +106,7 @@ abstract final class AppRoutes {
     admin,
     premium,
     editProfile,
+    messages,
   };
 
   /// Rutas que exigen el scope `moderator` o `admin`.

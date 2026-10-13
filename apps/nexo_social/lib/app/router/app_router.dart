@@ -26,6 +26,8 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subscriptions/presentation/pages/subscription_page.dart';
 import 'app_routes.dart';
+import '../../features/messages/presentation/pages/conversation_page.dart';
+import '../../features/messages/presentation/pages/messages_inbox_page.dart';
 
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -101,6 +103,27 @@ GoRouter createRouter(
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>
           PostDetailPage(postId: state.pathParameters['postId'] ?? ''),
+    ),
+    GoRoute(
+      path: AppRoutes.messages,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const MessagesInboxPage(),
+      routes: [
+        // Antes que `:conversationId`: si no, "with" se leería como un id.
+        GoRoute(
+          path: AppRoutes.conversationWithSegment,
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) =>
+              ConversationPage(userId: state.pathParameters['userId']),
+        ),
+        GoRoute(
+          path: AppRoutes.conversationSegment,
+          parentNavigatorKey: rootNavigatorKey,
+          builder: (context, state) => ConversationPage(
+            conversationId: state.pathParameters['conversationId'],
+          ),
+        ),
+      ],
     ),
     GoRoute(
       path: AppRoutes.userProfilePath,

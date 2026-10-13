@@ -6,6 +6,7 @@ import 'package:nexo_social/core/constants/environment.dart';
 import 'package:nexo_social/app/theme/app_theme.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexo_social/features/messages/presentation/bloc/unread_messages_cubit.dart';
 
 /// Test entry point for the dependency graph.
 ///
@@ -43,8 +44,12 @@ abstract final class AppHarness {
   /// Uses `BlocProvider.value` because [AuthCubit] is a singleton — a
   /// `create:` provider closes what it builds on dispose, so the second test
   /// to run would get a closed cubit.
-  static Widget wrap(Widget child, {AuthCubit? auth}) => BlocProvider.value(
-    value: auth ?? sl<AuthCubit>(),
+  static Widget wrap(Widget child, {AuthCubit? auth}) => MultiBlocProvider(
+    providers: [
+      BlocProvider.value(value: auth ?? sl<AuthCubit>()),
+      // Como en `NexoApp`: el badge de "Mensajes" es app-wide.
+      BlocProvider.value(value: sl<UnreadMessagesCubit>()),
+    ],
     child: MaterialApp(
       theme: AppTheme.nexo,
       home: Scaffold(body: child),

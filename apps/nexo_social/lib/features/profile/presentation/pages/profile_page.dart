@@ -937,11 +937,14 @@ class _ProfileActions extends StatelessWidget {
           ),
         ],
         const SizedBox(width: AppSpacing.xs),
-        // Sin mensajes directos todavía. Deshabilitado, no escondido (F11).
-        const IconButton.outlined(
-          tooltip: 'Mensajes directos: muy pronto',
-          onPressed: null,
-          icon: NexoIcon(NexoGlyph.send, size: 20),
+        // Mensajes directos (SDD 0010): abre el chat con esta cuenta, y lo
+        // crea si todavía no existía.
+        IconButton.outlined(
+          key: const Key('profile-message'),
+          tooltip: 'Enviar mensaje',
+          onPressed: () =>
+              unawaited(context.push(AppRoutes.conversationWith(profile.id))),
+          icon: const NexoIcon(NexoGlyph.send, size: 20),
         ),
       ],
     );

@@ -77,6 +77,10 @@ import '../../features/notifications/presentation/bloc/unread_activity_cubit.dar
 import '../../features/explore/data/repositories/mock_search_repository.dart';
 import '../../features/explore/data/repositories/serverpod_search_repository.dart';
 import '../../features/explore/domain/repositories/search_repository.dart';
+import '../../features/messages/data/repositories/mock_messages_repository.dart';
+import '../../features/messages/data/repositories/serverpod_messages_repository.dart';
+import '../../features/messages/domain/repositories/messages_repository.dart';
+import '../../features/messages/presentation/bloc/unread_messages_cubit.dart';
 
 final sl = GetIt.instance;
 
@@ -199,6 +203,16 @@ Future<void> configureDependencies({
   // cada pestaña tendría su propio conteo.
   sl.registerLazySingleton<UnreadActivityCubit>(
     () => UnreadActivityCubit(sl(), sl<AuthCubit>()),
+  );
+  // Mensajes directos (SDD 0010). El badge de "Mensajes" es app-wide como el
+  // de la campana.
+  sl.registerLazySingleton<MessagesRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockMessagesRepository(() => sl<MockPlatform>().sessionAccountId)
+        : ServerpodMessagesRepository(sl<serverpod.Client>()),
+  );
+  sl.registerLazySingleton<UnreadMessagesCubit>(
+    () => UnreadMessagesCubit(sl(), sl<AuthCubit>()),
   );
   // Con cuentas reales, vivos reales (SDD 0006): el mismo interruptor que
   // los posts. Una sesión de Serverpod sobre los vivos del mock es la que
