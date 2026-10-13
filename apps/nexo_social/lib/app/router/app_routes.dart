@@ -77,6 +77,14 @@ abstract final class AppRoutes {
 
   static String profileOf(String username) => '$userProfile/$username';
 
+  /// Una publicación. Ruta raíz empujada sobre el shell, como [userProfile]:
+  /// se abre desde el feed, la grilla de un perfil, una notificación o un
+  /// enlace compartido, y en cualquiera de esos casos vive arriba del branch
+  /// de donde se salió, no adentro de uno.
+  static const postPrefix = '/p';
+  static const postPath = '$postPrefix/:postId';
+  static String post(String id) => '$postPrefix/$id';
+
   /// Rutas que un visitante (sesión de invitado) no puede abrir. Navegar es
   /// público; todo lo que escribe, cobra o modera necesita una cuenta real.
   static const authenticatedOnly = <String>{

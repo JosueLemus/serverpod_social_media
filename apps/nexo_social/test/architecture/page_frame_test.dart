@@ -34,6 +34,9 @@ void main() {
         'portada full-bleed con slivers propios y tab bar fijada',
     'lib/features/profile/presentation/pages/account_profile_view.dart':
         'parte de profile_page: el perfil propio de una cuenta sin contenido',
+    'lib/features/feed/presentation/pages/post_detail_page.dart':
+        'una publicación, empujada sobre el shell como el perfil ajeno: se '
+        'abre desde el feed, un perfil, una notificación o un enlace',
     'lib/features/live/presentation/pages/live_room_page.dart':
         'sala inmersiva: el video ocupa todo y el chrome flota encima, así que '
         'no lleva margen ni ancho de lectura',

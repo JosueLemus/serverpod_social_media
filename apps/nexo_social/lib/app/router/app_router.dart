@@ -13,6 +13,7 @@ import '../../features/auth/presentation/pages/suspended_page.dart';
 import '../../features/admin/presentation/pages/account_detail_page.dart';
 import '../../features/admin/presentation/pages/admin_console_page.dart';
 import '../../features/feed/presentation/pages/feed_page.dart';
+import '../../features/feed/presentation/pages/post_detail_page.dart';
 import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import '../../features/live/presentation/pages/creator_studio_page.dart';
@@ -94,6 +95,12 @@ GoRouter createRouter(
       path: AppRoutes.editProfile,
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const EditProfilePage(),
+    ),
+    GoRoute(
+      path: AppRoutes.postPath,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) =>
+          PostDetailPage(postId: state.pathParameters['postId'] ?? ''),
     ),
     GoRoute(
       path: AppRoutes.userProfilePath,

@@ -247,6 +247,7 @@ class _FeedView extends StatelessWidget {
             onShowLikers: () =>
                 unawaited(showLikersSheet(context, cubit.likersOf(post.id))),
             onMore: () => unawaited(_runAction(context, cubit, post)),
+            onOpen: () => unawaited(context.push(AppRoutes.post(post.id))),
           ),
         ),
       ],

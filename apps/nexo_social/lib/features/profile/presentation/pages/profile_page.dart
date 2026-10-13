@@ -1252,61 +1252,68 @@ class _GridTile extends StatelessWidget {
             _captionLineHeight *
             2 +
         1;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // La media es un sticker troquelado, sobre el liner.
-        Expanded(
-          child: StickerFrame(
-            radius: 14,
-            fill: AppColors.linerHigh,
-            child: _TileMedia(post: post),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        SizedBox(
-          height: captionHeight,
-          child: Text(
-            post.body,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: caption,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xxs),
-        Row(
-          children: [
-            const NexoIcon(
-              NexoGlyph.heart,
-              filled: true,
-              size: 13,
-              color: AppColors.secondary,
+    // Tocar la celda abre la publicación entera: antes no hacía nada, y una
+    // grilla de fotos que no se abre se lee como una app rota.
+    return InkWell(
+      key: Key('profile-post-${post.id}'),
+      onTap: () => unawaited(context.push(AppRoutes.post(post.id))),
+      borderRadius: AppRadii.medium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // La media es un sticker troquelado, sobre el liner.
+          Expanded(
+            child: StickerFrame(
+              radius: 14,
+              fill: AppColors.linerHigh,
+              child: _TileMedia(post: post),
             ),
-            const SizedBox(width: 3),
-            Text(compactCount(post.likes), style: count),
-            const SizedBox(width: AppSpacing.xs),
-            const NexoIcon(
-              NexoGlyph.comment,
-              size: 13,
-              color: AppColors.textSecondary,
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          SizedBox(
+            height: captionHeight,
+            child: Text(
+              post.body,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: caption,
             ),
-            const SizedBox(width: 3),
-            Text(compactCount(post.comments), style: count),
-            const SizedBox(width: AppSpacing.xs),
-            Expanded(
-              child: Text(
-                RelativeTime.format(post.createdAt),
-                maxLines: 1,
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                style: text.labelSmall?.copyWith(
-                  color: AppColors.textSecondary,
+          ),
+          const SizedBox(height: AppSpacing.xxs),
+          Row(
+            children: [
+              const NexoIcon(
+                NexoGlyph.heart,
+                filled: true,
+                size: 13,
+                color: AppColors.secondary,
+              ),
+              const SizedBox(width: 3),
+              Text(compactCount(post.likes), style: count),
+              const SizedBox(width: AppSpacing.xs),
+              const NexoIcon(
+                NexoGlyph.comment,
+                size: 13,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 3),
+              Text(compactCount(post.comments), style: count),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Text(
+                  RelativeTime.format(post.createdAt),
+                  maxLines: 1,
+                  textAlign: TextAlign.end,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.labelSmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
