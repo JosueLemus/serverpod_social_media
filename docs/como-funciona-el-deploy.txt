@@ -1,0 +1,147 @@
+CÓMO FUNCIONA EL DEPLOY AUTOMÁTICO DE NEXO
+(.github/workflows/deploy.yml)
+==========================================
+
+EN UNA FRASE
+------------
+Cada vez que algo llega a la rama main, GitHub verifica el backend y la app,
+arma el servidor y la versión web, y si todo salió bien lo instala en la
+máquina de AWS. Si cualquier paso falla, no se instala nada y queda andando
+la versión anterior.
+
+
+QUÉ LO DISPARA
+--------------
+- Un push a main: merge de un PR o un commit directo.
+- Excepción: si sólo cambiaron archivos de docs/ o archivos .md, no corre.
+  Un cambio de documentación no necesita redeploy.
+- También se puede lanzar a mano desde GitHub, en la pestaña Actions >
+  Deploy > "Run workflow".
+- Si se hacen dos merges seguidos, el segundo espera a que termine el
+  primero. Nunca se instalan dos versiones a la vez.
+
+
+EL DIAGRAMA, COLUMNA POR COLUMNA
+--------------------------------
+En la captura se leen tres columnas. Cada caja es un "job", y las líneas dicen
+quién espera a quién.
+
+  backend / check ──► server-image ──┐
+                                     ├──► deploy
+  app / check ──────► web ───────────┘
+
+
+COLUMNA 1: LAS VERIFICACIONES (corren en paralelo)
+--------------------------------------------------
+Las dos cajas de la izquierda son el "control de calidad". Son las que en la
+captura aparecen en amarillo, corriendo hace 1m 45s.
+
+1) backend / check (sale de .github/workflows/backend.yml)
+   Revisa el servidor Serverpod en services/serverpod:
+   - Instala Flutter y la herramienta de Serverpod.
+   - Comprueba que el código generado esté al día. Si alguien cambió un
+     modelo y no corrió "serverpod generate", falla acá, para que la app y
+     el servidor no queden desincronizados.
+   - dart analyze: busca errores en el código. Hasta un aviso menor lo
+     hace fallar.
+   - dart format: el código tiene que estar bien formateado.
+   - dart test: corre los tests del backend contra una base de datos
+     PostgreSQL temporal que se crea y se borra en cada corrida.
+
+2) app / check (sale de .github/workflows/app.yml)
+   Revisa la app Flutter en apps/nexo_social:
+   - flutter analyze: que no haya errores ni avisos.
+   - dart format: formato correcto.
+   - flutter test: todos los tests de la app (hoy son más de 380).
+
+Si alguna de las dos falla, lo que tiene a su derecha no arranca.
+
+
+COLUMNA 2: LA CONSTRUCCIÓN
+--------------------------
+3) server-image (espera a "backend / check")
+   Arma la imagen Docker del servidor, es decir el servidor empaquetado y
+   listo para correr. Corre en una máquina de GitHub con procesador ARM,
+   el mismo tipo que la de AWS, así que compila en nativo y más rápido. La
+   imagen se guarda como archivo comprimido (un "artifact") para que la use
+   el paso siguiente.
+
+4) web (espera a "app / check")
+   Compila la app Flutter para web y le indica a qué servidor conectarse:
+   https://api.<ip-de-la-vm>.sslip.io. También la guarda como artifact.
+
+
+COLUMNA 3: LA INSTALACIÓN
+-------------------------
+5) deploy (espera a "server-image" y a "web")
+   Es el único paso que toca el servidor real. En orden:
+
+   a. Descarga los dos artifacts: la imagen del servidor y la web.
+   b. Se identifica ante AWS sin contraseñas guardadas. Usa OIDC: AWS
+      confía en GitHub y le presta un rol con un único permiso, abrir y
+      cerrar el puerto SSH de la máquina de Nexo.
+   c. Abre el SSH (puerto 22) SÓLO para la IP de esta corrida. El resto del
+      tiempo está cerrado al mundo.
+   d. Ejecuta tool/aws/deploy.sh, que en la máquina:
+      - carga la imagen nueva del servidor;
+      - sube la configuración (compose.yaml, Caddyfile, backup.sh);
+      - actualiza los secretos en /opt/nexo/.env sin borrar los que ya
+        estaban (la contraseña de la base nunca se cambia, porque si no el
+        servidor no podría volver a entrar a sus datos);
+      - levanta los tres contenedores con Docker:
+          * postgres: la base de datos;
+          * server: Serverpod (aplica las migraciones al arrancar);
+          * caddy: atiende HTTPS y saca los certificados solo;
+      - deja programado un backup de la base todos los días a las 4:15;
+      - espera hasta que la API responda por HTTPS;
+      - copia la app web nueva a la carpeta que sirve Caddy.
+   e. Cierra el SSH. Lo hace SIEMPRE, aunque el paso anterior haya fallado.
+   f. "Humo": una prueba rápida al final. Llama a la API (/live/list) y abre
+      la web. Si alguna no responde, el deploy se marca como fallido.
+   g. Escribe en el resumen de la corrida los dos enlaces:
+        Web: https://<ip-con-guiones>.sslip.io/
+        API: https://api.<ip-con-guiones>.sslip.io/
+
+
+DÓNDE ESTÁN LAS CONTRASEÑAS
+---------------------------
+Ninguna está en el código:
+- GitHub Secrets (Settings > Secrets and variables > Actions): la clave SSH,
+  la huella del servidor, la contraseña de la base, las claves JWT, Agora y
+  el correo SMTP.
+- Variables de GitHub: la IP de la máquina, la región de AWS, el security
+  group y el rol de AWS.
+- Si falta un secreto obligatorio, el deploy se corta con
+  "Falta el secreto X" antes de tocar el servidor.
+
+
+CÓMO LEER EL ESTADO EN GITHUB
+-----------------------------
+  Círculo amarillo   corriendo (lo que muestra tu captura).
+  Tilde verde        terminó bien.
+  Cruz roja          falló. Hacé clic en la caja para ver el log y el paso
+                     exacto que falló.
+  Círculo vacío      esperando a la caja de la que depende.
+
+Si falla una verificación (columna 1), lo más común es:
+- un test que no pasa;
+- código sin formatear: correr "dart format" localmente y volver a subir;
+- en el backend, haber cambiado un modelo sin correr "serverpod generate".
+
+
+Y EN LOS PULL REQUESTS
+----------------------
+Al abrir un PR contra main corren SÓLO las verificaciones: backend / check si
+tocaste el servidor, app / check si tocaste la app. Nunca despliegan. Sirven
+para ver antes del merge si algo se rompió. Cuando el PR entra a main, corre
+todo el recorrido de arriba y se publica.
+
+
+ARCHIVOS INVOLUCRADOS
+---------------------
+  .github/workflows/deploy.yml              el recorrido completo
+  .github/workflows/backend.yml             la verificación del servidor
+  .github/workflows/app.yml                 la verificación de la app
+  tool/aws/deploy.sh                        lo que se hace en la máquina
+  services/serverpod/deploy/aws/compose.yaml  los tres contenedores
+  services/serverpod/deploy/aws/Caddyfile     HTTPS y la web
