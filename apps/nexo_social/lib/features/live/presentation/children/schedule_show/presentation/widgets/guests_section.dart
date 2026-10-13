@@ -103,14 +103,14 @@ class _GuestSticker extends StatelessWidget {
                       width: 24,
                       height: 24,
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.linerHigh,
                         shape: BoxShape.circle,
                         border: Border.fromBorderSide(
                           BorderSide(color: AppColors.background, width: 2),
                         ),
                       ),
-                      child: const NexoIcon(
+                      child: NexoIcon(
                         NexoGlyph.close,
                         size: 11,
                         color: AppColors.textPrimary,
@@ -177,7 +177,7 @@ class _AddGuestSlot extends StatelessWidget {
                     width: _avatar,
                     height: _avatar,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.linerHigh,
                       shape: BoxShape.circle,
                     ),
@@ -267,7 +267,7 @@ class _AddGuestSheetState extends State<_AddGuestSheet> {
               autocorrect: false,
               textInputAction: TextInputAction.done,
               onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'usuario',
                 prefixIcon: Center(
                   widthFactor: 1,

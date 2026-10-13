@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_tokens.dart';
+import '../../app/theme/nexo_themes.dart';
 import 'sticker.dart';
 
 /// El avatar de una persona, como un sticker redondo troquelado.
@@ -70,12 +71,14 @@ class UserAvatar extends StatelessWidget {
     // El troquel: un aro blanco fino pegado a la cara del sticker. Escala con
     // el tamaño para que un avatar de lista y uno de perfil sean el mismo
     // sticker y no dos estilos.
-    final cut = (size * .06).clamp(1.5, 4.0);
+    final cut = NexoThemes.active.stickerCut
+        ? (size * .06).clamp(1.5, 4.0)
+        : 0.0;
     final sticker = Container(
       width: size,
       height: size,
       padding: EdgeInsets.all(cut),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.sticker,
         shape: BoxShape.circle,
       ),

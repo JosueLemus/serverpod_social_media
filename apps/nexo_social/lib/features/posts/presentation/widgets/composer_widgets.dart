@@ -61,7 +61,7 @@ class ComposerMediaPreview extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (_isVideo)
-            const Center(
+            Center(
               child: NexoIcon(
                 NexoGlyph.play,
                 filled: true,
@@ -77,7 +77,7 @@ class ComposerMediaPreview extends StatelessWidget {
               // Se decodifica al tamaño en que se muestra, no a la
               // resolución nativa de la foto.
               cacheWidth: 1280,
-              errorBuilder: (context, error, stack) => const Center(
+              errorBuilder: (context, error, stack) => Center(
                 child: NexoIcon(
                   NexoGlyph.media,
                   size: 36,
@@ -97,7 +97,7 @@ class ComposerMediaPreview extends StatelessWidget {
                 child: InkWell(
                   key: const Key('composer-remove-media'),
                   onTap: onRemove,
-                  child: const SizedBox.square(
+                  child: SizedBox.square(
                     dimension: 34,
                     child: Center(
                       child: NexoIcon(
@@ -237,11 +237,7 @@ class _ComposerPollEditorState extends State<ComposerPollEditor> {
           children: [
             Row(
               children: [
-                const NexoIcon(
-                  NexoGlyph.stats,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
+                NexoIcon(NexoGlyph.stats, size: 18, color: AppColors.primary),
                 const SizedBox(width: AppSpacing.xs),
                 Expanded(
                   child: Text('Encuesta interactiva', style: text.titleSmall),
@@ -288,7 +284,7 @@ class _ComposerPollEditorState extends State<ComposerPollEditor> {
             const SizedBox(height: AppSpacing.xxs),
             Row(
               children: [
-                const NexoIcon(
+                NexoIcon(
                   NexoGlyph.clock,
                   size: 14,
                   color: AppColors.textSecondary,
@@ -482,7 +478,7 @@ class ComposerAiTeaser extends StatelessWidget {
         AppSpacing.md,
         AppSpacing.xs,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: AppRadii.medium,
       ),
@@ -502,7 +498,7 @@ class ComposerAiTeaser extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text('Asistente IA', style: text.titleSmall),
-                    const StatusBadge(
+                    StatusBadge(
                       label: 'Próximamente',
                       color: AppColors.vinylViolet,
                       foreground: AppColors.ink,

@@ -106,8 +106,10 @@ flutter:
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
 
-  # Empaquetadas y recortadas a latín (de 22 MB a 400 KB): la demo no puede
-  # depender de bajar la tipografía en vivo. Licencia OFL en assets/fonts.
+  # Empaquetadas y recortadas a latín: la demo no puede depender de bajar la
+  # tipografía en vivo. Las dos primeras son las de la Plancha clásica; el
+  # resto, las de los temas (ver `nexo_themes.dart`). Licencias OFL al lado,
+  # en assets/fonts.
   fonts:
     - family: DelaGothicOne
       fonts:
@@ -124,6 +126,200 @@ flutter:
           weight: 800
         - asset: assets/fonts/MPLUSRounded1c-Black.ttf
           weight: 900
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-400.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-500.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-600.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-700.ttf
+          weight: 700
+        - asset: assets/fonts/Inter-800.ttf
+          weight: 800
+    - family: InstrumentSerif
+      fonts:
+        - asset: assets/fonts/InstrumentSerif-400.ttf
+          weight: 400
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-400.ttf
+          weight: 400
+        - asset: assets/fonts/SpaceGrotesk-500.ttf
+          weight: 500
+        - asset: assets/fonts/SpaceGrotesk-600.ttf
+          weight: 600
+        - asset: assets/fonts/SpaceGrotesk-700.ttf
+          weight: 700
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-400.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope-500.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope-600.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope-700.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope-800.ttf
+          weight: 800
+    - family: BricolageGrotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-400.ttf
+          weight: 400
+        - asset: assets/fonts/BricolageGrotesque-500.ttf
+          weight: 500
+        - asset: assets/fonts/BricolageGrotesque-600.ttf
+          weight: 600
+        - asset: assets/fonts/BricolageGrotesque-700.ttf
+          weight: 700
+        - asset: assets/fonts/BricolageGrotesque-800.ttf
+          weight: 800
+    - family: DMSans
+      fonts:
+        - asset: assets/fonts/DMSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/DMSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/DMSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/DMSans-700.ttf
+          weight: 700
+        - asset: assets/fonts/DMSans-800.ttf
+          weight: 800
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/PlusJakartaSans-500.ttf
+          weight: 500
+        - asset: assets/fonts/PlusJakartaSans-600.ttf
+          weight: 600
+        - asset: assets/fonts/PlusJakartaSans-700.ttf
+          weight: 700
+        - asset: assets/fonts/PlusJakartaSans-800.ttf
+          weight: 800
+    - family: Sora
+      fonts:
+        - asset: assets/fonts/Sora-400.ttf
+          weight: 400
+        - asset: assets/fonts/Sora-500.ttf
+          weight: 500
+        - asset: assets/fonts/Sora-600.ttf
+          weight: 600
+        - asset: assets/fonts/Sora-700.ttf
+          weight: 700
+        - asset: assets/fonts/Sora-800.ttf
+          weight: 800
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces-400.ttf
+          weight: 400
+        - asset: assets/fonts/Fraunces-500.ttf
+          weight: 500
+        - asset: assets/fonts/Fraunces-600.ttf
+          weight: 600
+        - asset: assets/fonts/Fraunces-700.ttf
+          weight: 700
+        - asset: assets/fonts/Fraunces-800.ttf
+          weight: 800
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-400.ttf
+          weight: 400
+        - asset: assets/fonts/Outfit-500.ttf
+          weight: 500
+        - asset: assets/fonts/Outfit-600.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit-700.ttf
+          weight: 700
+        - asset: assets/fonts/Outfit-800.ttf
+          weight: 800
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-400.ttf
+          weight: 400
+        - asset: assets/fonts/Geist-500.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-600.ttf
+          weight: 600
+        - asset: assets/fonts/Geist-700.ttf
+          weight: 700
+        - asset: assets/fonts/Geist-800.ttf
+          weight: 800
+    - family: Figtree
+      fonts:
+        - asset: assets/fonts/Figtree-400.ttf
+          weight: 400
+        - asset: assets/fonts/Figtree-500.ttf
+          weight: 500
+        - asset: assets/fonts/Figtree-600.ttf
+          weight: 600
+        - asset: assets/fonts/Figtree-700.ttf
+          weight: 700
+        - asset: assets/fonts/Figtree-800.ttf
+          weight: 800
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo-400.ttf
+          weight: 400
+        - asset: assets/fonts/Archivo-500.ttf
+          weight: 500
+        - asset: assets/fonts/Archivo-600.ttf
+          weight: 600
+        - asset: assets/fonts/Archivo-700.ttf
+          weight: 700
+        - asset: assets/fonts/Archivo-800.ttf
+          weight: 800
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/Poppins-400.ttf
+          weight: 400
+        - asset: assets/fonts/Poppins-500.ttf
+          weight: 500
+        - asset: assets/fonts/Poppins-600.ttf
+          weight: 600
+        - asset: assets/fonts/Poppins-700.ttf
+          weight: 700
+        - asset: assets/fonts/Poppins-800.ttf
+          weight: 800
+    - family: Urbanist
+      fonts:
+        - asset: assets/fonts/Urbanist-400.ttf
+          weight: 400
+        - asset: assets/fonts/Urbanist-500.ttf
+          weight: 500
+        - asset: assets/fonts/Urbanist-600.ttf
+          weight: 600
+        - asset: assets/fonts/Urbanist-700.ttf
+          weight: 700
+        - asset: assets/fonts/Urbanist-800.ttf
+          weight: 800
+    - family: Lexend
+      fonts:
+        - asset: assets/fonts/Lexend-400.ttf
+          weight: 400
+        - asset: assets/fonts/Lexend-500.ttf
+          weight: 500
+        - asset: assets/fonts/Lexend-600.ttf
+          weight: 600
+        - asset: assets/fonts/Lexend-700.ttf
+          weight: 700
+        - asset: assets/fonts/Lexend-800.ttf
+          weight: 800
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik-400.ttf
+          weight: 400
+        - asset: assets/fonts/Rubik-500.ttf
+          weight: 500
+        - asset: assets/fonts/Rubik-600.ttf
+          weight: 600
+        - asset: assets/fonts/Rubik-700.ttf
+          weight: 700
+        - asset: assets/fonts/Rubik-800.ttf
+          weight: 800
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a

@@ -75,8 +75,8 @@ class _TopicSticker extends StatelessWidget {
       // el mínimo de un blanco táctil.
       child: Container(
         padding: const EdgeInsets.all(AppStroke.kissCut),
-        decoration: const BoxDecoration(
-          color: AppColors.sticker,
+        decoration: BoxDecoration(
+          color: AppColors.cut,
           borderRadius: AppRadii.pill,
         ),
         child: Material(
@@ -95,11 +95,7 @@ class _TopicSticker extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!followed) ...[
-                    const NexoIcon(
-                      NexoGlyph.add,
-                      size: 14,
-                      color: AppColors.ink,
-                    ),
+                    NexoIcon(NexoGlyph.add, size: 14, color: AppColors.ink),
                     const SizedBox(width: AppSpacing.xxs),
                   ],
                   Flexible(
@@ -215,7 +211,7 @@ class _CreatorRow extends StatelessWidget {
                       ),
                       if (creator.isVerified) ...[
                         const SizedBox(width: AppSpacing.xxs),
-                        const NexoIcon(
+                        NexoIcon(
                           NexoGlyph.verified,
                           size: 15,
                           color: AppColors.primary,
@@ -224,7 +220,7 @@ class _CreatorRow extends StatelessWidget {
                       ],
                       if (creator.isPro) ...[
                         const SizedBox(width: 6),
-                        const StatusBadge(
+                        StatusBadge(
                           label: 'Pro',
                           color: AppColors.vinylViolet,
                           foreground: AppColors.ink,

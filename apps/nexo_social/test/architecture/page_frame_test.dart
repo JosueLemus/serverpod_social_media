@@ -43,6 +43,8 @@ void main() {
     'lib/features/feed/presentation/pages/post_detail_page.dart':
         'una publicación, empujada sobre el shell como el perfil ajeno: se '
         'abre desde el feed, un perfil, una notificación o un enlace',
+    'lib/features/appearance/presentation/pages/themes_page.dart':
+        'elegir tema: empujada sobre el shell desde el perfil, como Ajustes',
     'lib/features/live/presentation/pages/live_room_page.dart':
         'sala inmersiva: el video ocupa todo y el chrome flota encima, así que '
         'no lleva margen ni ancho de lectura',

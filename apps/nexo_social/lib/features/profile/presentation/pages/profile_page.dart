@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../app/theme/nexo_themes.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/app_state_views.dart';
@@ -421,11 +422,11 @@ class _SanctionBanner extends StatelessWidget {
               width: 32,
               height: 32,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.error,
                 shape: BoxShape.circle,
               ),
-              child: const NexoIcon(
+              child: NexoIcon(
                 NexoGlyph.moderation,
                 size: 17,
                 color: AppColors.sticker,
@@ -489,7 +490,7 @@ class _CoverToolbar extends StatelessWidget {
         // La flecha aparece sólo si hay algo que popear, que es exactamente el
         // caso empujado. Como raíz de la pestaña Perfil no hay a dónde volver.
         if (Navigator.of(context).canPop())
-          const _BackGlyphButton(color: AppColors.ink),
+          _BackGlyphButton(color: AppColors.ink),
         const Spacer(),
         Builder(
           builder: (buttonContext) => IconButton(
@@ -625,6 +626,16 @@ Future<void> _showProfileActions(BuildContext context) async {
                 },
               ),
             ListTile(
+              key: const Key('profile-themes'),
+              leading: const NexoIcon(NexoGlyph.sparkles, size: 22),
+              title: const Text('Temas'),
+              subtitle: Text(NexoThemes.active.name),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                unawaited(context.push(AppRoutes.themes));
+              },
+            ),
+            ListTile(
               leading: const NexoIcon(NexoGlyph.settings, size: 22),
               title: const Text('Ajustes'),
               onTap: () {
@@ -634,12 +645,12 @@ Future<void> _showProfileActions(BuildContext context) async {
             ),
             const Divider(),
             ListTile(
-              leading: const NexoIcon(
+              leading: NexoIcon(
                 NexoGlyph.logout,
                 size: 22,
                 color: AppColors.error,
               ),
-              title: const Text(
+              title: Text(
                 'Cerrar sesión',
                 style: TextStyle(
                   color: AppColors.error,
@@ -713,7 +724,7 @@ class _ProfileSummary extends StatelessWidget {
                   ),
                   if (profile.isVerified) ...[
                     const SizedBox(width: 6),
-                    const NexoIcon(
+                    NexoIcon(
                       NexoGlyph.verified,
                       key: Key('profile-verified'),
                       color: AppColors.primary,
@@ -997,7 +1008,7 @@ class _VipCard extends StatelessWidget {
         ),
       ),
       // Pegada sobre el borde, apenas torcida.
-      const Positioned(
+      Positioned(
         top: 0,
         right: AppSpacing.md,
         child: StatusBadge(
@@ -1038,7 +1049,7 @@ class _VipBody extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: NexoIcon(
                     NexoGlyph.star,
@@ -1062,7 +1073,7 @@ class _VipBody extends StatelessWidget {
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, AppSizes.buttonHeightDense),
             ),
-            icon: const NexoIcon(
+            icon: NexoIcon(
               NexoGlyph.crown,
               filled: true,
               size: 18,
@@ -1088,7 +1099,7 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
-  ) => const Material(
+  ) => Material(
     color: AppColors.background,
     // Desplazable y alineada al inicio: con tres pestañas de ancho fijo, a
     // 320 "Publicaciones" se recortaba a "Publicacione". Así cada etiqueta
@@ -1285,7 +1296,7 @@ class _GridTile extends StatelessWidget {
           const SizedBox(height: AppSpacing.xxs),
           Row(
             children: [
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.heart,
                 filled: true,
                 size: 13,
@@ -1294,7 +1305,7 @@ class _GridTile extends StatelessWidget {
               const SizedBox(width: 3),
               Text(compactCount(post.likes), style: count),
               const SizedBox(width: AppSpacing.xs),
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.comment,
                 size: 13,
                 color: AppColors.textSecondary,
@@ -1340,7 +1351,7 @@ class _TileMedia extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = post.mediaUrl;
-    const missing = Center(
+    final missing = Center(
       child: NexoIcon(NexoGlyph.media, size: 30, color: AppColors.textTertiary),
     );
     switch (post.media) {
@@ -1356,7 +1367,7 @@ class _TileMedia extends StatelessWidget {
       case PostMedia.image:
         return missing;
       case PostMedia.video:
-        return const Center(
+        return Center(
           child: NexoIcon(
             NexoGlyph.play,
             filled: true,
@@ -1367,7 +1378,7 @@ class _TileMedia extends StatelessWidget {
       case null:
         final tag = post.tags.firstOrNull;
         if (tag == null) {
-          return const Center(
+          return Center(
             child: NexoIcon(
               NexoGlyph.comment,
               size: 30,
@@ -1450,11 +1461,11 @@ class _LiveTile extends StatelessWidget {
     _ => NexoGlyph.live,
   };
 
-  /// Rojo con blanco sólo para lo que está al aire; el resto, vinilo con
+  /// El color de en vivo sólo para lo que está al aire; el resto, vinilo con
   /// tinta o el gris de lo que ya no está.
   (Color, Color) get _badge => switch (live.status) {
     LiveStatus.live ||
-    LiveStatus.ending => (AppColors.secondary, AppColors.sticker),
+    LiveStatus.ending => (AppColors.secondary, AppColors.onSecondary),
     LiveStatus.scheduled => (AppColors.vinylCyan, AppColors.ink),
     LiveStatus.recorded ||
     LiveStatus.published => (AppColors.tertiary, AppColors.ink),

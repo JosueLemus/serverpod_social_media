@@ -369,7 +369,7 @@ class _SubmitBar extends StatelessWidget {
     // La misma tira que la barra inferior: liner con un filete arriba, sin
     // sombra. El CTA es el sticker blanco del tema.
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.background,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -396,7 +396,7 @@ class _SubmitBar extends StatelessWidget {
                         ? context.read<ScheduleShowCubit>().submit
                         : null,
                     icon: submitting
-                        ? const SizedBox.square(
+                        ? SizedBox.square(
                             dimension: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,

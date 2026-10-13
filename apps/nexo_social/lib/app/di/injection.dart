@@ -7,12 +7,16 @@ import 'package:nexo_client/nexo_client.dart' as serverpod;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/network/dio_client.dart';
+import '../theme/nexo_themes.dart';
 import '../../core/constants/environment.dart';
 import '../../core/media/agora_live_media_engine.dart';
 import '../../core/media/simulated_live_media_engine.dart';
 import '../../core/mock/mock_platform.dart';
 import '../../core/storage/mock_social_store.dart';
 import '../../core/storage/session_storage.dart';
+import '../../features/appearance/data/repositories/local_theme_preference_repository.dart';
+import '../../features/appearance/domain/repositories/theme_preference_repository.dart';
+import '../../features/appearance/presentation/bloc/theme_cubit.dart';
 import '../../features/feed/data/repositories/mock_home_feed_repository.dart';
 import '../../features/feed/data/repositories/mock_post_repository.dart';
 import '../../features/feed/data/repositories/serverpod_home_feed_repository.dart';
@@ -192,6 +196,15 @@ Future<void> configureDependencies({
   // its own cubit, so signing out in one place would leave the others
   // authenticated.
   sl.registerLazySingleton<AuthCubit>(() => AuthCubit(sl()));
+  // El tema es del dispositivo y lo lee la raíz: singleton por lo mismo que la
+  // sesión. Con un factory, la pantalla de Temas cambiaría un cubit que la
+  // raíz no escucha.
+  sl.registerLazySingleton<ThemePreferenceRepository>(
+    () => LocalThemePreferenceRepository(sl()),
+  );
+  sl.registerLazySingleton<ThemeCubit>(
+    () => ThemeCubit(sl(), defaultId: NexoThemes.defaultId),
+  );
   // Actividad (SDD 0008, M5): con cuentas reales, la bandeja del servidor.
   sl.registerLazySingleton<NotificationRepository>(
     () => resolvedAuthSource == AuthSourceMode.mock

@@ -270,7 +270,7 @@ class _SocialProof extends StatelessWidget {
       AppSpacing.md,
       AppSpacing.sm,
     ),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
@@ -289,7 +289,7 @@ class _SocialProof extends StatelessWidget {
                   left: index * 28,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.linerHigh,
                       shape: BoxShape.circle,
                     ),
@@ -445,7 +445,7 @@ class _LanguageToggleState extends State<_LanguageToggle> {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(3),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
@@ -496,11 +496,11 @@ class _CommunityBadge extends StatelessWidget {
       horizontal: AppSpacing.sm,
       vertical: AppSpacing.xs,
     ),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.successSurface,
       borderRadius: AppRadii.pill,
     ),
-    child: const Row(
+    child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.circle, size: 9, color: AppColors.tertiary),
@@ -526,7 +526,7 @@ class _Highlights extends StatelessWidget {
   const _Highlights();
 
   @override
-  Widget build(BuildContext context) => const Wrap(
+  Widget build(BuildContext context) => Wrap(
     alignment: WrapAlignment.center,
     spacing: AppSpacing.xs,
     runSpacing: AppSpacing.xs,
@@ -565,7 +565,7 @@ class _Highlight extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(2),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.sticker,
       borderRadius: AppRadii.pill,
     ),
@@ -600,7 +600,7 @@ class _ContinueWith extends StatelessWidget {
   const _ContinueWith();
 
   @override
-  Widget build(BuildContext context) => const Row(
+  Widget build(BuildContext context) => Row(
     children: [
       Expanded(child: Divider()),
       Padding(
@@ -640,7 +640,7 @@ class _SocialButton extends StatelessWidget {
     child: OutlinedButton.icon(
       onPressed: null,
       icon: isApple
-          ? const Icon(Icons.apple, color: AppColors.textTertiary)
+          ? Icon(Icons.apple, color: AppColors.textTertiary)
           : Text(
               icon,
               style: const TextStyle(

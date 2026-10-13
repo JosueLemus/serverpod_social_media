@@ -18,7 +18,7 @@ final _glass = AppColors.neutral.withValues(alpha: .55);
 
 /// El filo de ese vidrio: un hilo de blanco apenas visible, para que una
 /// cápsula oscura no se pierda sobre un cuadro oscuro.
-final _glassEdge = AppColors.sticker.withValues(alpha: .16);
+final _glassEdge = AppColors.onMedia.withValues(alpha: .16);
 
 /// Los comentarios de un vivo, flotando sobre el video.
 ///
@@ -66,7 +66,7 @@ class LiveChatOverlay extends StatelessWidget {
           child: Text(
             emptyLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSecondary,
+              color: AppColors.onMediaSecondary,
               shadows: _legibility,
             ),
           ),
@@ -192,11 +192,11 @@ class LiveChatLine extends StatelessWidget {
                               fontSize: 13,
                               color: comment.isMine
                                   ? AppColors.primary
-                                  : AppColors.textSecondary,
+                                  : AppColors.onMediaSecondary,
                             ),
                           ),
                           if (byHost)
-                            const StatusBadge(
+                            StatusBadge(
                               label: 'Host',
                               color: AppColors.vinylLime,
                               foreground: AppColors.ink,
@@ -207,7 +207,7 @@ class LiveChatLine extends StatelessWidget {
                       Text(
                         comment.body,
                         style: text.bodyMedium?.copyWith(
-                          color: AppColors.textPrimary,
+                          color: AppColors.onMedia,
                         ),
                       ),
                     ],
@@ -279,7 +279,7 @@ class LiveChatComposer extends StatelessWidget {
                       key: fieldKey,
                       controller: controller,
                       style: text.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
+                        color: AppColors.onMedia,
                       ),
                       cursorColor: AppColors.primary,
                       textInputAction: TextInputAction.send,
@@ -287,7 +287,7 @@ class LiveChatComposer extends StatelessWidget {
                       decoration: InputDecoration(
                         hintText: 'Escribe un comentario',
                         hintStyle: text.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: AppColors.onMediaSecondary,
                         ),
                         filled: false,
                         border: InputBorder.none,
@@ -302,10 +302,10 @@ class LiveChatComposer extends StatelessWidget {
                     key: sendKey,
                     tooltip: 'Enviar',
                     onPressed: onSend,
-                    icon: const NexoIcon(
+                    icon: NexoIcon(
                       NexoGlyph.send,
                       size: 20,
-                      color: AppColors.textPrimary,
+                      color: AppColors.onMedia,
                     ),
                   ),
                 ],
@@ -360,8 +360,8 @@ class LiveGlassButton extends StatelessWidget {
     final face =
         child ??
         (glyph != null
-            ? NexoIcon(glyph!, size: 20, color: AppColors.textPrimary)
-            : Icon(icon, size: 20, color: AppColors.textPrimary));
+            ? NexoIcon(glyph!, size: 20, color: AppColors.onMedia)
+            : Icon(icon, size: 20, color: AppColors.onMedia));
     return Tooltip(
       message: tooltip,
       child: Semantics(
@@ -380,7 +380,7 @@ class LiveGlassButton extends StatelessWidget {
                 color: background ?? _glass,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: background == null ? _glassEdge : AppColors.sticker,
+                  color: background == null ? _glassEdge : AppColors.onMedia,
                   width: background == null ? 1 : 2,
                 ),
               ),

@@ -189,13 +189,13 @@ class _UnreadPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.secondary,
       borderRadius: AppRadii.pill,
     ),
     child: Text(
       count > 9 ? '9+' : '$count',
-      style: const TextStyle(
+      style: TextStyle(
         color: AppColors.sticker,
         fontSize: 11,
         fontWeight: FontWeight.w800,

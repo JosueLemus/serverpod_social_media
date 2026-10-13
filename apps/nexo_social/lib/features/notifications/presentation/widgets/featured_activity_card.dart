@@ -79,12 +79,12 @@ class FeaturedActivityCard extends StatelessWidget {
               StatusBadge(
                 label: _countdown,
                 color: onAir ? AppColors.secondary : AppColors.vinylCyan,
-                foreground: onAir ? AppColors.sticker : AppColors.ink,
+                foreground: onAir ? AppColors.onSecondary : AppColors.ink,
                 pulse: onAir,
                 tilt: -.05,
               ),
               const SizedBox(width: 6),
-              const StatusBadge(
+              StatusBadge(
                 label: 'Evento exclusivo',
                 color: AppColors.vinylViolet,
                 foreground: AppColors.ink,
@@ -191,7 +191,7 @@ class _ParticipantStack extends StatelessWidget {
               left: index * _overlap,
               child: Container(
                 padding: const EdgeInsets.all(_gap),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surface,
                   shape: BoxShape.circle,
                 ),

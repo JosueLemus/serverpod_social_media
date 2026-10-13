@@ -78,7 +78,7 @@ class _ReasonSheetState extends State<_ReasonSheet> {
                   width: 40,
                   height: 40,
                   alignment: Alignment.center,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.linerHigh,
                     shape: BoxShape.circle,
                   ),

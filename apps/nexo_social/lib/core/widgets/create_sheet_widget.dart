@@ -173,7 +173,7 @@ class _CreateOptionTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.forward,
                 size: 18,
                 color: AppColors.textSecondary,
@@ -194,7 +194,7 @@ class _CreateOptionTile extends StatelessWidget {
   static Widget? _badgeFor(CreateOption option) => switch (option) {
     CreateOption.post => null,
     CreateOption.goLive => const StatusBadge(label: 'Directo', pulse: true),
-    CreateOption.scheduleShow => const StatusBadge(
+    CreateOption.scheduleShow => StatusBadge(
       label: 'Nuevo',
       color: AppColors.vinylLime,
       foreground: AppColors.ink,

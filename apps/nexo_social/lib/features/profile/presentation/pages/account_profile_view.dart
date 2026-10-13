@@ -145,7 +145,7 @@ class _AccountProfileView extends StatelessWidget {
                 Material(
                   color: AppColors.surface,
                   clipBehavior: Clip.antiAlias,
-                  shape: const RoundedRectangleBorder(
+                  shape: RoundedRectangleBorder(
                     borderRadius: AppRadii.medium,
                     side: BorderSide(color: AppColors.border),
                   ),
@@ -158,7 +158,7 @@ class _AccountProfileView extends StatelessWidget {
                         key: const Key('account-profile-edit'),
                         leading: const NexoIcon(NexoGlyph.profile, size: 22),
                         title: const Text('Editar perfil'),
-                        trailing: const NexoIcon(
+                        trailing: NexoIcon(
                           NexoGlyph.forward,
                           size: 18,
                           color: AppColors.textTertiary,
@@ -169,9 +169,22 @@ class _AccountProfileView extends StatelessWidget {
                       ),
                       const Divider(height: 1, indent: 56),
                       ListTile(
+                        key: const Key('account-profile-themes'),
+                        leading: const NexoIcon(NexoGlyph.sparkles, size: 22),
+                        title: const Text('Temas'),
+                        subtitle: Text(NexoThemes.active.name),
+                        trailing: NexoIcon(
+                          NexoGlyph.forward,
+                          size: 18,
+                          color: AppColors.textTertiary,
+                        ),
+                        onTap: () => unawaited(context.push(AppRoutes.themes)),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      ListTile(
                         leading: const NexoIcon(NexoGlyph.settings, size: 22),
                         title: const Text('Ajustes'),
-                        trailing: const NexoIcon(
+                        trailing: NexoIcon(
                           NexoGlyph.forward,
                           size: 18,
                           color: AppColors.textTertiary,

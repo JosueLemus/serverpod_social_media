@@ -116,7 +116,7 @@ class AppSkeleton extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     height: height,
     width: width,
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.small,
     ),

@@ -43,7 +43,7 @@ class NexoWordmark extends StatelessWidget {
       const SizedBox(width: AppSpacing.xs),
       // Flexible: a 320 la barra de marca lleva además la sección, sus
       // acciones y el avatar, y un nombre de ancho fijo la desbordaba.
-      const Flexible(
+      Flexible(
         child: Text(
           // Nombre propio: no se traduce y no se acorta.
           'nexo',

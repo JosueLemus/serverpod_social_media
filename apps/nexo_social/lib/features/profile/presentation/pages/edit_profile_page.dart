@@ -105,7 +105,7 @@ class _EditProfileView extends StatelessWidget {
                   child: saving
                       // Guardando, el botón está deshabilitado (liner): la
                       // rueda va en el color del texto, no en tinta.
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
@@ -278,7 +278,7 @@ class _AvatarPicker extends StatelessWidget {
             width: _size,
             height: _size,
             padding: const EdgeInsets.all(4),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.sticker,
               shape: BoxShape.circle,
             ),
@@ -315,7 +315,7 @@ class _AvatarPicker extends StatelessWidget {
               // se leería como parte del mismo borde.
               border: Border.all(color: AppColors.background, width: 3),
             ),
-            child: const NexoIcon(
+            child: NexoIcon(
               NexoGlyph.media,
               filled: true,
               size: 18,
@@ -350,7 +350,7 @@ class _CreatorCard extends StatelessWidget {
                   Expanded(
                     child: Text('Eres creador', style: textTheme.titleLarge),
                   ),
-                  const StatusBadge(
+                  StatusBadge(
                     label: 'Creador',
                     color: AppColors.vinylLime,
                     foreground: AppColors.ink,

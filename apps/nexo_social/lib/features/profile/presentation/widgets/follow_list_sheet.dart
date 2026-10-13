@@ -185,7 +185,7 @@ class _List extends StatelessWidget {
               ),
               if (account.isVerified) ...[
                 const SizedBox(width: AppSpacing.xxs),
-                const NexoIcon(
+                NexoIcon(
                   NexoGlyph.verified,
                   size: 15,
                   color: AppColors.primary,

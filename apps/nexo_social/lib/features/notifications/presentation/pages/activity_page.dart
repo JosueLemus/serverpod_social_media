@@ -106,7 +106,7 @@ class _ActivityView extends StatelessWidget {
     _FilterRow(selected: state.filter, onSelected: cubit.filterBy),
     if (state.reconnecting) ...[
       const SizedBox(height: AppSpacing.xs),
-      const Align(
+      Align(
         alignment: Alignment.centerLeft,
         child: StatusBadge(
           key: Key('activity-reconnecting'),
@@ -300,7 +300,7 @@ class _NotificationRow extends StatelessWidget {
                           key: Key('activity-unread-${notification.id}'),
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: AppColors.primary,
                             shape: BoxShape.circle,
                           ),
@@ -419,13 +419,13 @@ class _TypeDisc extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(1.5),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.background,
       shape: BoxShape.circle,
     ),
     child: Container(
       padding: const EdgeInsets.all(2),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.sticker,
         shape: BoxShape.circle,
       ),
@@ -459,7 +459,7 @@ class _Quote extends StatelessWidget {
       horizontal: AppSpacing.sm,
       vertical: AppSpacing.xs,
     ),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.medium,
     ),

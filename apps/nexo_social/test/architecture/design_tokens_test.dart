@@ -16,6 +16,8 @@ void main() {
     /// a fix. Each entry states why.
     const allowed = <String, String>{
       'lib/app/theme/app_tokens.dart': 'es la paleta',
+      'lib/app/theme/nexo_themes.dart':
+          'es el catálogo de temas: cada tema es una paleta',
       'lib/features/auth/presentation/pages/auth_pages.dart':
           'el azul de Google en el botón de identidad es marca de un tercero',
     };

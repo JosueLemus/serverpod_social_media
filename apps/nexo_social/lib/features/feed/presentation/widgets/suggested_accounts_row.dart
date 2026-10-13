@@ -92,7 +92,7 @@ class _AccountSticker extends StatelessWidget {
                       ),
                       if (account.isVerified) ...[
                         const SizedBox(width: 3),
-                        const NexoIcon(
+                        NexoIcon(
                           NexoGlyph.verified,
                           size: 14,
                           color: AppColors.primary,

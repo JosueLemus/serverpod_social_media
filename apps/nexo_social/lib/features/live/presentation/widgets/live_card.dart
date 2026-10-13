@@ -86,7 +86,7 @@ class LiveCard extends StatelessWidget {
                 if (session.isPremium) ...[
                   const SizedBox(width: AppSpacing.xs),
                   // Dentro de la fila de texto: derecha, no torcida.
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 2),
                     child: StatusBadge(
                       label: 'Pro',
@@ -187,9 +187,9 @@ class LiveStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => StatusBadge(
     label: status.label,
-    // El rojo con blanco es sólo para EN VIVO. El resto es vinilo con tinta.
+    // El color de en vivo es sólo para EN VIVO. El resto es vinilo con tinta.
     color: status.isOnAir ? AppColors.secondary : status.color,
-    foreground: status.isOnAir ? AppColors.sticker : AppColors.ink,
+    foreground: status.isOnAir ? AppColors.onSecondary : AppColors.ink,
     pulse: status.isOnAir,
     tilt: tilt,
   );
@@ -207,7 +207,7 @@ class _StagePlaceholder extends StatelessWidget {
       final side = (constraints.maxHeight * .64).clamp(48.0, 150.0);
       return Center(
         child: status.isClosed
-            ? const NexoIcon(
+            ? NexoIcon(
                 NexoGlyph.hidden,
                 size: 40,
                 color: AppColors.textSecondary,
@@ -302,7 +302,7 @@ class ViewerPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final foreground = light ? AppColors.textPrimary : AppColors.sticker;
+    final foreground = light ? AppColors.textPrimary : AppColors.onMedia;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xs,

@@ -131,14 +131,14 @@ class _ModerationSheetState extends State<_ModerationSheet> {
               const SizedBox(height: AppSpacing.sm),
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.linerHigh,
                   borderRadius: AppRadii.medium,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.only(top: 2),
                       child: NexoIcon(
                         NexoGlyph.comment,
@@ -175,7 +175,7 @@ class _ModerationSheetState extends State<_ModerationSheet> {
               const Divider(height: AppSpacing.lg),
               Row(
                 children: [
-                  const _GlyphDisc(
+                  _GlyphDisc(
                     NexoGlyph.micOff,
                     background: AppColors.warning,
                     foreground: AppColors.ink,
@@ -243,7 +243,7 @@ class _ModerationSheetState extends State<_ModerationSheet> {
               glyph: NexoGlyph.flag,
               title: 'Reportar a moderación central',
               detail: 'Revisión exhaustiva por Trust & Safety',
-              trailing: const NexoIcon(
+              trailing: NexoIcon(
                 NexoGlyph.forward,
                 size: 18,
                 color: AppColors.textSecondary,
@@ -258,7 +258,7 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                 actionKey: const Key('moderate-ban'),
                 glyph: NexoGlyph.lock,
                 discColor: AppColors.error,
-                glyphColor: AppColors.sticker,
+                glyphColor: AppColors.onError,
                 outline: AppColors.error,
                 title: 'Bloquear usuario del canal',
                 detail: 'No podrá volver a ingresar ni comentar',
@@ -280,8 +280,8 @@ class _ActionRow extends StatelessWidget {
     required this.detail,
     required this.onTap,
     this.trailing,
-    this.discColor = AppColors.linerHigh,
-    this.glyphColor = AppColors.textPrimary,
+    this.discColor,
+    this.glyphColor,
     this.outline,
   });
 
@@ -291,8 +291,8 @@ class _ActionRow extends StatelessWidget {
   final String detail;
   final VoidCallback onTap;
   final Widget? trailing;
-  final Color discColor;
-  final Color glyphColor;
+  final Color? discColor;
+  final Color? glyphColor;
 
   /// Contorno de la fila. Sólo para la acción destructiva.
   final Color? outline;
@@ -342,24 +342,27 @@ class _ActionRow extends StatelessWidget {
 }
 
 class _GlyphDisc extends StatelessWidget {
-  const _GlyphDisc(
-    this.glyph, {
-    this.background = AppColors.linerHigh,
-    this.foreground = AppColors.textPrimary,
-  });
+  const _GlyphDisc(this.glyph, {this.background, this.foreground});
 
   static const _size = 40.0;
 
   final NexoGlyph glyph;
-  final Color background;
-  final Color foreground;
+  final Color? background;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) => Container(
     width: _size,
     height: _size,
     alignment: Alignment.center,
-    decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-    child: NexoIcon(glyph, size: 20, color: foreground),
+    decoration: BoxDecoration(
+      color: background ?? AppColors.linerHigh,
+      shape: BoxShape.circle,
+    ),
+    child: NexoIcon(
+      glyph,
+      size: 20,
+      color: foreground ?? AppColors.textPrimary,
+    ),
   );
 }

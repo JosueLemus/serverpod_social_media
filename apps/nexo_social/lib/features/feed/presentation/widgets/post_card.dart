@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../app/theme/nexo_themes.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/nexo_icon.dart';
@@ -143,13 +144,13 @@ class _PostHeader extends StatelessWidget {
                             style: text.titleMedium,
                           ),
                           if (post.authorIsVerified)
-                            const NexoIcon(
+                            NexoIcon(
                               NexoGlyph.verified,
                               size: 15,
                               color: AppColors.primary,
                             ),
                           if (post.authorIsPro)
-                            const StatusBadge(
+                            StatusBadge(
                               label: 'Pro',
                               color: AppColors.vinylViolet,
                               foreground: AppColors.ink,
@@ -175,7 +176,7 @@ class _PostHeader extends StatelessWidget {
           key: Key('more-${post.id}'),
           tooltip: 'Más opciones',
           onPressed: onMore,
-          icon: const NexoIcon(
+          icon: NexoIcon(
             NexoGlyph.more,
             size: 20,
             color: AppColors.textSecondary,
@@ -277,7 +278,7 @@ class _MediaPlaceholder extends StatelessWidget {
       child: Center(
         child: kind == PostMedia.video && !broken
             ? const _PlayDisc()
-            : const NexoIcon(
+            : NexoIcon(
                 NexoGlyph.media,
                 size: 40,
                 color: AppColors.textTertiary,
@@ -298,17 +299,19 @@ class _PlayDisc extends StatelessWidget {
     width: 60,
     height: 60,
     padding: const EdgeInsets.all(AppStroke.kissCut),
-    decoration: const BoxDecoration(
-      color: AppColors.sticker,
-      shape: BoxShape.circle,
-    ),
+    decoration: BoxDecoration(color: AppColors.cut, shape: BoxShape.circle),
     child: DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.sticker,
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.ink, width: AppStroke.ink),
+        border: Border.all(
+          color: NexoThemes.active.stickerCut
+              ? AppColors.ink
+              : AppColors.sticker,
+          width: AppStroke.ink,
+        ),
       ),
-      child: const Center(
+      child: Center(
         child: NexoIcon(
           NexoGlyph.play,
           filled: true,
@@ -469,7 +472,7 @@ class _PostActions extends StatelessWidget {
       Builder(
         builder: (buttonContext) => _ActionButton(
           buttonKey: Key('share-${post.id}'),
-          icon: const NexoIcon(
+          icon: NexoIcon(
             NexoGlyph.share,
             size: _iconSize,
             color: AppColors.textSecondary,

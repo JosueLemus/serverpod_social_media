@@ -170,7 +170,7 @@ Future<void> _goLiveNow(BuildContext context) async {
 /// marca de "en vivo", y el botón que lo enciende la lleva.
 ButtonStyle _goLiveStyle() => FilledButton.styleFrom(
   backgroundColor: AppColors.secondary,
-  foregroundColor: AppColors.sticker,
+  foregroundColor: AppColors.onSecondary,
   disabledBackgroundColor: AppColors.linerHigh,
   disabledForegroundColor: AppColors.textTertiary,
   minimumSize: const Size(0, AppSizes.buttonHeightDense),
@@ -383,7 +383,7 @@ class _BroadcastBar extends StatelessWidget {
                 onPressed: () => cubit.transition(LiveStatus.recorded),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error, width: 1.6),
+                  side: BorderSide(color: AppColors.error, width: 1.6),
                   minimumSize: dense,
                 ),
                 child: const Text('Finalizar vivo'),
@@ -477,7 +477,7 @@ class _MetricRule extends StatelessWidget {
   const _MetricRule();
 
   @override
-  Widget build(BuildContext context) => const SizedBox(
+  Widget build(BuildContext context) => SizedBox(
     width: 1,
     height: 52,
     child: ColoredBox(color: AppColors.border),
@@ -908,7 +908,7 @@ class _AuditTrail extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const NexoIcon(
+                      NexoIcon(
                         NexoGlyph.moderation,
                         size: 18,
                         color: AppColors.textSecondary,

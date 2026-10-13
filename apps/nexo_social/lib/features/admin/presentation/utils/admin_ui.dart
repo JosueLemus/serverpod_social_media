@@ -141,19 +141,19 @@ abstract final class AdminButtons {
   );
 
   /// Relleno rojo con blanco: la acción destructiva principal.
-  static final destructiveFill = FilledButton.styleFrom(
+  static ButtonStyle get destructiveFill => FilledButton.styleFrom(
     backgroundColor: AppColors.error,
-    foregroundColor: AppColors.sticker,
-    iconColor: AppColors.sticker,
+    foregroundColor: AppColors.onError,
+    iconColor: AppColors.onError,
     minimumSize: const Size(0, AppSizes.buttonHeightDense),
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
   );
 
   /// Contorno rojo: lo destructivo que no es la acción principal.
-  static final destructiveOutline = OutlinedButton.styleFrom(
+  static ButtonStyle get destructiveOutline => OutlinedButton.styleFrom(
     foregroundColor: AppColors.error,
     iconColor: AppColors.error,
-    side: const BorderSide(color: AppColors.error, width: 1.6),
+    side: BorderSide(color: AppColors.error, width: 1.6),
     minimumSize: const Size(0, AppSizes.buttonHeightDense),
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
   );

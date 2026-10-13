@@ -89,7 +89,7 @@ class ShowHintPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
@@ -120,7 +120,7 @@ class ShowHintPill extends StatelessWidget {
 /// largo toma el radio de superficie y conserva el resto del tema: relleno
 /// `linerHigh`, sin borde en reposo y el filete lila en foco.
 InputDecoration showMultilineDecoration({required String hintText}) =>
-    const InputDecoration(
+    InputDecoration(
       border: _multilineBorder,
       enabledBorder: _multilineBorder,
       focusedBorder: OutlineInputBorder(

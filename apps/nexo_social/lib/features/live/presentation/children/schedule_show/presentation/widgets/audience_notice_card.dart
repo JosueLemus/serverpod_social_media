@@ -19,7 +19,7 @@ class AudienceNoticeCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const NexoIcon(
+          NexoIcon(
             NexoGlyph.activity,
             size: 22,
             color: AppColors.textSecondary,

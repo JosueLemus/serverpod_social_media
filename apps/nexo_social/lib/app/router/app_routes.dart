@@ -56,6 +56,10 @@ abstract final class AppRoutes {
   static const premium = '/premium';
   static const settings = '/settings';
 
+  /// Elegir el tema de la app. Se entra desde el perfil y se empuja sobre el
+  /// shell, como Ajustes.
+  static const themes = '/themes';
+
   /// Editar el perfil propio. Una tarea: se empuja sobre el shell, como el
   /// compositor, para que la barra no invite a dejarla a medias.
   static const editProfile = '/edit-profile';

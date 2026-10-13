@@ -169,7 +169,7 @@ class _AccountRow extends StatelessWidget {
                       ),
                       if (account.isVerified) ...[
                         const SizedBox(width: 4),
-                        const NexoIcon(
+                        NexoIcon(
                           NexoGlyph.verified,
                           size: 16,
                           color: AppColors.primary,

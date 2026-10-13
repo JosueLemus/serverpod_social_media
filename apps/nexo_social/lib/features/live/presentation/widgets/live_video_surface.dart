@@ -83,7 +83,7 @@ class _StatusCaption extends StatelessWidget {
           textAlign: TextAlign.center,
           style: Theme.of(
             context,
-          ).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ).textTheme.bodySmall?.copyWith(color: AppColors.onMediaSecondary),
         ),
       ),
     );
@@ -127,9 +127,9 @@ class LiveStagePlaceholder extends StatelessWidget {
             Text(
               caption!,
               textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.labelMedium?.copyWith(color: AppColors.textSecondary),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.onMediaSecondary,
+              ),
             ),
           ],
         ],

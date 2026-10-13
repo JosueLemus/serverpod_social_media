@@ -98,7 +98,7 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Row(
                     children: [
-                      const NexoIcon(
+                      NexoIcon(
                         NexoGlyph.lock,
                         size: 20,
                         color: AppColors.textSecondary,

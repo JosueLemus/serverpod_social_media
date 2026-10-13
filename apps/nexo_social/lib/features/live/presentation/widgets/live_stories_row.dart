@@ -81,14 +81,14 @@ class _OwnStory extends StatelessWidget {
         width: 24,
         height: 24,
         alignment: Alignment.center,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.sticker,
           shape: BoxShape.circle,
           border: Border.fromBorderSide(
             BorderSide(color: AppColors.background, width: 2.5),
           ),
         ),
-        child: const NexoIcon(NexoGlyph.add, size: 13, color: AppColors.ink),
+        child: NexoIcon(NexoGlyph.add, size: 13, color: AppColors.ink),
       ),
     );
   }

@@ -341,7 +341,7 @@ class _AccountTile extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.forward,
                 size: 18,
                 color: AppColors.textSecondary,
@@ -746,7 +746,7 @@ class AdminTimelineNode extends StatelessWidget {
     required this.glyph,
     required this.title,
     required this.meta,
-    this.tone = AppColors.textSecondary,
+    this.tone,
     this.filled = false,
     this.badge,
     this.isLast = false,
@@ -755,7 +755,9 @@ class AdminTimelineNode extends StatelessWidget {
   final NexoGlyph glyph;
   final String title;
   final String meta;
-  final Color tone;
+
+  /// Por defecto, el texto secundario del tema.
+  final Color? tone;
   final bool filled;
 
   /// Insignia junto al título, como "Vigente". Baja de renglón si no entra.
@@ -767,11 +769,12 @@ class AdminTimelineNode extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tone = this.tone ?? AppColors.textSecondary;
     final text = Theme.of(context).textTheme;
     return Stack(
       children: [
         if (!isLast)
-          const Positioned(
+          Positioned(
             top: _node + AppSpacing.xxs,
             bottom: 0,
             left: (_node - _thread) / 2,
@@ -787,7 +790,7 @@ class AdminTimelineNode extends StatelessWidget {
                 width: _node,
                 height: _node,
                 alignment: Alignment.center,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.linerHigh,
                   shape: BoxShape.circle,
                 ),

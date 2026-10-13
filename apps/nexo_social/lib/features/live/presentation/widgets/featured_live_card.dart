@@ -71,11 +71,7 @@ class FeaturedLiveCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const NexoIcon(
-              NexoGlyph.verified,
-              size: 14,
-              color: AppColors.primary,
-            ),
+            NexoIcon(NexoGlyph.verified, size: 14, color: AppColors.primary),
           ],
         ),
         const SizedBox(height: AppSpacing.md),

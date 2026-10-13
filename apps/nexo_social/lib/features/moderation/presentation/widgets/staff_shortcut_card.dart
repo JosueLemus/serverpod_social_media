@@ -82,7 +82,7 @@ class _CardBody extends StatelessWidget {
               width: 40,
               height: 40,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.ink,
                 shape: BoxShape.circle,
               ),

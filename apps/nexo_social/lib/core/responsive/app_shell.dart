@@ -82,7 +82,11 @@ class AppShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final form = AppBreakpoints.of(context);
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      // La barra de estado sigue al suelo del tema: íconos claros sobre uno
+      // oscuro, oscuros sobre uno claro.
+      value: AppColors.palette.isDark
+          ? SystemUiOverlayStyle.light
+          : SystemUiOverlayStyle.dark,
       child: Scaffold(
         body: Row(
           children: [
@@ -139,7 +143,7 @@ class _ShellBottomBar extends StatelessWidget {
     return Material(
       color: AppColors.background,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: SafeArea(
@@ -273,7 +277,7 @@ class _WithCount extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               count > 9 ? '9+' : '$count',
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.sticker,
                 fontSize: 9.5,
                 height: 1,
@@ -328,9 +332,9 @@ class _ComposeButtonState extends State<_ComposeButton> {
               width: 52,
               height: 44,
               decoration: BoxDecoration(
-                color: AppColors.sticker,
+                color: AppColors.cta,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
                     color: AppColors.brandShadow,
                     blurRadius: 16,
@@ -339,11 +343,7 @@ class _ComposeButtonState extends State<_ComposeButton> {
                 ],
               ),
               alignment: Alignment.center,
-              child: const NexoIcon(
-                NexoGlyph.add,
-                color: AppColors.ink,
-                size: 22,
-              ),
+              child: NexoIcon(NexoGlyph.add, color: AppColors.onCta, size: 22),
             ),
           ),
         ),
@@ -389,7 +389,7 @@ class _ShellRail extends StatelessWidget {
     );
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(right: BorderSide(color: AppColors.border)),
       ),
       child: NavigationRail(
@@ -454,8 +454,8 @@ class _RailLeading extends StatelessWidget {
             tooltip: 'Crear',
             onPressed: onCompose,
             style: IconButton.styleFrom(
-              backgroundColor: AppColors.sticker,
-              foregroundColor: AppColors.ink,
+              backgroundColor: AppColors.cta,
+              foregroundColor: AppColors.onCta,
             ),
             icon: const NexoIcon(NexoGlyph.add, size: 20),
           ),
@@ -474,7 +474,7 @@ class _SidePanel extends StatelessWidget {
     // —avatar, nombre y botón de seguir— se queda sin ancho y desborda.
     width: 320,
     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.background,
       border: Border(left: BorderSide(color: AppColors.border)),
     ),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_tokens.dart';
+import '../../app/theme/nexo_themes.dart';
 
 /// El borde de un sticker, y lo que dice sobre su estado.
 ///
@@ -58,6 +59,16 @@ class StickerFrame extends StatelessWidget {
     final outer = BorderRadius.circular(radius + edgeWidth);
     return switch (edge) {
       StickerEdge.none => inner,
+      // Sin troquel en el tema, el borde "normal" es un filete fino: la
+      // superficie ya separa la media del suelo.
+      StickerEdge.kissCut when !NexoThemes.active.stickerCut => DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: inner,
+      ),
       StickerEdge.kissCut => DecoratedBox(
         decoration: BoxDecoration(
           color: AppColors.sticker,
@@ -219,7 +230,7 @@ class _DashedCutPainter extends CustomPainter {
 /// creadores es una plancha variada y no una fila del mismo círculo repetido,
 /// y la misma persona tiene el mismo color en toda la app.
 Color vinylFor(String seed) {
-  const vinyls = [
+  final vinyls = [
     AppColors.vinylCyan,
     AppColors.vinylViolet,
     AppColors.vinylLime,
@@ -303,15 +314,15 @@ class StickerCard extends StatelessWidget {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: base.outlinedButtonTheme.style?.copyWith(
-          foregroundColor: const WidgetStatePropertyAll(AppColors.ink),
-          side: const WidgetStatePropertyAll(
+          foregroundColor: WidgetStatePropertyAll(AppColors.ink),
+          side: WidgetStatePropertyAll(
             BorderSide(color: AppColors.ink, width: 1.6),
           ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: base.textButtonTheme.style?.copyWith(
-          foregroundColor: const WidgetStatePropertyAll(AppColors.primaryDeep),
+          foregroundColor: WidgetStatePropertyAll(AppColors.primaryDeep),
         ),
       ),
       colorScheme: base.colorScheme.copyWith(
@@ -323,6 +334,19 @@ class StickerCard extends StatelessWidget {
     Widget body = Padding(padding: padding, child: child);
     if (onTap != null) {
       body = InkWell(onTap: onTap, child: body);
+    }
+    // Sin troquel en el tema, la tarjeta es una superficie elevada más: con su
+    // filete y los colores del tema, sin invertir el texto.
+    if (!NexoThemes.active.stickerCut) {
+      return Material(
+        color: AppColors.surface,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radius + _cut),
+          side: BorderSide(color: AppColors.border),
+        ),
+        child: body,
+      );
     }
     return Container(
       padding: const EdgeInsets.all(_cut),
@@ -343,9 +367,9 @@ class StickerCard extends StatelessWidget {
           child: Theme(
             data: theme,
             child: DefaultTextStyle.merge(
-              style: const TextStyle(color: AppColors.ink),
+              style: TextStyle(color: AppColors.ink),
               child: IconTheme.merge(
-                data: const IconThemeData(color: AppColors.ink),
+                data: IconThemeData(color: AppColors.ink),
                 child: body,
               ),
             ),

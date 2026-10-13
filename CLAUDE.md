@@ -245,58 +245,104 @@ un `ListView`.
 
 ---
 
-## Diseño — "Plancha de stickers"
+## Diseño — temas
 
-Nexo es una **plancha de stickers**. El suelo es el liner negro sobre el que
-vienen pegados, y todo lo que se publica, se reacciona o se colecciona es un
-sticker troquelado, cortado como el gato del logo: relleno blanco, contorno de
-tinta y borde troquelado. La dirección completa está en
-`.impeccable/surfaces/apps-nexo-social.md`, y el sistema documentado en
-`DESIGN.md`. El tema es **oscuro**: así es el lugar donde se usa (alguien de
-noche, saltando del feed a un vivo) y así lo pide el material, porque el borde
-troquelado blanco sólo se lee sobre negro.
+**La app tiene 21 temas y el usuario elige uno en Perfil → Temas.** El cambio
+es en caliente, sin reiniciar ni perder la navegación, y queda guardado en el
+dispositivo. **Aurora** (índigo con violeta y cian, Lexend) es el de por
+defecto. El diseño original, la **plancha de stickers**, sigue disponible como
+"Plancha clásica": su dirección está en `.impeccable/surfaces/apps-nexo-social.md`
+y el sistema en `DESIGN.md`. Las 20 propuestas que dieron origen al catálogo
+están en la hoja índice `design/propuestas/20/00_indice.png`; capturas de la app en `design/capturas/`.
+
+| Archivo | Qué hace |
+|---|---|
+| `app/theme/nexo_themes.dart` | `NexoThemeSpec` (paleta + dos fuentes + cómo se pinta el CTA + si lleva troquel) y el catálogo `NexoThemes.all`. `NexoThemes.activate()` cambia el tema activo |
+| `app/theme/app_tokens.dart` | `NexoPalette` (todos los roles) y `AppColors`, que son **getters sobre la paleta activa** |
+| `app/theme/app_theme.dart` | `AppTheme.of(spec)` arma el `ThemeData`; `AppFonts` lee las fuentes del tema activo |
+| `features/appearance/` | `ThemeCubit` (singleton) + preferencia en `SharedPreferences` + `ThemesPage` |
+| `app/app.dart` | La raíz escucha el `ThemeCubit`, activa el tema antes del primer frame y redibuja el árbol al cambiar |
+
+### Cómo funciona el cambio en caliente — y las dos reglas que impone
+
+`AppColors.x` y `AppFonts.x` **no son dependencias del árbol**: un widget que
+los lee no se entera solo de que cambiaron, y un `ThemeData` nuevo sólo
+reconstruye lo que llama a `Theme.of`. Por eso `NexoApp._applyTheme` marca
+**todo** el subárbol para reconstruir. Es un frame caro, una vez, cuando el
+usuario toca un tema; a cambio, ningún widget tiene que saber que los temas
+existen. No se usa una `Key` nueva en `MaterialApp`: remontaría el Navigator y
+cada pantalla perdería su estado.
+
+Lo que eso **no** puede arreglar, y por eso son reglas:
+
+- **Nunca un color del tema dentro de un `const`.** `const Icon(color:
+  AppColors.ink)` no compila, y está bien: un color congelado en compilación no
+  sigue al tema. Un parámetro con color por defecto va nullable y se resuelve en
+  `build` (`StatusBadge.color`).
+- **Nunca un color del tema en un `static final` ni en un `final` de nivel de
+  archivo.** Se evalúan una sola vez y se quedan con el tema que había al primer
+  acceso. Va un getter (`AdminUI.destructiveFill`). Esto **sí compila**, así que
+  nada avisa: es el bug que este cambio vino a evitar.
+
+### Los roles de la paleta valen en cualquier tema
+
+Los nombres vienen de la plancha y se conservan porque describen una
+**relación**, no un valor:
+
+| Token | Qué es, en cualquier tema |
+|---|---|
+| `background` = `liner`, `surface` = `linerRaised`, `linerHigh` | El suelo y dos escalones arriba |
+| `sticker` / `ink` | El relleno de máximo contraste contra el suelo y lo que va encima. Blanco/casi negro en un tema oscuro, **al revés** en uno claro |
+| `cta` / `onCta` | La acción principal: la marca (`primaryDeep`) o el sticker neutro, según `NexoThemeSpec.brandButtons` |
+| `primary` | Acento legible sobre el suelo: enlaces, foco, selección |
+| `primaryDeep` / `onPrimaryDeep` | Relleno de marca y su texto |
+| `secondary` / `onSecondary` | En vivo y reacción. **En Aurora es cian**, no rojo |
+| `error` / `onError` | Fallo. Siempre un rojo. **Ya no es el mismo valor que `secondary`** |
+| `tertiary`, `warning`, vinilos | Rellenos que llevan `ink` encima: vivos en un tema oscuro, profundos en uno claro |
+| `holo` | El borde de lo que está **al aire**: el foil en las planchas, violeta→cian en Aurora, el color de en vivo en el resto |
+| `cut` | El troquel: el sticker en las planchas, transparente en el resto |
+| `onMedia`, `onMediaSecondary`, `stageDark`, `stageScrim`, `neutral` | **No cambian con el tema**: lo que va sobre video |
+
+- **El texto sobre un relleno lo decide el contraste, no un umbral.**
+  `NexoPalette._onFill` / `AppColors.on(color)` eligen el que más contraste da
+  entre casi negro y blanco. Con un umbral de luminancia, el naranja de "Cálido
+  creador" y el durazno de "Atardecer" quedaban con blanco a 2.6:1.
+- **Sobre video, `onMedia`; nunca `textPrimary` ni `sticker`.** En un tema claro
+  esos dos son oscuros y desaparecen sobre la transmisión. La sala en vivo va
+  envuelta en `MediaStageTheme`, que además pone el texto por defecto en blanco.
+- **El troquel blanco es de las planchas** (`NexoThemeSpec.stickerCut`). En el
+  resto, `StickerFrame.kissCut` es un filete fino y `StickerCard` una superficie
+  elevada más. Sin eso, todo tema era "la plancha con otros colores".
+- **No hay degradados** salvo el borde de lo que está al aire.
+
+**Siempre `AppColors`. Nunca hex crudo, nunca `Colors.X`** (salvo
+`Colors.transparent`). El hex vive sólo en `app_tokens.dart` y en
+`nexo_themes.dart`. Única excepción: el color de marca de un tercero (el azul de
+Google en el botón de identidad).
 
 ### El borde dice el estado
 
-Cada borde tiene **un solo** significado, en toda la app:
+Cada borde tiene **un solo** significado, en toda la app y en todos los temas:
 
 | Borde | `StickerEdge` | Significa |
 |---|---|---|
-| Troquel blanco | `kissCut` | Publicado, normal, y también terminado o replay |
-| Foil holográfico que gira | `holo` | **Al aire ahora.** Nada más lo lleva |
+| Troquel (o filete, sin `stickerCut`) | `kissCut` | Publicado, normal, y también terminado o replay |
+| `holo` del tema, girando | `holo` | **Al aire ahora.** Nada más lo lleva |
 | Línea de corte punteada | `dashed` | Programado: todavía está en la plancha |
 | El dorso del sticker | `linerHigh` + `textTertiary` | Oculto por moderación, con su motivo |
 
-Un borde holo sobre algo que no está al aire le quita el significado al de los
+Un borde de al aire sobre algo que no lo está le quita el significado al de los
 vivos. `UserAvatar(onAir: true)` y `HoloRing` son la forma de dibujarlo.
 
-### Colores — `app_tokens.dart`
+### Agregar un tema
 
-| Token | Valor | Uso |
-|---|---|---|
-| `background` = `liner` | `#0F0F12` | El suelo de toda la app |
-| `surface` = `linerRaised` | `#18181D` | Hojas, paneles, tarjetas |
-| `linerHigh` | `#23232B` | Campos, controles en reposo, filas |
-| `sticker` / `ink` | `#FFFFFF` / `#0F0F12` | **El CTA es un sticker blanco con tinta** |
-| `primary` | `#8E8BFF` | Acento: enlaces, foco, selección |
-| `primaryDeep` | `#5B4BFF` | **Sólo relleno con texto blanco.** Nunca texto sobre el liner |
-| `secondary` = `error` | `#F0234A` | En vivo y reacción, y también fallo (mismo valor, dos nombres) |
-| `tertiary` | `#3EE58C` | Confirmación, online. Lleva tinta encima, no blanco |
-| `warning` | `#FFB020` | "Mirá esto". Lleva tinta encima |
-| `vinylCyan/Blue/Violet/Magenta/Lime/Green` | del logo | Categorías, insignias, avatares. Siempre con tinta encima |
-| `holo` | la lista de los vinilos | El foil del logo, **sólo al aire** |
-
-- **`error` y `secondary` son el mismo valor, con dos nombres.** Se elige por
-  lo que la pantalla quiere decir. Pintar un "EN VIVO" con un token llamado
-  `error` hace que la próxima persona lo trate como un fallo.
-- **`secondary` del `ColorScheme` es el sticker blanco.** Material saca de ahí
-  el tinte de "seleccionado", y seleccionar es despegar un sticker.
-- **No hay degradados** salvo el foil holo. Un banner con degradado de marca es
-  el diseño viejo.
-
-**Siempre `AppColors`. Nunca hex crudo, nunca `Colors.X`** (salvo
-`Colors.transparent`). Para blanco, `AppColors.sticker`. Única excepción: el
-color de marca de un tercero (el azul de Google en el botón de identidad).
+Una entrada en `NexoThemes.all`, armada con `_dark()` o `_light()` a partir de
+seis colores (suelo, dos superficies, borde, dos textos, marca, en vivo): el
+resto de los roles se derivan. Si usa una fuente nueva, va empaquetada (ver
+abajo). `test/app/theme/nexo_themes_test.dart` falla si la fuente no está en el
+pubspec, si algún par texto/relleno no llega al contraste mínimo o si el error
+deja de ser rojo. **El `id` no se renombra nunca**: es lo que se persiste, y un
+id que no matchea vuelve al tema por defecto sin avisar.
 
 ### Forma — todo control es una pastilla
 
@@ -308,15 +354,18 @@ son para superficies. `AppStroke` fija el troquel (`kissCut` 3) y la tinta
 
 ### Tipografía — empaquetada, no descargada
 
-**Dela Gothic One** (`AppFonts.display`) para titulares, secciones y números
-grandes. **M PLUS Rounded 1c** (`AppFonts.text`) para todo lo demás. Viven en
-`assets/fonts`, **recortadas a latín** con `pyftsubset` (pasaron de 22 MB a 400
-KB, porque las dos traen japonés), con su licencia OFL al lado. La demo no puede
-depender de bajar la tipografía en vivo, así que no se usa `GoogleFonts` en
-runtime. Las dos salen del tema: `context.textTheme`. **Nunca
-`TextStyle(fontSize: …)` crudo** salvo micro-etiquetas (pills de 9–11px); para
-un ajuste puntual, `.copyWith()`. Cifras de contadores con
-`FontFeature.tabularFigures()`.
+Cada tema trae dos familias: `AppFonts.display` (titulares, secciones, números
+grandes) y `AppFonts.text` (todo lo demás). Son 19 familias en `assets/fonts`,
+**recortadas a latín** con `pyftsubset` (unos 3 MB en total), con su licencia
+OFL al lado. Se bajaron como TTF estáticos por peso (400–800) desde Google
+Fonts: un TTF variable no responde a `FontWeight` de forma confiable en todas
+las plataformas. La demo no puede depender de bajar la tipografía en vivo, así
+que no se usa `GoogleFonts` en runtime. Salen del tema: `context.textTheme`.
+**Nunca `TextStyle(fontSize: …)` crudo** salvo micro-etiquetas (pills de
+9–11px); para un ajuste puntual, `.copyWith()`. Cifras de contadores con
+`FontFeature.tabularFigures()`. `small_screen_overflow_test` mide el feed a 320
+con la fuente más ancha del catálogo, porque cambiar de tema cambia la
+tipografía entera.
 
 ### Íconos — `NexoIcon`, nunca `Icons.*` si hay glifo
 

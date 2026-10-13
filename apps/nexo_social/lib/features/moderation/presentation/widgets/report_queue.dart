@@ -103,11 +103,11 @@ class _IssueBanner extends StatelessWidget {
     ),
     child: Row(
       children: [
-        const _GlyphDisc(
+        _GlyphDisc(
           NexoGlyph.moderation,
           size: 32,
           background: AppColors.error,
-          foreground: AppColors.sticker,
+          foreground: AppColors.onError,
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
@@ -338,8 +338,8 @@ class _ReportBody extends StatelessWidget {
                 onPressed: () => cubit.resolve(report, ModerationType.banUser),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.error,
-                  foregroundColor: AppColors.sticker,
-                  overlayColor: AppColors.sticker,
+                  foregroundColor: AppColors.onError,
+                  overlayColor: AppColors.onError,
                   minimumSize: dense,
                   padding: densePadding,
                 ),
@@ -412,7 +412,7 @@ class _AuditRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.hidden,
                 size: 20,
                 color: AppColors.textSecondary,
@@ -478,21 +478,28 @@ class _GlyphDisc extends StatelessWidget {
   const _GlyphDisc(
     this.glyph, {
     this.size = 36,
-    this.background = AppColors.linerHigh,
-    this.foreground = AppColors.textSecondary,
+    this.background,
+    this.foreground,
   });
 
   final NexoGlyph glyph;
   final double size;
-  final Color background;
-  final Color foreground;
+  final Color? background;
+  final Color? foreground;
 
   @override
   Widget build(BuildContext context) => Container(
     width: size,
     height: size,
     alignment: Alignment.center,
-    decoration: BoxDecoration(color: background, shape: BoxShape.circle),
-    child: NexoIcon(glyph, size: size * .52, color: foreground),
+    decoration: BoxDecoration(
+      color: background ?? AppColors.linerHigh,
+      shape: BoxShape.circle,
+    ),
+    child: NexoIcon(
+      glyph,
+      size: size * .52,
+      color: foreground ?? AppColors.textSecondary,
+    ),
   );
 }

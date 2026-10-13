@@ -42,7 +42,7 @@ class SearchField extends StatelessWidget {
       decoration: InputDecoration(
         hintText: hint,
         isDense: true,
-        prefixIcon: const Center(
+        prefixIcon: Center(
           widthFactor: 1,
           child: NexoIcon(
             NexoGlyph.search,

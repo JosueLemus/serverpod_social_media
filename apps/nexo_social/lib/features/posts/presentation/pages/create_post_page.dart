@@ -212,7 +212,7 @@ class _ComposerBar extends StatelessWidget {
                     : null,
                 iconAlignment: IconAlignment.end,
                 icon: publishing
-                    ? const SizedBox.square(
+                    ? SizedBox.square(
                         dimension: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
@@ -321,7 +321,7 @@ class _AuthorRow extends StatelessWidget {
                   ),
                   if (user?.isVerified ?? false) ...[
                     const SizedBox(width: 4),
-                    const NexoIcon(
+                    NexoIcon(
                       NexoGlyph.verified,
                       size: 15,
                       color: AppColors.primary,
@@ -445,7 +445,7 @@ class _CommunityNote extends StatelessWidget {
   /// el borde izquierdo.
   @override
   Widget build(BuildContext context) => Text.rich(
-    const TextSpan(
+    TextSpan(
       children: [
         WidgetSpan(
           alignment: PlaceholderAlignment.middle,
@@ -576,7 +576,7 @@ class VisibilityPicker extends StatelessWidget {
             const SizedBox(width: 2),
             // El chevrón del set apunta hacia adelante; girado, dice "abre
             // opciones" sin traer un ícono de otra mano.
-            const RotatedBox(
+            RotatedBox(
               quarterTurns: 1,
               child: NexoIcon(
                 NexoGlyph.forward,
@@ -616,7 +616,7 @@ class _RadioMark extends StatelessWidget {
         ? Container(
             width: 8,
             height: 8,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.ink,
               shape: BoxShape.circle,
             ),
@@ -640,7 +640,7 @@ class ComposerModeTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(4),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.pill,
     ),
@@ -679,7 +679,7 @@ class ComposerModeTabs extends StatelessWidget {
                             width: 8,
                             height: 8,
                             margin: const EdgeInsets.only(right: 7),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.secondary,
                               shape: BoxShape.circle,
                             ),

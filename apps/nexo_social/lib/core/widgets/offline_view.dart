@@ -126,13 +126,13 @@ class _OfflineStrip extends StatelessWidget {
         horizontal: AppSpacing.md,
         vertical: AppSpacing.sm,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.linerHigh,
         borderRadius: AppRadii.pill,
       ),
       child: Row(
         children: [
-          const StatusBadge(
+          StatusBadge(
             label: 'Offline',
             color: AppColors.warning,
             foreground: AppColors.ink,
@@ -180,7 +180,7 @@ class _SavedReadingCard extends StatelessWidget {
               runSpacing: AppSpacing.xxs,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const StatusBadge(
+                StatusBadge(
                   label: 'Guardado',
                   color: AppColors.vinylGreen,
                   foreground: AppColors.ink,

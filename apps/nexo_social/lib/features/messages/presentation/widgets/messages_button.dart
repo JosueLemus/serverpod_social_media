@@ -23,7 +23,7 @@ class MessagesButton extends StatelessWidget {
       icon: Badge(
         isLabelVisible: unread > 0,
         backgroundColor: AppColors.secondary,
-        textColor: AppColors.sticker,
+        textColor: AppColors.onSecondary,
         label: Text(unread > 9 ? '9+' : '$unread'),
         child: const NexoIcon(NexoGlyph.comment, size: 22),
       ),

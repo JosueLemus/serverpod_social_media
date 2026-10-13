@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/media_stage_theme.dart';
 import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
@@ -140,86 +141,88 @@ class _RoomViewState extends State<_RoomView> {
         }
 
         final ending = _RoomEnding.of(session.status);
-        return Scaffold(
-          backgroundColor: AppColors.stageDark,
-          // El teclado no debe redimensionar el video: con resize, escribir
-          // un comentario encoge la transmisión a una franja.
-          resizeToAvoidBottomInset: false,
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              const LiveVideoSurface(
-                role: LiveMediaRole.audience,
-                fallback: _Stage(),
-              ),
-              const _StageScrim(),
-              // Terminado: un velo parejo sobre el último cuadro. La sala no
-              // se queda congelada como si siguiera al aire.
-              if (ending != null)
-                const IgnorePointer(
-                  child: ColoredBox(color: AppColors.stageScrim),
+        return MediaStageTheme(
+          child: Scaffold(
+            backgroundColor: AppColors.stageDark,
+            // El teclado no debe redimensionar el video: con resize, escribir
+            // un comentario encoge la transmisión a una franja.
+            resizeToAvoidBottomInset: false,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                const LiveVideoSurface(
+                  role: LiveMediaRole.audience,
+                  fallback: _Stage(),
                 ),
-              SafeArea(
-                child: Column(
-                  children: [
-                    _RoomTopBar(session: session, onLeave: _leave),
-                    // Se cortó el tiempo real: decirlo, en vez de dejar un
-                    // chat que parece vivo y no recibe nada.
-                    if (state.reconnecting && ending == null)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          // Ámbar: "mirá esto", no un fallo. La sala sigue
-                          // ahí y vuelve sola.
-                          child: StatusBadge(
-                            key: Key('live-reconnecting'),
-                            label: 'RECONECTANDO',
-                            color: AppColors.warning,
-                            foreground: AppColors.ink,
-                            glyph: NexoGlyph.refresh,
+                const _StageScrim(),
+                // Terminado: un velo parejo sobre el último cuadro. La sala no
+                // se queda congelada como si siguiera al aire.
+                if (ending != null)
+                  const IgnorePointer(
+                    child: ColoredBox(color: AppColors.stageScrim),
+                  ),
+                SafeArea(
+                  child: Column(
+                    children: [
+                      _RoomTopBar(session: session, onLeave: _leave),
+                      // Se cortó el tiempo real: decirlo, en vez de dejar un
+                      // chat que parece vivo y no recibe nada.
+                      if (state.reconnecting && ending == null)
+                        Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            // Ámbar: "mirá esto", no un fallo. La sala sigue
+                            // ahí y vuelve sola.
+                            child: StatusBadge(
+                              key: Key('live-reconnecting'),
+                              label: 'RECONECTANDO',
+                              color: AppColors.warning,
+                              foreground: AppColors.ink,
+                              glyph: NexoGlyph.refresh,
+                            ),
                           ),
                         ),
-                      ),
-                    const Spacer(),
-                    if (ending != null) ...[
-                      _EndedPanel(
-                        session: session,
-                        ending: ending,
-                        onBack: _back,
-                        onMore: _leave,
-                      ),
                       const Spacer(),
-                    ] else ...[
-                      if (state.pinnedComment != null)
-                        _PinnedComment(comment: state.pinnedComment!),
-                      LiveChatOverlay(
-                        comments: state.comments,
-                        hostId: session.hostId,
-                      ),
-                      LiveChatComposer(
-                        controller: _composer,
-                        onSend: _send,
-                        trailing: [
-                          // Sin regalos todavía: apagado, no escondido.
-                          const LiveGlassButton(
-                            glyph: NexoGlyph.gift,
-                            tooltip: 'Regalos: muy pronto',
-                            onTap: null,
-                          ),
-                          _LoveButton(
-                            loved: state.loved,
-                            onTap: context.read<LiveRoomCubit>().toggleLove,
-                          ),
-                        ],
-                      ),
+                      if (ending != null) ...[
+                        _EndedPanel(
+                          session: session,
+                          ending: ending,
+                          onBack: _back,
+                          onMore: _leave,
+                        ),
+                        const Spacer(),
+                      ] else ...[
+                        if (state.pinnedComment != null)
+                          _PinnedComment(comment: state.pinnedComment!),
+                        LiveChatOverlay(
+                          comments: state.comments,
+                          hostId: session.hostId,
+                        ),
+                        LiveChatComposer(
+                          controller: _composer,
+                          onSend: _send,
+                          trailing: [
+                            // Sin regalos todavía: apagado, no escondido.
+                            const LiveGlassButton(
+                              glyph: NexoGlyph.gift,
+                              tooltip: 'Regalos: muy pronto',
+                              onTap: null,
+                            ),
+                            _LoveButton(
+                              loved: state.loved,
+                              onTap: context.read<LiveRoomCubit>().toggleLove,
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -340,16 +343,12 @@ class _ViewerCount extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const NexoIcon(
-            NexoGlyph.community,
-            size: 16,
-            color: AppColors.textPrimary,
-          ),
+          NexoIcon(NexoGlyph.community, size: 16, color: AppColors.onMedia),
           const SizedBox(width: 5),
           Text(
             compactCount(viewers),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.textPrimary,
+              color: AppColors.onMedia,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -395,7 +394,7 @@ class _HostPill extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
+                      color: AppColors.onMedia,
                       height: 1.15,
                     ),
                   ),
@@ -458,7 +457,7 @@ class _HostFollowButton extends StatelessWidget {
                 // Siguiendo vuelve a pegarse a la plancha: el botón ya hizo
                 // lo suyo, y el sticker blanco queda para la acción.
                 backgroundColor: state.following ? AppColors.linerHigh : null,
-                foregroundColor: state.following ? AppColors.textPrimary : null,
+                foregroundColor: state.following ? AppColors.onMedia : null,
                 textStyle: Theme.of(context).textTheme.labelMedium,
               ),
               child: Text(state.following ? 'Siguiendo' : 'Seguir'),
@@ -509,7 +508,7 @@ class _PinnedComment extends StatelessWidget {
                 child: _PinnedBody(comment: comment),
               ),
             ),
-            const Positioned(
+            Positioned(
               top: 0,
               right: AppSpacing.md,
               child: StatusBadge(
@@ -587,7 +586,7 @@ class _LoveButton extends StatelessWidget {
         NexoGlyph.heart,
         filled: loved,
         size: 22,
-        color: AppColors.sticker,
+        color: AppColors.onMedia,
       ),
     ),
   );
@@ -664,14 +663,14 @@ class _EndedPanel extends StatelessWidget {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.headlineSmall?.copyWith(color: AppColors.textPrimary),
+              ).textTheme.headlineSmall?.copyWith(color: AppColors.onMedia),
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
               [host, ?lasted].join(' · '),
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.textSecondary,
+                color: AppColors.onMediaSecondary,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),

@@ -109,10 +109,10 @@ class _PhotoViewerState extends State<PhotoViewer> {
                     loadingBuilder: (context, child, progress) =>
                         progress == null
                         ? child
-                        : const CircularProgressIndicator(
+                        : CircularProgressIndicator(
                             color: AppColors.textSecondary,
                           ),
-                    errorBuilder: (context, error, stack) => const NexoIcon(
+                    errorBuilder: (context, error, stack) => NexoIcon(
                       NexoGlyph.media,
                       size: 48,
                       color: AppColors.textTertiary,
@@ -131,10 +131,7 @@ class _PhotoViewerState extends State<PhotoViewer> {
                   key: const Key('photo-viewer-close'),
                   tooltip: 'Cerrar',
                   onPressed: _close,
-                  icon: const NexoIcon(
-                    NexoGlyph.close,
-                    color: AppColors.sticker,
-                  ),
+                  icon: NexoIcon(NexoGlyph.close, color: AppColors.sticker),
                 ),
               ),
             ),

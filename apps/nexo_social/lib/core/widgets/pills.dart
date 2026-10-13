@@ -101,8 +101,8 @@ class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,
     required this.label,
-    this.color = AppColors.secondary,
-    this.foreground = AppColors.sticker,
+    this.color,
+    this.foreground,
     this.icon,
     this.glyph,
     this.pulse = false,
@@ -110,8 +110,12 @@ class StatusBadge extends StatelessWidget {
   });
 
   final String label;
-  final Color color;
-  final Color foreground;
+
+  /// El relleno. Por defecto, el color de en vivo del tema.
+  final Color? color;
+
+  /// Texto y punto. Por defecto, el que se lee sobre [color].
+  final Color? foreground;
   final IconData? icon;
 
   /// El glifo propio, preferido a [icon] cuando existe.
@@ -128,6 +132,8 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? AppColors.secondary;
+    final foreground = this.foreground ?? AppColors.on(color);
     final dot = Container(
       width: 6,
       height: 6,
@@ -135,8 +141,8 @@ class StatusBadge extends StatelessWidget {
     );
     final badge = Container(
       padding: const EdgeInsets.all(1.5),
-      decoration: const BoxDecoration(
-        color: AppColors.sticker,
+      decoration: BoxDecoration(
+        color: AppColors.cut,
         borderRadius: AppRadii.pill,
       ),
       child: Container(

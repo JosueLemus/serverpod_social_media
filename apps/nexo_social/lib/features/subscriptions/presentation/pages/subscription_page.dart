@@ -98,11 +98,7 @@ class _CreatorHero extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 6),
-            const NexoIcon(
-              NexoGlyph.verified,
-              size: 18,
-              color: AppColors.primary,
-            ),
+            NexoIcon(NexoGlyph.verified, size: 18, color: AppColors.primary),
           ],
         ),
         const SizedBox(height: AppSpacing.xxs),
@@ -112,7 +108,7 @@ class _CreatorHero extends StatelessWidget {
           style: text.bodySmall,
         ),
         const SizedBox(height: AppSpacing.sm),
-        const StatusBadge(
+        StatusBadge(
           label: 'Top 1%',
           color: AppColors.vinylLime,
           foreground: AppColors.ink,
@@ -189,7 +185,7 @@ class _LockedPreview extends StatelessWidget {
                   const SizedBox(height: AppSpacing.sm),
                   Row(
                     children: [
-                      const NexoIcon(
+                      NexoIcon(
                         NexoGlyph.clock,
                         size: 14,
                         color: AppColors.textSecondary,
@@ -261,7 +257,7 @@ class _PlanSection extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 1),
                   child: NexoIcon(
                     NexoGlyph.star,
@@ -369,11 +365,11 @@ class _PlanBody extends StatelessWidget {
           width: 28,
           height: 28,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: AppColors.ink,
             shape: BoxShape.circle,
           ),
-          child: const NexoIcon(
+          child: NexoIcon(
             NexoGlyph.check,
             filled: true,
             size: 18,
@@ -396,13 +392,13 @@ class _SimulatedPaymentNotice extends StatelessWidget {
       horizontal: AppSpacing.sm,
       vertical: AppSpacing.xs,
     ),
-    decoration: const BoxDecoration(
+    decoration: BoxDecoration(
       color: AppColors.linerHigh,
       borderRadius: AppRadii.medium,
     ),
     child: Row(
       children: [
-        const StatusBadge(
+        StatusBadge(
           label: 'Demo',
           color: AppColors.warning,
           foreground: AppColors.ink,
@@ -488,7 +484,7 @@ class _DonationSectionState extends State<_DonationSection> {
                     cubit.donate();
                     _message.clear();
                   },
-                  icon: const NexoIcon(
+                  icon: NexoIcon(
                     NexoGlyph.heart,
                     filled: true,
                     size: 18,

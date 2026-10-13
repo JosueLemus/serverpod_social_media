@@ -400,7 +400,7 @@ class _History extends StatelessWidget {
         if (sanctions.isEmpty)
           Row(
             children: [
-              const NexoIcon(
+              NexoIcon(
                 NexoGlyph.clock,
                 size: 18,
                 color: AppColors.textSecondary,

@@ -144,7 +144,7 @@ class _DurationScale extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                const DecoratedBox(
+                DecoratedBox(
                   decoration: BoxDecoration(
                     color: AppColors.linerHigh,
                     borderRadius: AppRadii.pill,
@@ -155,7 +155,7 @@ class _DurationScale extends StatelessWidget {
                   curve: Curves.easeOutCubic,
                   alignment: Alignment.centerLeft,
                   widthFactor: fraction,
-                  child: const DecoratedBox(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: AppColors.primary,
                       borderRadius: AppRadii.pill,

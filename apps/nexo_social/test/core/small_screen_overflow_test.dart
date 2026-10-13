@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/app/theme/nexo_themes.dart';
 import 'package:nexo_social/core/widgets/create_sheet_widget.dart';
+import 'package:nexo_social/features/appearance/presentation/bloc/theme_cubit.dart';
+import 'package:nexo_social/features/appearance/presentation/pages/themes_page.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/auth/presentation/pages/auth_pages.dart';
 import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
@@ -87,6 +91,25 @@ void main() {
   testWidgets('el menú de crear no desborda', (tester) async {
     await expectNoOverflow(tester, const CreateSheetWidget());
   });
+
+  testWidgets('temas no desborda', (tester) async {
+    await expectNoOverflow(
+      tester,
+      BlocProvider.value(value: sl<ThemeCubit>(), child: const ThemesPage()),
+    );
+  });
+
+  // El feed con la fuente más ancha del catálogo y la más angosta: el layout
+  // se midió con una sola tipografía, y un tema la cambia entera.
+  for (final id in ['cyber', 'editorial', 'plancha']) {
+    testWidgets('el feed no desborda con el tema $id', (tester) async {
+      NexoThemes.activate(NexoThemes.byId(id));
+      addTearDown(
+        () => NexoThemes.activate(NexoThemes.byId(NexoThemes.defaultId)),
+      );
+      await expectNoOverflow(tester, const FeedPage(), size: smallPhone);
+    });
+  }
 
   testWidgets('el onboarding no desborda', (tester) async {
     await expectNoOverflow(tester, const SignInPage());

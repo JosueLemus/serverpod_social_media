@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/responsive/app_shell.dart';
 import '../../core/widgets/placeholder_page.dart';
+import '../../features/appearance/presentation/pages/themes_page.dart';
 import '../../features/auth/domain/entities/app_user.dart';
 import '../../features/auth/presentation/bloc/auth_cubit.dart';
 import '../../features/auth/presentation/pages/auth_pages.dart';
@@ -130,6 +131,11 @@ GoRouter createRouter(
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>
           ProfilePage(username: state.pathParameters['username']),
+    ),
+    GoRoute(
+      path: AppRoutes.themes,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => const ThemesPage(),
     ),
     GoRoute(
       path: AppRoutes.settings,
