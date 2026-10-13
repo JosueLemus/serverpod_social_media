@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -327,9 +329,13 @@ void main() {
     late _MockHome home;
     late _MockFollows follows;
 
+    late StreamController<void> followChanges;
+
     setUp(() {
       home = _MockHome();
       follows = _MockFollows();
+      followChanges = StreamController<void>.broadcast();
+      when(() => follows.changes()).thenAnswer((_) => followChanges.stream);
       when(() => home.home()).thenAnswer(
         (_) async => HomeFeedPage([
           FeedSection(
@@ -428,6 +434,120 @@ void main() {
       final account = (cubit.state as FeedLoaded).suggestions.single;
       expect(account.viewerFollows, isTrue);
       expect(account.followerCount, 40);
+      await cubit.close();
+    });
+
+    // Regresión: seguir desde un perfil o la búsqueda no movía nada en el feed
+    // hasta reiniciar: los posts de esa cuenta seguían en "descubrir".
+    test('following elsewhere reloads the home', () async {
+      final cubit = build();
+      await cubit.load();
+      when(() => home.home()).thenAnswer(
+        (_) async => HomeFeedPage([
+          FeedSection(
+            kind: FeedSectionKind.following,
+            items: [
+              PostFeedItem(fakePost('f1', followed: true)),
+              PostFeedItem(fakePost('d1', followed: true)),
+            ],
+          ),
+        ]),
+      );
+
+      followChanges.add(null);
+      await pumpEventQueue();
+
+      final state = cubit.state as FeedLoaded;
+      expect(state.followingPosts.map((p) => p.id), ['f1', 'd1']);
+      expect(state.discoverPosts, isEmpty);
+      await cubit.close();
+    });
+
+    test('closing stops listening to follows', () async {
+      final cubit = build();
+      await cubit.load();
+      await cubit.close();
+
+      expect(followChanges.hasListener, isFalse);
+    });
+
+    // El servidor deja de sugerir a quien ya se sigue: sin esto, la fila
+    // desaparecía debajo del dedo apenas se tocaba "Seguir".
+    test('the account just followed stays in the suggestions', () {
+      const followed = ProfileSummary(
+        id: 'uuid-carlos',
+        username: 'carlos_mendez',
+        name: 'Carlos Méndez',
+        viewerFollows: true,
+      );
+      const other = ProfileSummary(id: 'u2', username: 'u2', name: 'U2');
+      const gone = ProfileSummary(id: 'u3', username: 'u3', name: 'U3');
+
+      expect(FeedCubit.mergeSuggestions([followed, gone], [other]), [
+        followed,
+        other,
+      ]);
+    });
+  });
+
+  group('likes elsewhere', () {
+    /// Un like desde la publicación avisa por el repositorio, y el feed que
+    /// quedó debajo lo refleja sin perder lo paginado.
+    test('a like from the post detail shows up in the feed', () async {
+      repository = FakePostRepository([
+        fakePost('1', likes: 2),
+        fakePost('2'),
+        fakePost('3'),
+      ])..pageSize = 2;
+      final cubit = FeedCubit(repository, MockHomeFeedRepository(repository));
+      await cubit.load();
+      await cubit.loadMore();
+
+      await repository.setLiked('1', liked: true);
+      await pumpEventQueue();
+
+      final state = cubit.state as FeedLoaded;
+      expect(state.posts.first.isLiked, isTrue);
+      expect(state.posts.first.likes, 3);
+      expect(state.posts, hasLength(3));
+      await cubit.close();
+    });
+
+    /// Con un like en vuelo, la relectura espera: si no, traía el dato de
+    /// antes del toque y el corazón parpadeaba.
+    test('a change while a like is in flight waits for it', () async {
+      final cubit = FeedCubit(repository, MockHomeFeedRepository(repository));
+      await cubit.load();
+      final hearts = <bool>[];
+      final sub = cubit.stream.listen((state) {
+        if (state is FeedLoaded) hearts.add(state.posts.first.isLiked);
+      });
+
+      final like = cubit.toggleLike('1');
+      repository.emitChange();
+      await like;
+      await pumpEventQueue();
+
+      expect(hearts, isNot(contains(false)));
+      expect((cubit.state as FeedLoaded).posts.first.isLiked, isTrue);
+      await sub.cancel();
+      await cubit.close();
+    });
+
+    test('editing keeps what is only local', () async {
+      repository = FakePostRepository([
+        fakePost('1', canEdit: true, followed: true),
+      ]);
+      final cubit = FeedCubit(repository, MockHomeFeedRepository(repository));
+      await cubit.load();
+      cubit.toggleSave('1');
+
+      await cubit.edit(fakePost('1'), 'texto nuevo');
+
+      final post = (cubit.state as FeedLoaded).posts.single;
+      expect(post.body, 'texto nuevo');
+      expect(post.isSaved, isTrue);
+      expect(post.isFollowed, isTrue);
       await cubit.close();
     });
   });

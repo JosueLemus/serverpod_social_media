@@ -66,8 +66,11 @@ class AuditLogCubit extends Cubit<AuditLogState> {
 
   Future<void> load([AuditFilter? filter]) async {
     emit(state.copyWith(filter: filter, isLoading: true));
+    final requested = state.filter;
     try {
-      final page = await _repository.audit(state.filter);
+      final page = await _repository.audit(requested);
+      // Una página que llega después de otro filtro ya no es de éste.
+      if (isClosed || state.filter != requested) return;
       emit(
         state.copyWith(
           entries: page.items,
@@ -77,6 +80,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         ),
       );
     } on Failure catch (failure) {
+      if (isClosed || state.filter != requested) return;
       emit(
         state.copyWith(
           entries: const [],
@@ -94,6 +98,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
     emit(state.copyWith(isLoadingMore: true));
     try {
       final page = await _repository.audit(state.filter, cursor: cursor);
+      if (isClosed) return;
       emit(
         state.copyWith(
           entries: [...state.entries, ...page.items],
@@ -102,6 +107,7 @@ class AuditLogCubit extends Cubit<AuditLogState> {
         ),
       );
     } on Failure catch (failure) {
+      if (isClosed) return;
       emit(
         state.copyWith(
           isLoadingMore: false,

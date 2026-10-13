@@ -12,6 +12,9 @@ abstract interface class AccountRepository {
   /// Sube [image] y la deja como foto de perfil. Null la quita.
   Future<void> setAvatar(MediaAttachment? image);
 
+  /// Sube [image] y la deja como banner del perfil. Null lo quita.
+  Future<void> setCover(MediaAttachment? image);
+
   /// Ser creador es autoservicio (D14); verificar es del operador.
   Future<void> becomeCreator();
 }

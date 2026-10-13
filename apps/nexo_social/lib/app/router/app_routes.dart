@@ -7,18 +7,29 @@
 abstract final class AppRoutes {
   static const splash = '/splash';
   static const signIn = '/sign-in';
+
+  /// A dónde volver después de iniciar sesión. Lo lleva el splash y lo lleva
+  /// el login: una ruta que pide sesión, abierta sin ella, tiene que terminar
+  /// ahí al entrar y no en el feed. (Las páginas compartidas, [isSharedPage],
+  /// ni siquiera pasan por el login.)
+  static const fromParam = 'from';
+
+  /// El login, recordando [location] para volver ahí al autenticarse.
+  static String signInFrom(String location) =>
+      Uri(path: signIn, queryParameters: {fromParam: location}).toString();
   static const signUp = '/sign-up';
   static const passwordReset = '/password-reset';
 
+  /// Inicio: el feed y, desde que Explorar dejó de ser una pestaña, también el
+  /// descubrimiento (buscador, próximos vivos, replays y tendencias). Menos
+  /// pestañas fue decisión del equipo: descubrir es algo que se hace desde el
+  /// feed, no una sección aparte a la que hay que acordarse de ir.
   static const feed = '/';
 
-  /// Descubrimiento: vivos, temas en tendencia y creadores.
-  ///
-  /// La pestaña se llama **Explorar**, no "En vivo". Lo dicen el diseño y el
-  /// Notion: los vivos son un tipo de contenido dentro del descubrimiento, no
-  /// una sección hermana del feed — y una pestaña dedicada a ellos deja sin
-  /// entrada a perfiles y categorías.
-  static const explore = '/explore';
+  /// La pestaña Explorar ya no existe. La ruta queda sólo para que un enlace
+  /// viejo (`/explore`, `/explore/live/<id>`) redirija a donde vive ahora ese
+  /// contenido en vez de dar una pantalla en blanco.
+  static const legacyExplore = '/explore';
 
   static const activity = '/activity';
 
@@ -54,6 +65,12 @@ abstract final class AppRoutes {
   /// se llega desde el menú de crear, que es una acción y no una pestaña.
   static const scheduleShow = '/schedule-show';
   static const premium = '/premium';
+
+  /// El muro de membresía de un creador puntual. Sin el usuario en la ruta,
+  /// la pantalla era siempre la de Elena, se abriera desde el perfil que se
+  /// abriera.
+  static const premiumPath = '$premium/:username';
+  static String premiumFor(String username) => '$premium/$username';
   static const settings = '/settings';
 
   /// Elegir el tema de la app. Se entra desde el perfil y se empuja sobre el
@@ -64,8 +81,10 @@ abstract final class AppRoutes {
   /// compositor, para que la barra no invite a dejarla a medias.
   static const editProfile = '/edit-profile';
 
-  /// Mensajes directos (SDD 0010): la bandeja y cada chat son rutas raíz
-  /// empujadas sobre el shell, como editar perfil.
+  /// Mensajes directos (SDD 0010). La bandeja es una pestaña del shell, con su
+  /// branch y su pila. Cada chat es una sub-ruta de esa pestaña que se dibuja
+  /// sobre el shell, sin la barra: con el teclado abierto, la barra sólo le
+  /// quita alto a la conversación.
   static const messages = '/messages';
   static const conversationSegment = ':conversationId';
   static const conversationWithSegment = 'with/:userId';
@@ -81,10 +100,11 @@ abstract final class AppRoutes {
   static const liveRoomSegment = 'live/:liveId';
   static const userProfilePath = '$userProfile/:username';
 
-  /// La sala vive **dentro** del branch de Explorar, no en uno propio: se
-  /// entra a un vivo desde el descubrimiento, y una sala en otro branch sería
-  /// justamente el empuje entre branches que la nota de arriba prohíbe.
-  static String liveRoom(String id) => '$explore/live/$id';
+  /// La sala vive **dentro** del branch de Inicio, no en uno propio: se entra
+  /// a un vivo desde el feed (historias, vivo destacado, próximos, búsqueda),
+  /// y una sala en otro branch sería justamente el empuje entre branches que
+  /// la nota de arriba prohíbe.
+  static String liveRoom(String id) => '/live/$id';
 
   /// La ficha de una cuenta, dentro del branch de la consola.
   static const adminAccountSegment = 'account/:accountId';
@@ -127,4 +147,13 @@ abstract final class AppRoutes {
   /// significa que la sesión se acaba de restaurar, así que el redirect manda
   /// al usuario adentro.
   static const publicOnly = <String>{splash, signIn, signUp, passwordReset};
+
+  /// Las páginas que se comparten por enlace: un perfil (`/u/<usuario>`) y
+  /// una publicación (`/p/<id>`). Las abre cualquiera, con o sin sesión: es
+  /// lo que recibe alguien por WhatsApp, y mandarlo a iniciar sesión antes de
+  /// ver lo que le pasaron lo pierde en la puerta.
+  static bool isSharedPage(String location) {
+    final path = Uri.parse(location).path;
+    return path.startsWith('$userProfile/') || path.startsWith('$postPrefix/');
+  }
 }

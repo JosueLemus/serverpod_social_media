@@ -19,8 +19,26 @@ class SuspendedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AuthCubit>().state;
     final suspended = state is AuthSuspended ? state : null;
-    final banned = suspended?.status == AccountStatus.banned;
+    final status = suspended?.status;
     final reason = suspended?.reason;
+    // Tres copys y no dos: si el servidor no dijo cuál sanción fue, decir
+    // "suspendida" le promete un final a una cuenta que quizá no lo tiene.
+    final (title, consequence) = switch (status) {
+      AccountStatus.banned => (
+        'Tu cuenta fue dada de baja',
+        'La decisión es permanente.',
+      ),
+      AccountStatus.suspended => (
+        'Tu cuenta está suspendida',
+        'Mientras dure la suspensión no puedes iniciar sesión, publicar ni '
+            'comentar.',
+      ),
+      AccountStatus.active || null => (
+        'Tu cuenta no está activa',
+        'Una sanción impide usar esta cuenta. Si crees que es un error, '
+            'escríbenos.',
+      ),
+    };
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -41,9 +59,7 @@ class SuspendedPage extends StatelessWidget {
                   Enter(
                     index: 1,
                     child: Text(
-                      banned
-                          ? 'Tu cuenta fue dada de baja'
-                          : 'Tu cuenta está suspendida',
+                      title,
                       key: const Key('suspended-title'),
                       style: Theme.of(context).textTheme.displaySmall,
                       textAlign: TextAlign.center,
@@ -55,10 +71,7 @@ class SuspendedPage extends StatelessWidget {
                     child: Text(
                       [
                         if (reason != null) 'Motivo: ${reason.label}.',
-                        banned
-                            ? 'La decisión es permanente.'
-                            : 'Mientras dure la suspensión no puedes iniciar '
-                                  'sesión, publicar ni comentar.',
+                        consequence,
                       ].join(' '),
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppColors.textSecondary,

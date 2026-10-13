@@ -4,3 +4,5 @@ fields:
   username: String?
   displayName: String?
   bio: String?
+  ### Vacío lo quita.
+  website: String?

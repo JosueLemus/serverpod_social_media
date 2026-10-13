@@ -13,7 +13,7 @@ class ProfilesEndpoint extends Endpoint {
   /// La cuenta de la sesión, con sus roles. Exige sesión.
   Future<AccountView> me(Session session) => _identity.me(session);
 
-  /// Cambia nombre de usuario, nombre visible o bio. Exige sesión.
+  /// Cambia nombre de usuario, nombre visible, bio o enlace. Exige sesión.
   /// `conflict` si el nombre de usuario ya está en uso.
   Future<AccountView> update(Session session, ProfileEdit edit) =>
       _identity.update(session, edit);
@@ -35,6 +35,24 @@ class ProfilesEndpoint extends Endpoint {
   /// tiene que ser de esta cuenta. Exige sesión.
   Future<AccountView> setAvatar(Session session, String? key) =>
       _identity.setAvatar(session, key);
+
+  /// El permiso para subir el banner del perfil: JPEG, PNG o WebP de hasta
+  /// 8 MB. Se sube con `FileUploader(ticket.uploadDescription)` y se confirma
+  /// con [setCover]. Exige sesión.
+  Future<MediaUploadTicket> requestCoverUpload(
+    Session session, {
+    required String contentType,
+    required int sizeBytes,
+  }) => _identity.requestCoverUpload(
+    session,
+    contentType: contentType,
+    sizeBytes: sizeBytes,
+  );
+
+  /// Confirma el banner subido con [key], o lo quita con `null`. La clave
+  /// tiene que ser de esta cuenta. Exige sesión.
+  Future<AccountView> setCover(Session session, String? key) =>
+      _identity.setCover(session, key);
 
   /// Declara la cuenta como creadora. La verificación la da un operador.
   Future<AccountView> becomeCreator(Session session) =>

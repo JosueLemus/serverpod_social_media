@@ -24,6 +24,7 @@ class ServerpodAccountRepository implements AccountRepository {
         username: changes.username,
         displayName: changes.displayName,
         bio: changes.bio,
+        website: changes.website,
       ),
     );
   });
@@ -43,6 +44,23 @@ class ServerpodAccountRepository implements AccountRepository {
     ).uploadByteData(ByteData.sublistView(image.bytes));
     if (!uploaded) throw const NetworkFailure('avatar upload failed');
     await _client.profiles.setAvatar(ticket.key);
+  });
+
+  @override
+  Future<void> setCover(MediaAttachment? image) => _guard(() async {
+    if (image == null) {
+      await _client.profiles.setCover(null);
+      return;
+    }
+    final ticket = await _client.profiles.requestCoverUpload(
+      contentType: image.contentType,
+      sizeBytes: image.sizeBytes,
+    );
+    final uploaded = await api.FileUploader(
+      ticket.uploadDescription,
+    ).uploadByteData(ByteData.sublistView(image.bytes));
+    if (!uploaded) throw const NetworkFailure('cover upload failed');
+    await _client.profiles.setCover(ticket.key);
   });
 
   @override

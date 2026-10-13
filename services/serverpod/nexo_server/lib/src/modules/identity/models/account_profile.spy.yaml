@@ -17,6 +17,11 @@ fields:
   ### clave y no la URL: la URL la arma el storage y cambia de servidor a
   ### servidor.
   avatarKey: String?
+  ### La clave del banner del perfil en el storage público
+  ### (`covers/<userId>/…`). Mismo criterio que [avatarKey].
+  coverKey: String?
+  ### Un enlace propio (http/https), el que se muestra bajo la bio.
+  website: String?
   ### "Creador" no es un scope: es un dato del perfil.
   isCreator: bool, default=false
   verification: VerificationStatus, default=none

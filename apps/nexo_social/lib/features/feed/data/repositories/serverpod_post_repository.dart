@@ -101,6 +101,10 @@ class ServerpodPostRepository implements PostRepository {
         final state = liked
             ? await _client.likes.like(id)
             : await _client.likes.unlike(id);
+        // Un like desde la publicación tiene que verse en el feed y en el
+        // perfil que quedaron debajo. Después de la respuesta: quien relee
+        // tiene que encontrar el contador ya cambiado.
+        _notify();
         return LikeResult(isLiked: state.isLiked, likes: state.likeCount);
       });
 
@@ -112,6 +116,7 @@ class ServerpodPostRepository implements PostRepository {
         PostLiker(
           username: liker.username ?? '',
           name: liker.name ?? liker.username ?? '',
+          avatarUrl: liker.avatarUrl,
         ),
     ];
   });

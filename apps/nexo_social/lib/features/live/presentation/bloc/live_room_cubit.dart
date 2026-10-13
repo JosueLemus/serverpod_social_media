@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/domain/repositories/moderation_repository.dart';
+import '../../../subscriptions/domain/repositories/subscription_repository.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
@@ -50,6 +51,9 @@ class LiveRoomState extends Equatable {
     this.highlightedComment,
     this.myMute,
     this.exclusion,
+    this.loadFailed = false,
+    this.locked = false,
+    this.handedOff = false,
   });
 
   /// Null while loading, and when the id does not resolve.
@@ -110,6 +114,20 @@ class LiveRoomState extends Equatable {
   /// reconectarse: insistir sería pedirle al servidor que repita el "no".
   final LiveSanctionKind? exclusion;
 
+  /// El Studio no pudo traer los shows del host. No es lo mismo que no tener
+  /// ninguno: con `notFound` la View ofrecía programar uno mientras el
+  /// servidor estaba caído, y el host creía haber perdido su agenda.
+  final bool loadFailed;
+
+  /// El vivo es sólo para miembros y quien mira no lo es (o todavía no se
+  /// sabe). La sala no entra al video: muestra la invitación a sumarse.
+  final bool locked;
+
+  /// El host abrió su propio vivo desde la sala y se fue a su Studio. La sala
+  /// deja de escucharlo: si no, el branch de Inicio lo seguía contando como
+  /// espectador de sí mismo.
+  final bool handedOff;
+
   bool get isOnStage => stage.meOnStage;
   bool get handRaised => stage.myHandRaised;
 
@@ -118,6 +136,11 @@ class LiveRoomState extends Equatable {
   bool can(LiveAction action) => LivePermissions.hasAction(role, action);
 
   bool get canModerate => LivePermissions.hasAction(role, LiveAction.hideChat);
+
+  /// Si quien mira puede escribir en el chat. Con las preguntas apagadas
+  /// sólo escriben el host y quienes moderan: la audiencia mira.
+  bool get canComment =>
+      session?.allowQuestions != false || role != LiveRole.audience;
 
   LiveRoomState copyWith({
     LiveSession? session,
@@ -141,6 +164,9 @@ class LiveRoomState extends Equatable {
     bool clearPinned = false,
     bool clearHighlighted = false,
     bool clearMute = false,
+    bool? loadFailed,
+    bool? locked,
+    bool? handedOff,
   }) => LiveRoomState(
     session: session ?? this.session,
     role: role ?? this.role,
@@ -162,6 +188,9 @@ class LiveRoomState extends Equatable {
         : highlightedComment ?? this.highlightedComment,
     myMute: clearMute ? null : myMute ?? this.myMute,
     exclusion: exclusion ?? this.exclusion,
+    loadFailed: loadFailed ?? this.loadFailed,
+    locked: locked ?? this.locked,
+    handedOff: handedOff ?? this.handedOff,
   );
 
   @override
@@ -184,6 +213,9 @@ class LiveRoomState extends Equatable {
     highlightedComment,
     myMute,
     exclusion,
+    loadFailed,
+    locked,
+    handedOff,
   ];
 }
 
@@ -191,6 +223,7 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   LiveRoomCubit(
     this._repository,
     this._moderation, {
+    this._subscriptions,
     DateTime Function()? now,
     this.reconnectDelays = defaultReconnectDelays,
   }) : _now = now ?? DateTime.now,
@@ -198,12 +231,31 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
 
   final LiveRepository _repository;
   final ModerationRepository _moderation;
+
+  /// De dónde sale si quien mira es miembro del host. Null: no hay fuente, y
+  /// la sala no bloquea nada (el servidor tampoco lo exige todavía).
+  final SubscriptionRepository? _subscriptions;
   final DateTime Function() _now;
 
   StreamSubscription<LiveRoomEvent>? _events;
+  StreamSubscription<void>? _studioChanges;
   Timer? _reconnect;
   Timer? _clock;
   int _attempt = 0;
+
+  /// El vivo que escucha la sala, para retomarlo después de [pause].
+  String? _liveId;
+
+  /// La pantalla no está a la vista (otra pestaña, otra ruta encima). Sin
+  /// escuchar, el servidor no la cuenta como espectadora.
+  bool _paused = false;
+
+  /// El host cuya membresía ya se consultó. Una consulta por host y no una
+  /// por cada evento: la sala recibe uno cada pocos segundos.
+  String? _accessCheckedFor;
+
+  /// El `?show=` con el que se abrió el Studio, para recargarlo igual.
+  String? _studioRequested;
 
   /// Entre reintentos cuando se corta la sala: rápido al principio y después
   /// cada 5 s, sin rendirse mientras la pantalla esté abierta.
@@ -218,7 +270,9 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   /// Abre la sala y se queda escuchándola. Termina cuando llega la primera
   /// foto (o cuando queda claro que la sala no existe).
   Future<void> load(String id) async {
-    emit(state.copyWith(isLoading: true, notFound: false));
+    _liveId = id;
+    _paused = false;
+    emit(state.copyWith(isLoading: true, notFound: false, loadFailed: false));
     final ready = Completer<void>();
     _subscribe(id, ready);
     await ready.future;
@@ -273,10 +327,11 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   }
 
   void _scheduleReconnect(String id) {
-    if (isClosed || (_reconnect?.isActive ?? false)) return;
+    if (isClosed || _paused || (_reconnect?.isActive ?? false)) return;
     unawaited(_events?.cancel());
     _events = null;
-    // Sin foto todavía no hay sala que mostrar "reconectando".
+    // Sin foto todavía, `reconnecting` sin `session` es la pantalla de
+    // espera, no la de "este vivo ya no está": eso lo dice sólo `notFound`.
     emit(
       state.copyWith(
         isLoading: state.session == null ? false : null,
@@ -368,6 +423,82 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
         );
     }
     _syncClock();
+    _syncAccess();
+  }
+
+  /// Un vivo "Solo miembros" no entra al video para quien no lo es. Mientras
+  /// se consulta queda bloqueado: abrir el video y cortarlo un segundo
+  /// después es mostrar justo lo que se cobra.
+  ///
+  /// El host, sus cohosts y quienes moderan no pasan por acá: el rol lo
+  /// decide el servidor.
+  void _syncAccess() {
+    final session = state.session;
+    final subscriptions = _subscriptions;
+    if (session == null ||
+        !session.isPremium ||
+        state.role != LiveRole.audience ||
+        subscriptions == null) {
+      _accessCheckedFor = null;
+      if (state.locked) emit(state.copyWith(locked: false));
+      return;
+    }
+    // El mock no conoce el handle del host: cae a su id.
+    final host = session.hostUsername.isEmpty
+        ? session.hostId
+        : session.hostUsername;
+    if (_accessCheckedFor == host) return;
+    _accessCheckedFor = host;
+    emit(state.copyWith(locked: true));
+    unawaited(_checkMembership(subscriptions, host));
+  }
+
+  Future<void> _checkMembership(
+    SubscriptionRepository subscriptions,
+    String host,
+  ) async {
+    try {
+      final entitlement = await subscriptions.entitlement(host);
+      if (isClosed || _accessCheckedFor != host) return;
+      emit(state.copyWith(locked: !entitlement.active));
+    } on Failure {
+      // Sin respuesta no se abre: queda la invitación, y volver del paywall
+      // pregunta de nuevo ([refreshAccess]).
+    }
+  }
+
+  /// Vuelve a preguntar por la membresía, por ejemplo al volver del paywall.
+  void refreshAccess() {
+    _accessCheckedFor = null;
+    _syncAccess();
+  }
+
+  /// La pantalla dejó de estar a la vista: deja de escuchar la sala para no
+  /// contar como espectadora. No emite: se llama mientras el árbol cambia.
+  void pause() {
+    if (_paused) return;
+    _paused = true;
+    _reconnect?.cancel();
+    _reconnect = null;
+    unawaited(_events?.cancel());
+    _events = null;
+  }
+
+  /// Vuelve a escuchar la sala. Llega una foto nueva, así que lo que pasó
+  /// mientras no se miraba se resincroniza solo.
+  void resume() {
+    if (!_paused || isClosed || state.handedOff || state.notFound) return;
+    _paused = false;
+    final id = _liveId;
+    if (id != null) _subscribe(id);
+  }
+
+  /// El host abrió su propio vivo como audiencia y se va a su Studio. La
+  /// sala deja de escuchar y no lo retoma: el host no es espectador de sí
+  /// mismo, y el branch de Inicio conserva la página montada.
+  void handOffToStudio() {
+    pause();
+    emit(state.copyWith(handedOff: true));
   }
 
   /// Fuera de la sala: deja de escuchar y de reconectarse.
@@ -436,14 +567,24 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   }
 
   /// El Studio: abre el show del host en sesión según [pickStudioShow]. Sin
-  /// ninguno, queda en `notFound` y la View ofrece programar uno.
+  /// ninguno, queda en `notFound` y la View ofrece programar uno; si el
+  /// servidor falla, en `loadFailed` y la View ofrece reintentar.
+  ///
+  /// Mientras no hay show, el Studio escucha los cambios de vivos: uno recién
+  /// programado (desde acá o desde "Crear") aparece sin recargar. Se cargaba
+  /// una sola vez, y volver de programar dejaba "Todavía no tienes un vivo".
   Future<void> loadStudio({String? requested}) async {
-    emit(state.copyWith(isLoading: true, notFound: false));
+    _studioRequested = requested;
+    _studioChanges ??= _repository.changes().listen((_) {
+      if (isClosed || state.session != null || state.isLoading) return;
+      unawaited(loadStudio(requested: _studioRequested));
+    });
+    emit(state.copyWith(isLoading: true, notFound: false, loadFailed: false));
     final List<LiveSession> mine;
     try {
       mine = await _repository.mine();
     } on Failure {
-      if (!isClosed) emit(state.copyWith(isLoading: false, notFound: true));
+      if (!isClosed) emit(state.copyWith(isLoading: false, loadFailed: true));
       return;
     }
     if (isClosed) return;
@@ -471,11 +612,14 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
 
   void toggleLove() => emit(state.copyWith(loved: !state.loved));
 
-  Future<void> sendComment(String text) async {
+  /// `true` si el servidor lo aceptó. La View limpia el campo sólo entonces:
+  /// borrarlo antes perdía el mensaje cuando el servidor decía que no
+  /// (silenciado, demasiado rápido).
+  Future<bool> sendComment(String text) async {
     final body = text.trim();
     final session = state.session;
-    if (body.isEmpty || session == null) return;
-    await _try(() async {
+    if (body.isEmpty || session == null || !state.canComment) return false;
+    return _try(() async {
       _addComment(await _repository.postComment(session.id, body));
     });
   }
@@ -648,11 +792,13 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
     });
   }
 
-  Future<void> _try(Future<void> Function() action) async {
+  /// `true` si [action] terminó sin que el servidor la rechazara.
+  Future<bool> _try(Future<void> Function() action) async {
     try {
       await action();
+      return true;
     } on Failure catch (failure) {
-      if (isClosed) return;
+      if (isClosed) return false;
       emit(
         state.copyWith(
           issue: switch (failure) {
@@ -667,6 +813,7 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
           issueSerial: state.issueSerial + 1,
         ),
       );
+      return false;
     }
   }
 
@@ -674,6 +821,7 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   Future<void> close() async {
     _reconnect?.cancel();
     _clock?.cancel();
+    await _studioChanges?.cancel();
     await _events?.cancel();
     return super.close();
   }

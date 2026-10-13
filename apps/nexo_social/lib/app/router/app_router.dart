@@ -15,11 +15,11 @@ import '../../features/admin/presentation/pages/account_detail_page.dart';
 import '../../features/admin/presentation/pages/admin_console_page.dart';
 import '../../features/feed/presentation/pages/feed_page.dart';
 import '../../features/feed/presentation/pages/post_detail_page.dart';
-import '../../features/explore/presentation/pages/explore_page.dart';
 import '../../features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import '../../features/live/presentation/pages/creator_studio_page.dart';
 import '../../features/live/presentation/pages/live_room_page.dart';
 import '../../features/moderation/presentation/pages/moderation_page.dart';
+import '../../features/messages/presentation/bloc/unread_messages_cubit.dart';
 import '../../features/notifications/presentation/bloc/unread_activity_cubit.dart';
 import '../../features/notifications/presentation/pages/activity_page.dart';
 import '../../features/posts/presentation/pages/create_post_page.dart';
@@ -38,12 +38,14 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// a seeded [AuthCubit] and assert the guards. A global would bind to whatever
 /// the previous test left in the service locator.
 ///
-/// [unread] es el conteo de la campana. Opcional para que los tests de
-/// guardas no tengan que armar la bandeja; sin él, el shell no dibuja badge.
+/// [unread] es el conteo de la campana y [unreadMessages], el de Mensajes.
+/// Opcionales para que los tests de guardas no tengan que armar las bandejas;
+/// sin ellos, el shell no dibuja badge.
 GoRouter createRouter(
   AuthCubit auth, {
   String? initialLocation,
   UnreadActivityCubit? unread,
+  UnreadMessagesCubit? unreadMessages,
 }) => GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: initialLocation ?? AppRoutes.splash,
@@ -51,7 +53,7 @@ GoRouter createRouter(
   redirect: (context, state) => _guard(
     auth.state,
     state.matchedLocation,
-    from: state.uri.queryParameters[_fromParameter],
+    from: state.uri.queryParameters[AppRoutes.fromParam],
   ),
   routes: [
     GoRoute(
@@ -94,6 +96,17 @@ GoRouter createRouter(
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const SubscriptionPage(),
     ),
+    // El muro de un creador puntual. Ruta propia y no sub-ruta de
+    // [AppRoutes.premium]: anidada, empujarla apilaría también el muro sin
+    // creador debajo. La guarda la cubre igual, porque compara por segmento.
+    GoRoute(
+      path: AppRoutes.premiumPath,
+      parentNavigatorKey: rootNavigatorKey,
+      builder: (context, state) => SubscriptionPage(
+        key: ValueKey(state.pathParameters['username']),
+        creator: state.pathParameters['username'],
+      ),
+    ),
     GoRoute(
       path: AppRoutes.editProfile,
       parentNavigatorKey: rootNavigatorKey,
@@ -104,27 +117,6 @@ GoRouter createRouter(
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>
           PostDetailPage(postId: state.pathParameters['postId'] ?? ''),
-    ),
-    GoRoute(
-      path: AppRoutes.messages,
-      parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const MessagesInboxPage(),
-      routes: [
-        // Antes que `:conversationId`: si no, "with" se leería como un id.
-        GoRoute(
-          path: AppRoutes.conversationWithSegment,
-          parentNavigatorKey: rootNavigatorKey,
-          builder: (context, state) =>
-              ConversationPage(userId: state.pathParameters['userId']),
-        ),
-        GoRoute(
-          path: AppRoutes.conversationSegment,
-          parentNavigatorKey: rootNavigatorKey,
-          builder: (context, state) => ConversationPage(
-            conversationId: state.pathParameters['conversationId'],
-          ),
-        ),
-      ],
     ),
     GoRoute(
       path: AppRoutes.userProfilePath,
@@ -154,48 +146,100 @@ GoRouter createRouter(
       ),
     ),
 
+    // Explorar dejó de ser una pestaña: lo que tenía vive en Inicio. Un enlace
+    // viejo (compartido, guardado, de una notificación anterior) redirige en
+    // vez de caer en la pantalla de ruta no encontrada.
+    GoRoute(
+      path: AppRoutes.legacyExplore,
+      // El redirect de un padre también corre para sus sub-rutas: sólo
+      // `/explore` pelado va al feed, y `/explore/live/<id>` sigue al hijo.
+      redirect: (context, state) =>
+          state.uri.path.replaceAll(RegExp(r'/+$'), '') ==
+              AppRoutes.legacyExplore
+          ? AppRoutes.feed
+          : null,
+      routes: [
+        GoRoute(
+          path: AppRoutes.liveRoomSegment,
+          redirect: (context, state) =>
+              AppRoutes.liveRoom(state.pathParameters['liveId'] ?? 'preview'),
+        ),
+      ],
+    ),
+
     StatefulShellRoute.indexedStack(
-      // Sólo el shell escucha el conteo: el router no se reconstruye por un
-      // aviso nuevo, y las pestañas conservan su pila.
-      builder: (context, state, navigationShell) => unread == null
-          ? AppShell(navigationShell: navigationShell)
-          : BlocBuilder<UnreadActivityCubit, int>(
-              bloc: unread,
-              builder: (context, count) => AppShell(
-                navigationShell: navigationShell,
-                unreadActivity: count,
-              ),
-            ),
+      // Sólo el shell escucha los conteos: el router no se reconstruye por un
+      // aviso o un mensaje nuevo, y las pestañas conservan su pila.
+      builder: (context, state, navigationShell) {
+        Widget shell(int activity, int messages) => AppShell(
+          navigationShell: navigationShell,
+          unreadActivity: activity,
+          unreadMessages: messages,
+        );
+        Widget withMessages(int activity) => unreadMessages == null
+            ? shell(activity, 0)
+            : BlocBuilder<UnreadMessagesCubit, int>(
+                bloc: unreadMessages,
+                builder: (context, messages) => shell(activity, messages),
+              );
+        return unread == null
+            ? withMessages(0)
+            : BlocBuilder<UnreadActivityCubit, int>(
+                bloc: unread,
+                builder: (context, activity) => withMessages(activity),
+              );
+      },
       branches: [
         StatefulShellBranch(
           routes: [
             GoRoute(
               path: AppRoutes.feed,
               builder: (context, state) => const FeedPage(),
+              routes: [
+                // La sala vive dentro del branch de Inicio: se entra a un vivo
+                // desde el feed, y ponerla en otro branch sería el empuje
+                // entre branches que deja la página en un Navigator que no
+                // está en pantalla.
+                GoRoute(
+                  path: AppRoutes.liveRoomSegment,
+                  builder: (context, state) => LiveRoomPage(
+                    liveId: state.pathParameters['liveId'] ?? 'preview',
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: AppRoutes.explore,
-              builder: (context, state) => const ExplorePage(),
+              path: AppRoutes.messages,
+              builder: (context, state) => const MessagesInboxPage(),
               routes: [
-                // La sala vive dentro del branch de Explorar: se entra a un
-                // vivo desde el descubrimiento, y ponerla en otro branch sería
-                // el empuje entre branches que deja la página en un Navigator
-                // que no está en pantalla.
+                // Sub-rutas de la pestaña, dibujadas sobre el shell: el back
+                // vuelve a la bandeja, y el chat no comparte el alto con la
+                // barra mientras el teclado está abierto.
                 //
-                // `parentNavigatorKey: rootNavigatorKey` la empuja **sobre** el
-                // shell en vez de dentro de él: la barra de navegación se tapa
-                // porque la sala es inmersiva (SDD 0011, Etapa 4), pero sigue
-                // siendo una ruta del branch de Explorar, así que volver atrás
-                // vuelve al descubrimiento y la pila de Explorar sobrevive.
+                // Antes que `:conversationId`: si no, "with" se leería como un
+                // id.
+                //
+                // La sala en vivo ya no vive acá: migró al branch de Inicio
+                // cuando Explorar dejó de ser pestaña (ver `/feed/live/:liveId`
+                // arriba). El `parentNavigatorKey: rootNavigatorKey` que
+                // llevaba la sala sigue valiendo para las sub-rutas del chat:
+                // la empuja sobre el shell, así que el teclado abierto no
+                // compite con la barra inferior.
                 GoRoute(
-                  path: AppRoutes.liveRoomSegment,
+                  path: AppRoutes.conversationWithSegment,
                   parentNavigatorKey: rootNavigatorKey,
-                  builder: (context, state) => LiveRoomPage(
-                    liveId: state.pathParameters['liveId'] ?? 'preview',
+                  builder: (context, state) =>
+                      ConversationPage(userId: state.pathParameters['userId']),
+                ),
+                GoRoute(
+                  path: AppRoutes.conversationSegment,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => ConversationPage(
+                    conversationId: state.pathParameters['conversationId'],
                   ),
                 ),
               ],
@@ -273,8 +317,27 @@ GoRouter createRouter(
 String? guardRedirect(AuthState auth, String location, {String? from}) =>
     _guard(auth, location, from: from);
 
-/// A dónde iba la persona antes de que el splash la retuviera.
-const _fromParameter = 'from';
+/// [from] si es un destino al que se puede volver: una ruta de la app, que no
+/// sea el propio flujo sin sesión. Un `//host` también empieza con barra y
+/// es otro sitio, así que no cuenta.
+String? _resumable(String? from) {
+  if (from == null || !from.startsWith('/') || from.startsWith('//')) {
+    return null;
+  }
+  final path = Uri.tryParse(from)?.path ?? from;
+  if (path == AppRoutes.splash ||
+      path == AppRoutes.suspended ||
+      AppRoutes.publicOnly.contains(path)) {
+    return null;
+  }
+  return from;
+}
+
+/// El login recordando [location], salvo que no haya nada que recordar: el
+/// feed es a donde se llega igual.
+String _signInFrom(String location) => location == AppRoutes.feed
+    ? AppRoutes.signIn
+    : AppRoutes.signInFrom(location);
 
 String? _guard(AuthState auth, String location, {String? from}) {
   // The session has not been read from storage yet. Anything but the splash
@@ -289,7 +352,7 @@ String? _guard(AuthState auth, String location, {String? from}) {
     if (location == AppRoutes.splash) return null;
     return Uri(
       path: AppRoutes.splash,
-      queryParameters: {_fromParameter: location},
+      queryParameters: {AppRoutes.fromParam: location},
     ).toString();
   }
 
@@ -313,19 +376,25 @@ String? _guard(AuthState auth, String location, {String? from}) {
     // Con sesión, se retoma el destino pedido. Esa ruta pasa por el guard
     // igual que cualquier otra, así que un usuario que pidió `/admin` sigue
     // terminando en el feed: recordar el destino no salta ningún permiso.
-    final resumes =
-        auth is AuthAuthenticated &&
-        from != null &&
-        from.startsWith('/') &&
-        from != AppRoutes.splash &&
-        !AppRoutes.publicOnly.contains(from);
-    return resumes ? from : resolvedSplash;
+    // Sin sesión, el destino viaja al login para retomarlo después, salvo
+    // que sea una página compartida: ésa se abre sin sesión, así que un
+    // enlace abierto en frío va directo a lo que le pasaron.
+    final resumable = _resumable(from);
+    if (resumable == null) return resolvedSplash;
+    if (auth is AuthAuthenticated || AppRoutes.isSharedPage(resumable)) {
+      return resumable;
+    }
+    return _signInFrom(resumable);
   }
 
   if (location == AppRoutes.suspended) return resolvedSplash;
 
+  // Sin sesión, una página compartida se abre igual y el resto pide entrar.
+  // El login recuerda a dónde se iba: una ruta con sesión abierta sin ella
+  // terminaba en el feed después de iniciarla.
   if (auth is! AuthAuthenticated) {
-    return isPublic ? null : AppRoutes.signIn;
+    if (AppRoutes.isSharedPage(location)) return null;
+    return isPublic ? null : _signInFrom(location);
   }
 
   // A visitor is signed in only in the sense that a guest session exists. They
@@ -335,10 +404,15 @@ String? _guard(AuthState auth, String location, {String? from}) {
   // A real account has no reason to sit on sign-in. A visitor does: that page
   // is how they upgrade, so sending them away would make the wall unreachable
   // and bounce them between /sign-in and / forever.
-  if (isPublic) return isVisitor ? null : AppRoutes.feed;
+  //
+  // Recién autenticada, la cuenta vuelve a donde iba si el login lo
+  // recordaba. Ese destino pasa por la guarda como cualquier otro.
+  if (isPublic) {
+    return isVisitor ? null : (_resumable(from) ?? AppRoutes.feed);
+  }
 
   if (isVisitor && _isUnder(AppRoutes.authenticatedOnly, location)) {
-    return AppRoutes.signIn;
+    return _signInFrom(location);
   }
 
   // Por rol. Al feed y no al login: la cuenta es real, sólo no tiene el

@@ -11,7 +11,6 @@ import 'package:nexo_social/features/messages/domain/repositories/messages_repos
 import 'package:nexo_social/features/messages/presentation/bloc/unread_messages_cubit.dart';
 import 'package:nexo_social/features/messages/presentation/pages/conversation_page.dart';
 import 'package:nexo_social/features/messages/presentation/pages/messages_inbox_page.dart';
-import 'package:nexo_social/features/messages/presentation/widgets/messages_button.dart';
 
 import '../../../support/app_harness.dart';
 
@@ -26,12 +25,9 @@ void main() {
     initialLocation: initialLocation,
     routes: [
       GoRoute(
-        path: '/',
-        builder: (_, _) => const Scaffold(body: MessagesButton()),
-      ),
-      GoRoute(
         path: AppRoutes.messages,
-        builder: (_, _) => const MessagesInboxPage(),
+        // En la app la bandeja vive dentro del Scaffold del shell.
+        builder: (_, _) => const Scaffold(body: MessagesInboxPage()),
         routes: [
           GoRoute(
             path: AppRoutes.conversationWithSegment,
@@ -65,26 +61,31 @@ void main() {
     await AppHarness.settle(tester);
   }
 
-  testWidgets(
-    'the feed button shows unread conversations and opens the inbox',
-    (tester) async {
-      await pump(tester, '/');
-      // El mock arranca con una conversación con Elena y un mensaje sin leer.
-      expect(find.text('1'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('feed-messages')));
-      await AppHarness.settle(tester);
-      expect(find.byType(MessagesInboxPage), findsOneWidget);
-      expect(find.text(DemoAccounts.elena.name), findsOneWidget);
-      expect(find.textContaining('¿Viste el vivo'), findsOneWidget);
-    },
+  /// Una fila de la bandeja, por su key (`conversation-<id>`): la barra de
+  /// marca de la página también tiene InkWells.
+  final conversationTile = find.byWidgetPredicate(
+    (widget) =>
+        widget is InkWell &&
+        widget.key is ValueKey<String> &&
+        (widget.key! as ValueKey<String>).value.startsWith('conversation-'),
   );
+
+  testWidgets('the inbox lists the conversations with their last message', (
+    tester,
+  ) async {
+    // El mock arranca con una conversación con Elena y un mensaje sin leer.
+    await pump(tester, AppRoutes.messages);
+
+    expect(find.byType(MessagesInboxPage), findsOneWidget);
+    expect(find.text(DemoAccounts.elena.name), findsOneWidget);
+    expect(find.textContaining('¿Viste el vivo'), findsOneWidget);
+  });
 
   testWidgets('a conversation opens from the inbox and a message is sent', (
     tester,
   ) async {
     await pump(tester, AppRoutes.messages);
-    await tester.tap(find.byType(InkWell).first);
+    await tester.tap(conversationTile.first);
     await AppHarness.settle(tester);
 
     expect(find.byType(ConversationPage), findsOneWidget);

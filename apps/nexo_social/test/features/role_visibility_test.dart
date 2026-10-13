@@ -57,25 +57,38 @@ void main() {
   });
 
   group('el perfil propio', () {
-    testWidgets('un operador ve su cuenta y su rol, no a Elena', (
+    testWidgets('un operador ve su perfil real con su rol, no a Elena', (
       tester,
     ) async {
       await signInAs(DemoAccounts.operator);
       await pumpPhone(tester, const ProfilePage());
 
-      expect(find.text(DemoAccounts.operator.name), findsOneWidget);
+      expect(find.text(DemoAccounts.operator.name), findsWidgets);
+      expect(find.text('@${DemoAccounts.operator.username}'), findsOneWidget);
+      expect(find.byKey(const Key('profile-staff-role')), findsOneWidget);
       expect(find.text('OPERADOR'), findsWidgets);
       expect(find.text('@elena_ux'), findsNothing);
+
+      // La consola sigue a mano, desde el menú del perfil.
+      await tester.tap(find.byTooltip('Opciones del perfil'));
+      await tester.pumpAndSettle();
+      expect(find.text('Consola de operador'), findsOneWidget);
     });
 
-    testWidgets('un espectador ve que no tiene acceso a moderar', (
+    testWidgets('un espectador ve su perfil sin rol de staff ni moderación', (
       tester,
     ) async {
       await signInAs(DemoAccounts.viewer);
       await pumpPhone(tester, const ProfilePage());
 
-      expect(find.text('USUARIO'), findsOneWidget);
-      expect(find.text('Abrir moderación'), findsNothing);
+      expect(find.text('@${DemoAccounts.viewer.username}'), findsOneWidget);
+      expect(find.byKey(const Key('profile-staff-role')), findsNothing);
+
+      await tester.tap(find.byTooltip('Opciones del perfil'));
+      await tester.pumpAndSettle();
+      expect(find.text('Moderación'), findsNothing);
+      expect(find.text('Consola de operador'), findsNothing);
+      expect(find.text('Cerrar sesión'), findsOneWidget);
     });
   });
 }

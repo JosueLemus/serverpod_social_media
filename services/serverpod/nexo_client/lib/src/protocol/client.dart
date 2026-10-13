@@ -455,7 +455,7 @@ class EndpointProfiles extends _isc.EndpointRef {
         {},
       );
 
-  /// Cambia nombre de usuario, nombre visible o bio. Exige sesión.
+  /// Cambia nombre de usuario, nombre visible, bio o enlace. Exige sesión.
   /// `conflict` si el nombre de usuario ya está en uso.
   _ida.Future<_i0b9qmvw.AccountView> update(_ih9nymjn.ProfileEdit edit) =>
       caller.callServerEndpoint<_i0b9qmvw.AccountView>(
@@ -485,6 +485,30 @@ class EndpointProfiles extends _isc.EndpointRef {
       caller.callServerEndpoint<_i0b9qmvw.AccountView>(
         'profiles',
         'setAvatar',
+        {'key': key},
+      );
+
+  /// El permiso para subir el banner del perfil: JPEG, PNG o WebP de hasta
+  /// 8 MB. Se sube con `FileUploader(ticket.uploadDescription)` y se confirma
+  /// con [setCover]. Exige sesión.
+  _ida.Future<_ifucagw2.MediaUploadTicket> requestCoverUpload({
+    required String contentType,
+    required int sizeBytes,
+  }) => caller.callServerEndpoint<_ifucagw2.MediaUploadTicket>(
+    'profiles',
+    'requestCoverUpload',
+    {
+      'contentType': contentType,
+      'sizeBytes': sizeBytes,
+    },
+  );
+
+  /// Confirma el banner subido con [key], o lo quita con `null`. La clave
+  /// tiene que ser de esta cuenta. Exige sesión.
+  _ida.Future<_i0b9qmvw.AccountView> setCover(String? key) =>
+      caller.callServerEndpoint<_i0b9qmvw.AccountView>(
+        'profiles',
+        'setCover',
         {'key': key},
       );
 

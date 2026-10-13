@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/errors/failures.dart';
+
 /// El nivel de permiso de la cuenta. Espeja los scopes de Serverpod
 /// (`NexoScopes.moderator`, `NexoScopes.admin`) y son excluyentes.
 ///
@@ -59,4 +61,18 @@ class AppUser extends Equatable {
     status,
     avatarUrl,
   ];
+}
+
+/// El fallo de una cuenta sancionada, con la sanción que la dejó afuera. Lo
+/// arma quien ya leyó la cuenta, para que la pantalla de suspensión no tenga
+/// que adivinar si fue temporal o definitiva.
+extension SanctionedAccountFailure on AppUser {
+  AccountSuspendedFailure suspendedFailure(String origin) =>
+      AccountSuspendedFailure(
+        origin,
+        sanction: status == AccountStatus.banned
+            ? AccountSanction.banned
+            : AccountSanction.suspended,
+        accountId: id,
+      );
 }

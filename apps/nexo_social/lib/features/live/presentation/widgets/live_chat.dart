@@ -140,6 +140,11 @@ class LiveChatLine extends StatelessWidget {
       author: comment.author,
       comment: comment.body,
       canModerate: cubit.state.canModerate,
+      // En la sala, "silenciar" es `muteInChat` (silencio de este vivo) y
+      // "bloquear" es `kick` (sacarlo de este vivo). Las dos las aplica el
+      // repositorio de vivos (SDD 0011, Etapa 3): la hoja no las muestra
+      // apagadas acá, aunque sí lo haga desde la consola de reportes.
+      sanctionsAvailable: true,
     );
     if (decision == null) return;
 
@@ -273,6 +278,7 @@ class LiveChatComposer extends StatelessWidget {
     this.fieldKey = const Key('live-comment-field'),
     this.sendKey = const Key('live-send'),
     this.liftAboveKeyboard = true,
+    this.disabledNotice,
   });
 
   final TextEditingController controller;
@@ -280,6 +286,10 @@ class LiveChatComposer extends StatelessWidget {
   final List<Widget> trailing;
   final Key fieldKey;
   final Key sendKey;
+
+  /// No se puede comentar, y por qué. El campo no se dibuja: un campo que
+  /// acepta texto y después no lo envía se lee como un chat roto.
+  final String? disabledNotice;
 
   /// En la sala el Scaffold no se redimensiona con el teclado, así que el
   /// campo se sube solo. En el Studio la página sí se acomoda, y subirlo de
@@ -289,6 +299,7 @@ class LiveChatComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final notice = disabledNotice;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.sm,
@@ -300,53 +311,77 @@ class LiveChatComposer extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: AppSizes.searchHeight,
-              padding: const EdgeInsets.only(left: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: _glass,
-                borderRadius: AppRadii.pill,
-                border: Border.all(color: _glassEdge),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: fieldKey,
-                      controller: controller,
-                      style: text.bodyMedium?.copyWith(
-                        color: AppColors.onMedia,
-                      ),
-                      cursorColor: AppColors.primary,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => onSend(),
-                      decoration: InputDecoration(
-                        hintText: 'Escribe un comentario',
-                        hintStyle: text.bodyMedium?.copyWith(
+            child: notice != null
+                ? LiveGlassPill(
+                    key: const Key('live-comments-off'),
+                    child: Row(
+                      children: [
+                        const NexoIcon(
+                          NexoGlyph.comment,
+                          size: 18,
                           color: AppColors.onMediaSecondary,
                         ),
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            notice,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: AppColors.onMediaSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    height: AppSizes.searchHeight,
+                    padding: const EdgeInsets.only(left: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: _glass,
+                      borderRadius: AppRadii.pill,
+                      border: Border.all(color: _glassEdge),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: fieldKey,
+                            controller: controller,
+                            style: text.bodyMedium?.copyWith(
+                              color: AppColors.onMedia,
+                            ),
+                            cursorColor: AppColors.primary,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => onSend(),
+                            decoration: InputDecoration(
+                              hintText: 'Escribe un comentario',
+                              hintStyle: text.bodyMedium?.copyWith(
+                                color: AppColors.onMediaSecondary,
+                              ),
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          key: sendKey,
+                          tooltip: 'Enviar',
+                          onPressed: onSend,
+                          icon: const NexoIcon(
+                            NexoGlyph.send,
+                            size: 20,
+                            color: AppColors.onMedia,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    key: sendKey,
-                    tooltip: 'Enviar',
-                    onPressed: onSend,
-                    icon: NexoIcon(
-                      NexoGlyph.send,
-                      size: 20,
-                      color: AppColors.onMedia,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
           for (final control in trailing) ...[
             const SizedBox(width: AppSpacing.xs),

@@ -8,7 +8,6 @@ import 'package:nexo_social/features/appearance/presentation/bloc/theme_cubit.da
 import 'package:nexo_social/features/appearance/presentation/pages/themes_page.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/auth/presentation/pages/auth_pages.dart';
-import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
 import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
@@ -59,10 +58,6 @@ void main() {
     await expectNoOverflow(tester, const FeedPage());
   });
 
-  testWidgets('explorar no desborda', (tester) async {
-    await expectNoOverflow(tester, const ExplorePage());
-  });
-
   testWidgets('actividad no desborda', (tester) async {
     await expectNoOverflow(tester, const ActivityPage());
   });
@@ -72,6 +67,10 @@ void main() {
   });
 
   testWidgets('premium no desborda', (tester) async {
+    await expectNoOverflow(tester, const SubscriptionPage(creator: 'elena_ux'));
+  });
+
+  testWidgets('membresías sin creador no desborda', (tester) async {
     await expectNoOverflow(tester, const SubscriptionPage());
   });
 

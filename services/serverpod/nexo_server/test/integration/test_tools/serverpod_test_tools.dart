@@ -1077,6 +1077,72 @@ class _ProfilesEndpoint {
     });
   }
 
+  _ida.Future<_ipladaxb.MediaUploadTicket> requestCoverUpload(
+    _ist.TestSessionBuilder sessionBuilder, {
+    required String contentType,
+    required int sizeBytes,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'requestCoverUpload',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'requestCoverUpload',
+          parameters: _ist.testObjectToJson({
+            'contentType': contentType,
+            'sizeBytes': sizeBytes,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ipladaxb.MediaUploadTicket>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ig7gnzdo.AccountView> setCover(
+    _ist.TestSessionBuilder sessionBuilder,
+    String? key,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'profiles',
+            method: 'setCover',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'profiles',
+          methodName: 'setCover',
+          parameters: _ist.testObjectToJson({'key': key}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig7gnzdo.AccountView>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<_ig7gnzdo.AccountView> becomeCreator(
     _ist.TestSessionBuilder sessionBuilder,
   ) async {

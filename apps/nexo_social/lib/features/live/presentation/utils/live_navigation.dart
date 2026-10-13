@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/live_session.dart';
+import 'live_status_ui.dart';
 
 /// Si [session] la transmite la cuenta en sesión.
 ///
@@ -20,20 +19,22 @@ bool isOwnLive(BuildContext context, LiveSession session) {
       session.hostId == auth.user.id;
 }
 
+/// La ruta del Studio para un show propio.
+///
+/// Con `?show=` para que el Studio abra **ese** show y no el próximo de la
+/// agenda: tocar un programado para el viernes abría el de mañana. El que
+/// está al aire va sin `?show=`: es el que `pickStudioShow` elige igual, y
+/// la ruta sin parámetro reusa el Studio que sigue transmitiendo en su
+/// branch; con otra key, el router lo reconstruiría y cortaría la señal.
+String studioRouteFor(LiveSession session) =>
+    session.status.isOnAir ? AppRoutes.studio : AppRoutes.studioFor(session.id);
+
 /// Abre un vivo: el host vuelve a su Studio y el resto entra a la sala.
 ///
-/// Al Studio se vuelve sin `?show=`: el que está al aire es el que elige
-/// `pickStudioShow`, y la misma ruta reusa el Studio que sigue transmitiendo
-/// en su branch en vez de montar otro.
-///
-/// La sala se **empuja** (no `go`): es inmersiva y vive sobre el shell con el
-/// `parentNavigatorKey: rootNavigatorKey` del router (SDD 0011, Etapa 4), así
-/// que una navegación con `go` dejaría la pila de Explorar sin forma de
-/// volver al descubrimiento.
-void openLive(BuildContext context, LiveSession session) {
-  if (isOwnLive(context, session)) {
-    context.go(AppRoutes.studio);
-  } else {
-    unawaited(context.push(AppRoutes.liveRoom(session.id)));
-  }
-}
+/// La sala es inmersiva (SDD 0011, Etapa 4) y vive como sub-ruta del branch
+/// de Inicio (`/feed` → `/live/:liveId`). `go` cambia a ese branch y empuja
+/// la sala arriba, así que volver atrás regresa al feed del que se salió.
+void openLive(BuildContext context, LiveSession session) =>
+    isOwnLive(context, session)
+    ? context.go(studioRouteFor(session))
+    : context.go(AppRoutes.liveRoom(session.id));

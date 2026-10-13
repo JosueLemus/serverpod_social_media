@@ -2,7 +2,12 @@ import 'package:equatable/equatable.dart';
 
 /// Lo que se cambia del perfil propio. Null deja el campo como está.
 class ProfileChanges extends Equatable {
-  const ProfileChanges({this.username, this.displayName, this.bio});
+  const ProfileChanges({
+    this.username,
+    this.displayName,
+    this.bio,
+    this.website,
+  });
 
   final String? username;
   final String? displayName;
@@ -10,10 +15,14 @@ class ProfileChanges extends Equatable {
   /// Vacío borra la bio.
   final String? bio;
 
-  bool get isEmpty => username == null && displayName == null && bio == null;
+  /// Vacío borra el enlace.
+  final String? website;
+
+  bool get isEmpty =>
+      username == null && displayName == null && bio == null && website == null;
 
   @override
-  List<Object?> get props => [username, displayName, bio];
+  List<Object?> get props => [username, displayName, bio, website];
 }
 
 /// Por qué un campo del formulario no se puede enviar.
@@ -24,6 +33,8 @@ enum ProfileFieldIssue {
   nameMissing,
   nameTooLong,
   bioTooLong,
+  websiteTooLong,
+  websiteInvalid,
 }
 
 /// Las reglas del servidor (`UsernameRules`), repetidas acá sólo para avisar
@@ -34,6 +45,7 @@ abstract final class ProfileRules {
   static const usernameMax = 24;
   static const nameMax = 50;
   static const bioMax = 160;
+  static const websiteMax = 200;
 
   static final _username = RegExp(r'^[a-z0-9_]+$');
 
@@ -73,4 +85,27 @@ abstract final class ProfileRules {
 
   static ProfileFieldIssue? bioIssue(String value) =>
       value.trim().length > bioMax ? ProfileFieldIssue.bioTooLong : null;
+
+  /// El enlace como lo guarda el servidor (`WebsiteRules`): sin esquema, con
+  /// `https://` adelante. Vacío: sin enlace.
+  static String normalizeWebsite(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+    final hasScheme = RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://').hasMatch(trimmed);
+    return hasScheme ? trimmed : 'https://$trimmed';
+  }
+
+  static ProfileFieldIssue? websiteIssue(String value) {
+    final url = normalizeWebsite(value);
+    if (url.isEmpty) return null;
+    if (url.length > websiteMax) return ProfileFieldIssue.websiteTooLong;
+    final uri = Uri.tryParse(url);
+    if (url.contains(RegExp(r'\s')) ||
+        uri == null ||
+        !(uri.scheme == 'http' || uri.scheme == 'https') ||
+        !uri.host.contains('.')) {
+      return ProfileFieldIssue.websiteInvalid;
+    }
+    return null;
+  }
 }

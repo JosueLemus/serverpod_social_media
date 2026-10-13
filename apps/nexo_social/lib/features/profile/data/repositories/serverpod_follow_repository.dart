@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:nexo_client/nexo_client.dart' as api;
 
 import '../../../../core/errors/failures.dart';
@@ -12,15 +14,27 @@ class ServerpodFollowRepository implements FollowRepository {
   ServerpodFollowRepository(this._client);
 
   final api.Client _client;
+  final _changes = StreamController<void>.broadcast();
 
   @override
-  Future<FollowState> follow(String userId) =>
-      _guard(() async => toState(await _client.follows.follow(_uuid(userId))));
+  Stream<void> changes() => _changes.stream;
+
+  @override
+  Future<FollowState> follow(String userId) => _guard(
+    () async => _notify(toState(await _client.follows.follow(_uuid(userId)))),
+  );
 
   @override
   Future<FollowState> unfollow(String userId) => _guard(
-    () async => toState(await _client.follows.unfollow(_uuid(userId))),
+    () async => _notify(toState(await _client.follows.unfollow(_uuid(userId)))),
   );
+
+  /// Avisa después de que el servidor confirmó, nunca antes: quien relee
+  /// tiene que encontrar el grafo ya cambiado.
+  FollowState _notify(FollowState state) {
+    if (!_changes.isClosed) _changes.add(null);
+    return state;
+  }
 
   @override
   Future<FollowPage> list(

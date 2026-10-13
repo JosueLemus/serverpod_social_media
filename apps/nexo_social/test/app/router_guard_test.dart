@@ -54,7 +54,7 @@ void main() {
     test('every location is held at the splash', () {
       for (final location in [
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.signIn,
       ]) {
         expect(
@@ -93,8 +93,47 @@ void main() {
         AppRoutes.feed,
       );
       expect(
-        guardRedirect(signedOut, AppRoutes.splash, from: AppRoutes.admin),
-        AppRoutes.signIn,
+        guardRedirect(operator, AppRoutes.splash, from: '//evil.test/p/1'),
+        AppRoutes.feed,
+        reason: 'un `//host` empieza con barra pero es otro sitio',
+      );
+      expect(
+        guardRedirect(operator, AppRoutes.splash, from: AppRoutes.signIn),
+        AppRoutes.feed,
+      );
+    });
+
+    // Una ruta con sesión abierta en frío y sin ella: el splash le pasa el
+    // destino al login en vez de olvidarlo.
+    test('without a session the destination travels to sign-in', () {
+      final hop = Uri.parse(
+        guardRedirect(
+          signedOut,
+          AppRoutes.splash,
+          from: AppRoutes.conversation('7'),
+        )!,
+      );
+      expect(hop.path, AppRoutes.signIn);
+      expect(
+        hop.queryParameters[AppRoutes.fromParam],
+        AppRoutes.conversation('7'),
+      );
+    });
+
+    // Un enlace compartido abierto en frío y sin sesión: la publicación se
+    // abre sin sesión, así que el splash va directo a ella y no al login.
+    test('without a session a shared page is opened, not gated', () {
+      expect(
+        guardRedirect(signedOut, AppRoutes.splash, from: AppRoutes.post('42')),
+        AppRoutes.post('42'),
+      );
+      expect(
+        guardRedirect(
+          signedOut,
+          AppRoutes.splash,
+          from: AppRoutes.profileOf('elena_ux'),
+        ),
+        AppRoutes.profileOf('elena_ux'),
       );
     });
 
@@ -120,18 +159,63 @@ void main() {
     test('any app route bounces to sign-in', () {
       for (final location in [
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.activity,
         AppRoutes.profile,
         AppRoutes.create,
         AppRoutes.studio,
       ]) {
         expect(
-          guardRedirect(signedOut, location),
+          Uri.parse(guardRedirect(signedOut, location)!).path,
           AppRoutes.signIn,
           reason: '$location should require a session',
         );
       }
+    });
+
+    // Regresión: una ruta con sesión abierta sin ella mandaba al login sin
+    // recordar el destino, y al iniciar sesión se terminaba en el feed.
+    test('sign-in remembers where the user was going', () {
+      final hop = Uri.parse(
+        guardRedirect(signedOut, AppRoutes.conversation('7'))!,
+      );
+      expect(hop.path, AppRoutes.signIn);
+      expect(
+        hop.queryParameters[AppRoutes.fromParam],
+        AppRoutes.conversation('7'),
+      );
+
+      expect(
+        guardRedirect(signedOut, AppRoutes.feed),
+        AppRoutes.signIn,
+        reason: 'el feed es a donde se llega igual: no hay nada que recordar',
+      );
+    });
+
+    test('authenticating on sign-in resumes the destination', () {
+      expect(
+        guardRedirect(creator, AppRoutes.signIn, from: AppRoutes.post('42')),
+        AppRoutes.post('42'),
+      );
+      expect(
+        guardRedirect(creator, AppRoutes.signIn, from: 'https://evil.test'),
+        AppRoutes.feed,
+      );
+      expect(
+        guardRedirect(creator, AppRoutes.signIn, from: AppRoutes.signUp),
+        AppRoutes.feed,
+        reason: 'el flujo sin sesión no es un destino',
+      );
+    });
+
+    test('resuming after sign-in does not skip the guard', () {
+      final resumed = guardRedirect(
+        creator,
+        AppRoutes.signIn,
+        from: AppRoutes.admin,
+      );
+      expect(resumed, AppRoutes.admin);
+      expect(guardRedirect(creator, resumed!), AppRoutes.feed);
     });
 
     test('the public flow is reachable', () {
@@ -143,25 +227,50 @@ void main() {
   group('visitor (guest session)', () {
     test('browsing is public', () {
       expect(guardRedirect(visitor, AppRoutes.feed), isNull);
-      expect(guardRedirect(visitor, AppRoutes.explore), isNull);
+      // La sala del vivo vive en Inicio y también es pública.
+      expect(guardRedirect(visitor, AppRoutes.liveRoom('5')), isNull);
       expect(guardRedirect(visitor, AppRoutes.activity), isNull);
       expect(guardRedirect(visitor, AppRoutes.profile), isNull);
     });
 
     test('writing, earning and moderating are not', () {
       for (final location in AppRoutes.authenticatedOnly) {
+        final hop = Uri.parse(guardRedirect(visitor, location)!);
         expect(
-          guardRedirect(visitor, location),
+          hop.path,
           AppRoutes.signIn,
           reason: '$location should be gated for a visitor',
         );
+        expect(hop.queryParameters[AppRoutes.fromParam], location);
       }
     });
 
     test('a sub-route of a gated route is gated too', () {
       expect(
-        guardRedirect(visitor, '${AppRoutes.premium}/anual'),
+        Uri.parse(
+          guardRedirect(visitor, AppRoutes.premiumFor('elena_ux'))!,
+        ).path,
         AppRoutes.signIn,
+      );
+    });
+
+    // El visitante que se convierte en cuenta desde el muro vuelve al muro.
+    test('may stay on sign-in while it remembers the destination', () {
+      expect(
+        guardRedirect(
+          visitor,
+          AppRoutes.signIn,
+          from: AppRoutes.premiumFor('elena_ux'),
+        ),
+        isNull,
+      );
+      expect(
+        guardRedirect(
+          creator,
+          AppRoutes.signIn,
+          from: AppRoutes.premiumFor('elena_ux'),
+        ),
+        AppRoutes.premiumFor('elena_ux'),
       );
     });
 
@@ -193,6 +302,7 @@ void main() {
         AppRoutes.scheduleShow,
         AppRoutes.studio,
         AppRoutes.premium,
+        AppRoutes.premiumFor('marco_dev'),
         AppRoutes.settings,
       ]) {
         expect(
@@ -252,7 +362,11 @@ void main() {
 
     test('nobody else can sit on the suspended screen', () {
       expect(guardRedirect(creator, AppRoutes.suspended), AppRoutes.feed);
-      expect(guardRedirect(signedOut, AppRoutes.suspended), AppRoutes.signIn);
+      expect(
+        guardRedirect(signedOut, AppRoutes.suspended),
+        AppRoutes.signIn,
+        reason: 'la pantalla de suspensión no es un destino a recordar',
+      );
     });
   });
 
@@ -261,12 +375,12 @@ void main() {
     // location loops until go_router throws. Following each answer once and
     // requiring the second hop to be null proves there is no two-step cycle.
     test('no location redirects to another location that redirects', () {
-      const locations = [
+      final locations = [
         AppRoutes.splash,
         AppRoutes.signIn,
         AppRoutes.signUp,
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.activity,
         AppRoutes.profile,
         AppRoutes.create,
@@ -276,7 +390,9 @@ void main() {
         AppRoutes.admin,
         AppRoutes.suspended,
         AppRoutes.premium,
+        AppRoutes.premiumFor('elena_ux'),
         AppRoutes.settings,
+        '/p/42',
       ];
 
       for (final auth in [
@@ -302,5 +418,18 @@ void main() {
         }
       }
     });
+  });
+
+  test('a shared profile or post opens without any session', () {
+    // Lo que llega por WhatsApp: sin sesión, ni siquiera de invitado.
+    const nobody = AuthUnauthenticated();
+    expect(guardRedirect(nobody, '/u/elena_ux'), isNull);
+    expect(guardRedirect(nobody, '/p/12'), isNull);
+    // El resto sigue pidiendo entrar, recordando a dónde se iba.
+    for (final location in ['/messages', '/u']) {
+      final hop = Uri.parse(guardRedirect(nobody, location)!);
+      expect(hop.path, '/sign-in');
+      expect(hop.queryParameters[AppRoutes.fromParam], location);
+    }
   });
 }

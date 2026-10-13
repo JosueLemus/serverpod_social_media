@@ -25,7 +25,7 @@ class MockAuthRepository implements AuthRepository {
     final user = id == null ? null : _platform.accountById(id);
     if (user == null) return null;
     _platform.bindSession(user.id);
-    if (!user.isActive) throw const AccountSuspendedFailure('restore');
+    if (!user.isActive) throw user.suspendedFailure('restore');
     return user;
   }
 
@@ -57,7 +57,10 @@ class MockAuthRepository implements AuthRepository {
     } on AccountSuspendedFailure {
       _platform.bindSession(null);
       await _local.clear();
-      rethrow;
+      // La plataforma sólo dice "no activa"; la cuenta dice cuál sanción.
+      throw (_platform.accountById(account.id) ?? account).suspendedFailure(
+        'signIn',
+      );
     }
   }
 

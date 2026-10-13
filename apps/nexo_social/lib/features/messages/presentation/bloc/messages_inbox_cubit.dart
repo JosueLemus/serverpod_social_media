@@ -42,18 +42,30 @@ class InboxState extends Equatable {
 
 /// La bandeja. Un mensaje nuevo en cualquier conversación la vuelve a pedir:
 /// el servidor ordena y cuenta, y la bandeja no duplica esas reglas.
+///
+/// Si el stream se corta, se vuelve a suscribir con espera creciente y pide
+/// la bandeja otra vez: lo que llegó durante el corte no vino por el stream.
 class MessagesInboxCubit extends Cubit<InboxState> {
-  MessagesInboxCubit(this._repository) : super(const InboxState());
+  MessagesInboxCubit(
+    this._repository, {
+    this.reconnectDelays = defaultReconnectDelays,
+  }) : super(const InboxState());
 
   final MessagesRepository _repository;
+  final List<Duration> reconnectDelays;
+
+  static const defaultReconnectDelays = [
+    Duration(seconds: 1),
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+  ];
+
   StreamSubscription<DirectMessageEvent>? _live;
+  Timer? _reconnect;
+  int _attempt = 0;
 
   Future<void> load() async {
-    _live ??= _repository.watch().listen(
-      (_) => unawaited(_reload()),
-      onError: (Object _) {},
-      cancelOnError: false,
-    );
+    if (_live == null && !(_reconnect?.isActive ?? false)) _listen();
     await _reload(showLoading: state.status != InboxStatus.ready);
   }
 
@@ -99,8 +111,43 @@ class MessagesInboxCubit extends Cubit<InboxState> {
     }
   }
 
+  void _listen() {
+    unawaited(_live?.cancel());
+    _live = _repository.watch().listen(
+      (_) {
+        if (isClosed) return;
+        _attempt = 0;
+        unawaited(_reload());
+      },
+      onError: (Object error) {
+        // Sin permiso, reintentar no lo arregla.
+        if (isClosed || error is ForbiddenFailure) return;
+        _scheduleReconnect();
+      },
+      onDone: () {
+        if (!isClosed) _scheduleReconnect();
+      },
+      cancelOnError: false,
+    );
+  }
+
+  void _scheduleReconnect() {
+    if (isClosed || (_reconnect?.isActive ?? false)) return;
+    unawaited(_live?.cancel());
+    _live = null;
+    final delay =
+        reconnectDelays[_attempt.clamp(0, reconnectDelays.length - 1)];
+    _attempt++;
+    _reconnect = Timer(delay, () {
+      if (isClosed) return;
+      _listen();
+      unawaited(_reload());
+    });
+  }
+
   @override
   Future<void> close() async {
+    _reconnect?.cancel();
     await _live?.cancel();
     return super.close();
   }

@@ -52,6 +52,10 @@ class ShellDestination {
 
 abstract final class ShellDestinations {
   static const all = <ShellDestination>[
+    // Inicio también es descubrir: el buscador, los próximos vivos, los
+    // replays y las tendencias viven ahí desde que Explorar dejó de ser una
+    // pestaña. Con el compositor en el medio, la barra del teléfono queda
+    // Inicio · Mensajes · + · Actividad · Perfil: dos destinos a cada lado.
     ShellDestination(
       branch: 0,
       path: AppRoutes.feed,
@@ -60,9 +64,9 @@ abstract final class ShellDestinations {
     ),
     ShellDestination(
       branch: 1,
-      path: AppRoutes.explore,
-      label: 'Explorar',
-      glyph: NexoGlyph.explore,
+      path: AppRoutes.messages,
+      label: 'Mensajes',
+      glyph: NexoGlyph.comment,
     ),
     ShellDestination(
       branch: 2,

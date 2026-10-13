@@ -97,8 +97,18 @@ class MockMessagesRepository implements MessagesRepository {
   Future<int> markRead(String conversationId) async {
     final me = _me();
     final thread = _member(conversationId, me);
-    if (thread.messages.isNotEmpty) {
-      thread.readBy[me] = thread.messages.last.id;
+    final last = thread.messages.lastOrNull;
+    // Como el servidor: el evento sale sólo si el puntero se movió.
+    if (last != null && thread.readBy[me] != last.id) {
+      thread.readBy[me] = last.id;
+      _events.add(
+        ConversationRead(
+          conversationId: thread.id,
+          readerId: me,
+          lastReadMessageId: last.id,
+          unreadConversations: _unread(me),
+        ),
+      );
     }
     return _unread(me);
   }

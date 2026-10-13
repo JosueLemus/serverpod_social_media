@@ -13,7 +13,12 @@ import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
+import '../../../../core/widgets/search_field.dart';
 import '../../../../core/widgets/section_header.dart';
+import '../../../explore/presentation/bloc/explore_cubit.dart';
+import '../../../explore/presentation/bloc/search_cubit.dart';
+import '../../../explore/presentation/widgets/discover_more_sections.dart';
+import '../../../explore/presentation/widgets/search_results_view.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/bloc/live_list_cubit.dart';
 import '../../../live/presentation/utils/live_status_ui.dart';
@@ -29,7 +34,6 @@ import '../widgets/post_actions.dart';
 import '../widgets/post_card.dart';
 import '../widgets/suggested_accounts_row.dart';
 import '../../../live/presentation/utils/live_navigation.dart';
-import '../../../messages/presentation/widgets/messages_button.dart';
 
 class FeedPage extends StatelessWidget {
   const FeedPage({super.key});
@@ -42,86 +46,170 @@ class FeedPage extends StatelessWidget {
       // lectura que hace Explorar, así que reusa su cubit en vez de que el
       // feed conozca el repositorio de live por su cuenta.
       BlocProvider(create: (_) => sl<LiveListCubit>()..load()),
+      // Explorar dejó de ser una pestaña: Inicio también busca y descubre.
+      // Próximos, replays y tendencias salen del mismo cubit que usaba
+      // Explorar, y el buscador del mismo que usaba su campo.
+      BlocProvider(create: (_) => ExploreCubit(sl(), sl())..load()),
+      BlocProvider(create: (_) => SearchCubit(sl(), sl())),
     ],
     child: const _FeedView(),
   );
 }
 
-class _FeedView extends StatelessWidget {
+class _FeedView extends StatefulWidget {
   const _FeedView();
 
   @override
-  Widget build(BuildContext context) => BlocListener<FeedCubit, FeedState>(
-    listenWhen: (previous, current) =>
-        current is FeedLoaded &&
-        current.notice != null &&
-        (previous is! FeedLoaded ||
-            previous.noticeSerial != current.noticeSerial),
-    listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text((state as FeedLoaded).notice!.message)),
-    ),
-    child: BlocBuilder<FeedCubit, FeedState>(
-      builder: (context, state) {
-        final cubit = context.read<FeedCubit>();
-        final loaded = state is FeedLoaded ? state : null;
+  State<_FeedView> createState() => _FeedViewState();
+}
 
-        return NexoPage(
-          section: 'Feed',
-          actions: [
-            // La búsqueda de verdad vive en Explorar. El campo que había acá
-            // no buscaba nada y empujaba las historias fuera del primer
-            // vistazo; un ícono en la barra lleva al mismo lugar.
-            IconButton(
-              key: const Key('feed-search'),
-              tooltip: 'Buscar',
-              onPressed: () => context.go(AppRoutes.explore),
-              icon: const NexoIcon(NexoGlyph.search, size: 22),
+class _FeedViewState extends State<_FeedView> {
+  // La View es dueña del campo; el cubit, de la búsqueda. Tocar una etiqueta
+  // reemplaza el texto, y eso sólo se puede desde el controller.
+  final _query = TextEditingController();
+  final _searchFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _search(String text) {
+    _query.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    context.read<SearchCubit>().changed(text);
+  }
+
+  void _clear() => _search('');
+
+  @override
+  Widget build(BuildContext context) => MultiBlocListener(
+    listeners: [
+      BlocListener<FeedCubit, FeedState>(
+        listenWhen: (previous, current) =>
+            current is FeedLoaded &&
+            current.notice != null &&
+            (previous is! FeedLoaded ||
+                previous.noticeSerial != current.noticeSerial),
+        listener: (context, state) =>
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text((state as FeedLoaded).notice!.message)),
             ),
-            // Mensajes directos (SDD 0010), con el número de conversaciones
-            // sin leer. Un invitado que lo toca va a iniciar sesión (guarda).
-            const MessagesButton(),
-          ],
-          // Los dos cubits se resuelven antes del await: después de él este
-          // context puede estar desmontado, y leer un provider desde un Element
-          // muerto revienta sin mensaje legible.
-          onRefresh: () {
-            final live = context.read<LiveListCubit>();
-            return Future.wait([cubit.refresh(), live.load()]);
-          },
-          children: [
-            const StaffShortcutCard(),
-            // El primer vistazo: la plancha de avatares, los filtros y el vivo
-            // destacado, en ese orden.
-            const _LiveStories(),
-            const SizedBox(height: AppSpacing.md),
-            // La fila de filtros queda montada en todos los estados: perder el
-            // control que acabás de tocar mientras refresca se lee como que el
-            // tap rompió algo.
-            _FilterRow(
-              selected: loaded?.filter ?? FeedFilter.forYou,
-              onSelected: cubit.selectFilter,
-              // Los vivos al aire, no los posts marcados: con Serverpod un post
-              // nunca dice que está en vivo, y el contador quedaba en 0 con un
-              // vivo al aire.
-              liveCount: context.select<LiveListCubit, int?>(
-                (live) => switch (live.state) {
-                  LiveListLoaded(:final sessions) =>
-                    sessions.where((session) => session.status.isOnAir).length,
-                  _ => null,
-                },
+      ),
+      BlocListener<SearchCubit, SearchState>(
+        listenWhen: (previous, current) =>
+            current.notice != null &&
+            previous.noticeSerial != current.noticeSerial,
+        listener: (context, state) =>
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'No pudimos actualizar a quién sigues. Inténtalo de nuevo.',
+                ),
               ),
             ),
-            // Con el chip "En vivo" la lista de abajo ya son los vivos: la
-            // tarjeta destacada repetiría la misma transmisión dos veces
-            // seguidas. Las historias quedan: están arriba de los filtros, y
-            // esconderlas haría saltar la fila que se acaba de tocar.
-            if (loaded?.filter != FeedFilter.live) const _FeaturedLive(),
-            ..._body(context, state),
+      ),
+    ],
+    // Una sola página con el buscador siempre primero, y debajo lo que toca:
+    // los resultados mientras hay texto, el feed cuando no. Antes eran dos
+    // `NexoPage` distintas, así que al pasar la segunda letra el campo se
+    // montaba de nuevo: perdía el foco y el teclado se cerraba en medio de la
+    // palabra. Borrar el texto trae el feed de vuelta con sus filtros.
+    child: BlocBuilder<SearchCubit, SearchState>(
+      builder: (context, search) => BlocBuilder<FeedCubit, FeedState>(
+        builder: (context, state) => NexoPage(
+          section: 'Feed',
+          // Mensajes no va acá: es una pestaña de la barra, con su badge. Y el
+          // buscador ya está en la página, no detrás de un ícono.
+          onRefresh: search.isSearching
+              ? context.read<SearchCubit>().retry
+              : () => _refreshFeed(context),
+          children: [
+            _searchField(context),
+            if (search.isSearching)
+              SearchResultsView(state: search, onTag: _search, onClear: _clear)
+            else
+              ..._feed(context, state),
           ],
-        );
-      },
+        ),
+      ),
     ),
   );
+
+  /// Un solo buscador, arriba de todo: el de Explorar, que se mudó acá. Antes
+  /// había un ícono en la barra que llevaba a otra pestaña a buscar.
+  Widget _searchField(BuildContext context) => SearchField(
+    key: const Key('feed-search'),
+    hint: 'Buscar creadores, temas o transmisiones…',
+    controller: _query,
+    focusNode: _searchFocus,
+    onChanged: context.read<SearchCubit>().changed,
+    // La tecla de buscar del teclado: buscar ya, sin esperar el debounce.
+    onSubmitted: (_) => unawaited(context.read<SearchCubit>().retry()),
+    trailing: ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _query,
+      builder: (context, value, _) => value.text.isEmpty
+          ? const SizedBox.shrink()
+          : IconButton(
+              key: const Key('feed-search-clear'),
+              tooltip: 'Borrar búsqueda',
+              onPressed: _clear,
+              icon: const NexoIcon(NexoGlyph.close, size: 18),
+            ),
+    ),
+  );
+
+  /// Los cubits se resuelven antes del await: después de él este context
+  /// puede estar desmontado, y leer un provider desde un Element muerto
+  /// revienta sin mensaje legible.
+  Future<void> _refreshFeed(BuildContext context) {
+    final feed = context.read<FeedCubit>();
+    final live = context.read<LiveListCubit>();
+    final discover = context.read<ExploreCubit>();
+    return Future.wait([feed.refresh(), live.load(), discover.load()]);
+  }
+
+  /// El feed, debajo del buscador.
+  List<Widget> _feed(BuildContext context, FeedState state) {
+    final cubit = context.read<FeedCubit>();
+    final loaded = state is FeedLoaded ? state : null;
+
+    return [
+      const SizedBox(height: AppSpacing.sm),
+      const StaffShortcutCard(),
+      // El primer vistazo: la plancha de avatares, los filtros y el vivo
+      // destacado, en ese orden.
+      const _LiveStories(),
+      const SizedBox(height: AppSpacing.md),
+      // La fila de filtros queda montada en todos los estados: perder el
+      // control que acabás de tocar mientras refresca se lee como que el
+      // tap rompió algo.
+      _FilterRow(
+        selected: loaded?.filter ?? FeedFilter.forYou,
+        onSelected: cubit.selectFilter,
+        // Los vivos al aire, no los posts marcados: con Serverpod un post
+        // nunca dice que está en vivo, y el contador quedaba en 0 con un
+        // vivo al aire.
+        liveCount: context.select<LiveListCubit, int?>(
+          (live) => switch (live.state) {
+            LiveListLoaded(:final sessions) =>
+              sessions.where((session) => session.status.isOnAir).length,
+            _ => null,
+          },
+        ),
+      ),
+      // Con el chip "En vivo" la lista de abajo ya son los vivos: la
+      // tarjeta destacada repetiría la misma transmisión dos veces
+      // seguidas. Las historias quedan: están arriba de los filtros, y
+      // esconderlas haría saltar la fila que se acaba de tocar.
+      if (loaded?.filter != FeedFilter.live) const _FeaturedLive(),
+      ..._body(context, state),
+    ];
+  }
 
   List<Widget> _body(BuildContext context, FeedState state) {
     final cubit = context.read<FeedCubit>();
@@ -151,6 +239,7 @@ class _FeedView extends StatelessWidget {
         EmptyFeedView(
           filter: loaded.filter,
           onShowAll: () => cubit.selectFilter(FeedFilter.forYou),
+          onSearch: _searchFocus.requestFocus,
         ),
       ];
     }
@@ -175,6 +264,7 @@ class _FeedView extends StatelessWidget {
         EmptyFeedView(
           filter: loaded.filter,
           onShowAll: () => cubit.selectFilter(FeedFilter.forYou),
+          onSearch: _searchFocus.requestFocus,
         ),
       ];
     }
@@ -213,6 +303,9 @@ class _FeedView extends StatelessWidget {
         ..._cards(context, discover, from: following.length),
       ],
       ..._loadMore(cubit, loaded),
+      // Lo de descubrir que el feed no tenía, al final: los posts son lo
+      // primero que se viene a ver, y los vivos al aire ya están arriba.
+      const DiscoverMoreSections(),
     ];
   }
 

@@ -1,16 +1,61 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/core/mock/demo_accounts.dart';
 import 'package:nexo_social/core/mock/mock_platform.dart';
 import 'package:nexo_social/features/admin/data/repositories/mock_admin_repository.dart';
 import 'package:nexo_social/features/admin/domain/entities/account_detail.dart';
 import 'package:nexo_social/features/admin/domain/entities/audit_entry.dart';
+import 'package:nexo_social/features/admin/domain/repositories/admin_repository.dart';
 import 'package:nexo_social/features/admin/presentation/bloc/account_detail_cubit.dart';
 import 'package:nexo_social/features/admin/presentation/bloc/admin_console_cubit.dart';
 import 'package:nexo_social/features/admin/presentation/bloc/audit_log_cubit.dart';
 import 'package:nexo_social/features/auth/domain/entities/app_user.dart';
+import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/moderation/domain/entities/moderation_action.dart';
 
 import '../../../support/platform_harness.dart';
+
+/// El repositorio mock, con un interruptor para que las lecturas fallen y la
+/// cuenta de qué se pidió.
+class _FlakyAdmin implements AdminRepository {
+  _FlakyAdmin(this._inner);
+
+  final AdminRepository _inner;
+  Failure? failure;
+  final calls = <String>[];
+
+  Future<T> _read<T>(String name, Future<T> Function() read) {
+    calls.add(name);
+    final failure = this.failure;
+    if (failure != null) return Future.error(failure);
+    return read();
+  }
+
+  @override
+  Future<ResultPage<AppUser>> searchAccounts(String query, {String? cursor}) =>
+      _read('searchAccounts', () => _inner.searchAccounts(query));
+
+  @override
+  Future<List<AppUser>> creators() => _read('creators', _inner.creators);
+
+  @override
+  Future<List<LiveSession>> activeLives() =>
+      _read('activeLives', _inner.activeLives);
+
+  @override
+  Future<AccountDetail> account(String accountId) =>
+      _read('account', () => _inner.account(accountId));
+
+  @override
+  Future<ResultPage<AuditEntry>> audit(AuditFilter filter, {String? cursor}) =>
+      _read('audit', () => _inner.audit(filter, cursor: cursor));
+
+  @override
+  Stream<void> changes() => const Stream.empty();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 void main() {
   late MockPlatform platform;
@@ -95,6 +140,59 @@ void main() {
 
       expect(cubit.state.notice, AdminNotice.liveEnded);
       expect(cubit.state.lives, hasLength(1));
+    });
+
+    /// Antes se emitía un estado nuevo con las listas vacías: una relectura
+    /// fallida se veía como "ninguna cuenta coincide".
+    test('una relectura fallida conserva lo que ya se mostraba', () async {
+      final flaky = _FlakyAdmin(repository);
+      final cubit = AdminConsoleCubit(flaky);
+      addTearDown(cubit.close);
+      await cubit.load();
+      final accounts = cubit.state.accounts;
+
+      flaky.failure = const ServerFailure('caído');
+      await cubit.load();
+
+      expect(cubit.state.accounts, accounts);
+      expect(cubit.state.creators, isNotEmpty);
+      expect(cubit.state.loadFailed, isTrue);
+      expect(cubit.state.issue, AdminIssue.other);
+      expect(cubit.state.isForbidden, isFalse);
+
+      flaky.failure = null;
+      await cubit.load();
+      expect(cubit.state.loadFailed, isFalse);
+    });
+
+    test(
+      'sin nada leído, el fallo queda marcado para mostrar el error',
+      () async {
+        final flaky = _FlakyAdmin(repository)
+          ..failure = const ServerFailure('caído');
+        final cubit = AdminConsoleCubit(flaky);
+        addTearDown(cubit.close);
+
+        await cubit.load();
+
+        expect(cubit.state.loadFailed, isTrue);
+        expect(cubit.state.accounts, isEmpty);
+        expect(cubit.state.isLoading, isFalse);
+      },
+    );
+
+    /// Buscar releía cuentas, creadores y vivos: tres pedidos por tecla.
+    test('buscar sólo relee las cuentas', () async {
+      final flaky = _FlakyAdmin(repository);
+      final cubit = AdminConsoleCubit(flaky);
+      addTearDown(cubit.close);
+      await cubit.load();
+      flaky.calls.clear();
+
+      await cubit.search(DemoAccounts.troll.email);
+
+      expect(flaky.calls, ['searchAccounts']);
+      expect(cubit.state.accounts.single.id, DemoAccounts.troll.id);
     });
   });
 

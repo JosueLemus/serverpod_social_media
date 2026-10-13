@@ -139,12 +139,18 @@ propio Navigator y su propio scroll.
   el del feed: no pasa nada visible y el back popea algo que el usuario nunca
   vio. Por eso el perfil ajeno es `/u/:username`, una ruta **raíz** empujada
   sobre el shell, y `/profile` (sin usuario) es la pestaña. Por lo mismo, la
-  sala de un vivo vive **dentro** del branch de Explorar
-  (`/explore/live/:liveId`): se entra a un vivo desde el descubrimiento.
-- **La segunda pestaña es Explorar, no "En vivo".** Lo dicen el diseño y el
-  Notion: los vivos son un tipo de contenido dentro del descubrimiento, no una
-  sección hermana del feed, y una pestaña dedicada sólo a ellos dejaba sin
-  entrada a perfiles y categorías.
+  sala de un vivo vive **dentro** del branch de Inicio (`/live/:liveId`): se
+  entra a un vivo desde el feed (historias, vivo destacado, próximos,
+  búsqueda).
+- **Explorar no es una pestaña: descubrir vive en Inicio.** Fue decisión del
+  equipo: menos pestañas, y descubrir es algo que se hace desde el feed, no
+  una sección aparte a la que hay que acordarse de ir. Inicio tiene arriba el
+  buscador (al escribir, los resultados reemplazan al feed; al borrar, vuelve)
+  y, al final de "Para ti", los próximos vivos, los replays y los temas en
+  tendencia. Los vivos al aire ya están arriba (historias, destacado, chip "En
+  vivo"), así que abajo no se repiten. `/explore` y `/explore/live/<id>`
+  quedan sólo como redirección, para que un enlace viejo no dé una pantalla en
+  blanco.
 - **Crear es una acción, no un destino.** No tiene branch: empuja una ruta a
   pantalla completa sobre el shell. Por eso su botón va sin etiqueta —las
   otras cuatro entradas son destinos, y una palabra debajo lo alinearía
@@ -207,8 +213,8 @@ vez y la app se reacomoda en pedazos.
 
 | FormFactor | Desde | Navegación | Contenido |
 |---|---|---|---|
-| `compact` | 0 | Barra inferior: Inicio · Explorar · **+** · Actividad · Perfil | Una columna |
-| `medium` | 700 | Rail con íconos (las mismas cuatro) | Una columna centrada |
+| `compact` | 0 | Barra inferior: Inicio · Mensajes · **+** · Actividad · Perfil | Una columna |
+| `medium` | 700 | Rail con íconos (los mismos cuatro destinos) | Una columna centrada |
 | `expanded` | 1100 | Rail extendido + Studio y Moderación | Columna + panel lateral |
 
 - **Los destinos se declaran una vez** (`ShellDestinations`) y los leen la barra

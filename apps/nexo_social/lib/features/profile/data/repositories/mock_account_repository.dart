@@ -17,5 +17,8 @@ class MockAccountRepository implements AccountRepository {
   Future<void> setAvatar(MediaAttachment? image) async => throw _unavailable;
 
   @override
+  Future<void> setCover(MediaAttachment? image) async => throw _unavailable;
+
+  @override
   Future<void> becomeCreator() async => throw _unavailable;
 }

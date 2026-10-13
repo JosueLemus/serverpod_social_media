@@ -129,6 +129,9 @@ class BridgedAuthRepository implements AuthRepository {
       final reason = _platform.statusReason(twin);
       if (reason != null) return reason;
     }
+    // Una pareja rechazada al entrar ya no está ligada: el fallo trae su id.
+    final direct = _platform.statusReason(accountId);
+    if (direct != null) return direct;
     return _inner.sanctionReason(accountId);
   }
 
@@ -144,7 +147,7 @@ class BridgedAuthRepository implements AuthRepository {
       } on Failure {
         // La credencial local ya no autoriza nada.
       }
-      throw const AccountSuspendedFailure('bridge');
+      throw twin.suspendedFailure('bridge');
     }
     _bind(user);
     return user;
