@@ -239,9 +239,7 @@ class _PostRow extends StatelessWidget {
     return InkWell(
       key: Key('search-post-${post.id}'),
       borderRadius: AppRadii.medium,
-      // TODO(fotos): `context.push(AppRoutes.post(post.id))` cuando exista la
-      // pantalla de publicación. Hasta entonces, el perfil del autor.
-      onTap: () => unawaited(context.push(AppRoutes.profileOf(post.author))),
+      onTap: () => unawaited(context.push(AppRoutes.post(post.id))),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
         child: Row(
