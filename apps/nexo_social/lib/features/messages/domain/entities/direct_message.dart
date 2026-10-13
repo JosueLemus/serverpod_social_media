@@ -1,7 +1,10 @@
 import 'package:equatable/equatable.dart';
 
 /// Si un mensaje propio ya llegó al servidor. Los ajenos siempre son [sent].
-enum MessageDelivery { sent, sending, failed }
+///
+/// [failed] se puede reintentar (red, ritmo); [rejected] no: el servidor no
+/// lo va a aceptar nunca (sin permiso, cuenta suspendida, cuerpo inválido).
+enum MessageDelivery { sent, sending, failed, rejected }
 
 /// Un mensaje directo (SDD 0010). Quién es "yo" lo decide quien lo dibuja,
 /// comparando [authorId] con la sesión.

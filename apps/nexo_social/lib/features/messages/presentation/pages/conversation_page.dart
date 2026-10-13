@@ -49,11 +49,17 @@ class ConversationPage extends StatelessWidget {
   }
 }
 
+/// El mismo tope que `MessagesRules.maxBodyLength` en el servidor.
+const _maxMessageLength = 1000;
+
 extension on ChatIssue {
   String get message => switch (this) {
     ChatIssue.forbidden => 'No puedes escribirle a esta cuenta.',
     ChatIssue.suspended =>
       'Tu cuenta está suspendida: no puedes mandar mensajes.',
+    ChatIssue.invalid =>
+      'Este mensaje no se puede enviar. Revisa que no pase de '
+          '$_maxMessageLength caracteres.',
     ChatIssue.tooFast => 'Vas muy rápido. Espera un segundo y reintenta.',
     ChatIssue.unavailable =>
       'No pudimos mandar el mensaje. Toca para reintentar.',
@@ -283,10 +289,13 @@ class _Bubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final failed = message.delivery == MessageDelivery.failed;
+    // Sólo lo que puede salir bien se ofrece para reintentar.
+    final retryable = message.delivery == MessageDelivery.failed;
+    final failed = retryable || message.delivery == MessageDelivery.rejected;
     final status = switch (message.delivery) {
       MessageDelivery.sending => 'Enviando…',
       MessageDelivery.failed => 'No se envió · Toca para reintentar',
+      MessageDelivery.rejected => 'No se envió',
       MessageDelivery.sent => _time(message.createdAt),
     };
     // Lo propio es el sticker blanco con tinta; lo ajeno, el liner.
@@ -317,7 +326,7 @@ class _Bubble extends StatelessWidget {
             ? CrossAxisAlignment.end
             : CrossAxisAlignment.start,
         children: [
-          if (failed)
+          if (retryable)
             InkWell(
               key: Key('dm-retry-${message.id}'),
               onTap: onRetry,
@@ -393,7 +402,7 @@ class _ComposerState extends State<_Composer> {
               textCapitalization: TextCapitalization.sentences,
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _send(),
-              inputFormatters: [LengthLimitingTextInputFormatter(1000)],
+              inputFormatters: const [_Utf16LengthFormatter()],
               decoration: const InputDecoration(
                 hintText: 'Escribe un mensaje…',
               ),
@@ -410,4 +419,32 @@ class _ComposerState extends State<_Composer> {
       ),
     ),
   );
+}
+
+/// Corta en [_maxMessageLength] unidades UTF-16, que es como cuenta el
+/// servidor (`String.length`). `LengthLimitingTextInputFormatter` cuenta
+/// grafemas: un texto con emojis entraba en el campo y el servidor lo
+/// rechazaba por largo.
+class _Utf16LengthFormatter extends TextInputFormatter {
+  const _Utf16LengthFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.length <= _maxMessageLength) return newValue;
+    // Ya estaba en el tope: la tecla no entra, como en el de Flutter.
+    if (oldValue.text.length >= _maxMessageLength) return oldValue;
+    var end = _maxMessageLength;
+    // Sin partir un par sustituto: medio emoji no es un carácter.
+    final last = text.codeUnitAt(end - 1);
+    if (last >= 0xD800 && last <= 0xDBFF) end--;
+    final cut = text.substring(0, end);
+    return TextEditingValue(
+      text: cut,
+      selection: TextSelection.collapsed(offset: cut.length),
+    );
+  }
 }
