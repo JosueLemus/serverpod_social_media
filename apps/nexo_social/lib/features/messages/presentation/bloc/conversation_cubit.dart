@@ -10,7 +10,9 @@ import '../../domain/repositories/messages_repository.dart';
 enum ChatStatus { loading, ready, notFound, failure }
 
 /// Por qué no se pudo mandar o abrir. La View lo traduce.
-enum ChatIssue { forbidden, suspended, tooFast, unavailable }
+///
+/// [tooFast] y [unavailable] se pueden reintentar; los demás no.
+enum ChatIssue { forbidden, suspended, invalid, tooFast, unavailable }
 
 class ChatState extends Equatable {
   const ChatState({
@@ -74,12 +76,18 @@ class ChatState extends Equatable {
 /// Mandar es optimista: el mensaje aparece al toque como "enviando" y, si el
 /// servidor lo rechaza, queda marcado para reintentar. El eco que llega por
 /// el stream se reconoce por id y no se duplica.
+///
+/// Los envíos salen de a uno, en el orden en que se escribieron: el servidor
+/// admite un mensaje por segundo por cuenta (SDD 0010, M9), así que un
+/// `rateLimited` se reintenta solo una vez, pasada [rateLimitWait], antes de
+/// marcar el mensaje como fallido.
 class ConversationCubit extends Cubit<ChatState> {
   ConversationCubit(
     this._repository, {
     required this.me,
     DateTime Function()? now,
     this.reconnectDelays = defaultReconnectDelays,
+    this.rateLimitWait = defaultRateLimitWait,
     this.onUnreadChanged,
   }) : _now = now ?? DateTime.now,
        super(const ChatState());
@@ -91,6 +99,9 @@ class ConversationCubit extends Cubit<ChatState> {
   final DateTime Function() _now;
   final List<Duration> reconnectDelays;
 
+  /// Cuánto esperar antes de reintentar un envío que salió demasiado rápido.
+  final Duration rateLimitWait;
+
   /// Lo que devolvió `markRead`, para el badge de la barra.
   final void Function(int unreadConversations)? onUnreadChanged;
 
@@ -100,10 +111,25 @@ class ConversationCubit extends Cubit<ChatState> {
     Duration(seconds: 5),
   ];
 
+  /// La ventana del servidor (un segundo) y un margen por la latencia.
+  static const defaultRateLimitWait = Duration(milliseconds: 1100);
+
   StreamSubscription<DirectMessageEvent>? _live;
   Timer? _reconnect;
   int _attempt = 0;
   int _localSequence = 0;
+
+  /// La conversación que filtra el stream. Se fija antes de pedir la
+  /// historia: en ese momento `state.conversation` todavía es `null`.
+  String? _watching;
+
+  /// Lo que llegó por el stream antes de que la historia estuviera. Se une
+  /// por id cuando llega.
+  final _early = <DirectMessage>[];
+  bool _historyApplied = false;
+
+  /// La cola de envíos: cada uno sale cuando terminó el anterior.
+  Future<void> _outbox = Future.value();
 
   String? get _conversationId => state.conversation?.id;
 
@@ -132,16 +158,22 @@ class ConversationCubit extends Cubit<ChatState> {
   }
 
   Future<void> _start(Conversation conversation) async {
-    // El stream antes que la historia: lo que llegue mientras tanto no se
-    // pierde, y el merge por id evita duplicarlo.
+    // El stream antes que la historia: lo que llegue mientras tanto se
+    // guarda aparte, y el merge por id evita duplicarlo.
+    _watching = conversation.id;
+    _historyApplied = false;
+    _early.clear();
     _listen();
     final history = await _repository.history(conversation.id);
     if (isClosed) return;
+    final messages = _merge(_merge(state.messages, history.items), _early);
+    _early.clear();
+    _historyApplied = true;
     emit(
       state.copyWith(
         status: ChatStatus.ready,
         conversation: conversation,
-        messages: _merge(state.messages, history.items),
+        messages: messages,
         hasMore: history.hasMore,
       ),
     );
@@ -198,7 +230,7 @@ class ConversationCubit extends Cubit<ChatState> {
       delivery: MessageDelivery.sending,
     );
     emit(state.copyWith(messages: [...state.messages, local]));
-    await _deliver(local);
+    await _enqueue(local);
   }
 
   /// Vuelve a mandar un mensaje que quedó en [MessageDelivery.failed].
@@ -207,39 +239,69 @@ class ConversationCubit extends Cubit<ChatState> {
     if (failed == null || failed.delivery != MessageDelivery.failed) return;
     final sending = failed.copyWith(delivery: MessageDelivery.sending);
     emit(state.copyWith(messages: _replace(localId, sending)));
-    await _deliver(sending);
+    await _enqueue(sending);
   }
 
-  Future<void> _deliver(DirectMessage local) async {
+  /// Pone [local] al final de la cola. Dos envíos en paralelo chocan con el
+  /// límite del servidor y pueden llegar en otro orden.
+  Future<void> _enqueue(DirectMessage local) {
+    final turn = _outbox.then((_) => _deliver(local));
+    _outbox = turn.then<void>((_) {}, onError: (Object _) {});
+    return turn;
+  }
+
+  Future<void> _deliver(DirectMessage local, {bool retried = false}) async {
+    // El eco lo pudo haber confirmado mientras esperaba su turno.
+    if (isClosed || !_isPending(local.id)) return;
     try {
       final sent = await _repository.send(local.conversationId, local.body);
       if (isClosed) return;
-      // Si el eco ya llegó por el stream, sólo se saca el local.
-      final echoed = state.messages.any((m) => m.id == sent.id);
+      // Por id: si el eco ya llegó, el merge no lo duplica.
       emit(
         state.copyWith(
-          messages: echoed
-              ? [
-                  for (final m in state.messages)
-                    if (m.id != local.id) m,
-                ]
-              : _replace(local.id, sent),
-        ),
-      );
-    } on Failure catch (failure) {
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          messages: _replace(
-            local.id,
-            local.copyWith(delivery: MessageDelivery.failed),
+          messages: _merge(
+            [
+              for (final m in state.messages)
+                if (m.id != local.id) m,
+            ],
+            [sent],
           ),
-          issue: _issueOf(failure),
-          issueSerial: state.issueSerial + 1,
         ),
       );
+    } on RateLimitedFailure catch (failure) {
+      if (isClosed) return;
+      if (retried) {
+        _fail(local, failure);
+        return;
+      }
+      await Future<void>.delayed(rateLimitWait);
+      await _deliver(local, retried: true);
+    } on Failure catch (failure) {
+      if (!isClosed) _fail(local, failure);
     }
   }
+
+  void _fail(DirectMessage local, Failure failure) {
+    // Si el eco ya lo confirmó, el servidor lo tiene: no hay nada que avisar.
+    if (!_isPending(local.id)) return;
+    emit(
+      state.copyWith(
+        messages: _replace(
+          local.id,
+          local.copyWith(
+            delivery: _isFinal(failure)
+                ? MessageDelivery.rejected
+                : MessageDelivery.failed,
+          ),
+        ),
+        issue: _issueOf(failure),
+        issueSerial: state.issueSerial + 1,
+      ),
+    );
+  }
+
+  bool _isPending(String localId) =>
+      state.messages.any((m) => m.id == localId);
 
   void _listen() {
     unawaited(_live?.cancel());
@@ -250,24 +312,43 @@ class ConversationCubit extends Cubit<ChatState> {
         if (state.reconnecting) emit(state.copyWith(reconnecting: false));
         if (event case DirectMessageReceived(
           :final message,
-        ) when message.conversationId == _conversationId) {
-          // El propio llega como eco: lo reemplaza `_deliver`.
+        ) when message.conversationId == _watching) {
+          // La historia todavía no llegó: se une con ella.
+          if (!_historyApplied) {
+            _early.add(message);
+            return;
+          }
           if (state.messages.any((m) => m.id == message.id)) return;
-          final pendingEcho =
-              message.authorId == me &&
-              state.messages.any(
-                (m) =>
-                    _isLocal(m) &&
-                    m.body == message.body &&
-                    m.delivery == MessageDelivery.sending,
-              );
-          if (pendingEcho) return;
-          emit(state.copyWith(messages: _merge(state.messages, [message])));
+          // El eco de uno propio que sigue "enviando" lo confirma. El más
+          // viejo con el mismo texto, porque los envíos salen en orden.
+          final pending = message.authorId == me
+              ? state.messages
+                    .where(
+                      (m) =>
+                          _isLocal(m) &&
+                          m.body == message.body &&
+                          m.delivery == MessageDelivery.sending,
+                    )
+                    .firstOrNull
+              : null;
+          emit(
+            state.copyWith(
+              messages: _merge(
+                [
+                  for (final m in state.messages)
+                    if (m.id != pending?.id) m,
+                ],
+                [message],
+              ),
+            ),
+          );
           if (message.authorId != me) unawaited(_markRead());
         }
       },
       onError: (Object error) {
-        if (!isClosed) _scheduleReconnect();
+        // Sin permiso, reintentar no lo arregla.
+        if (isClosed || error is ForbiddenFailure) return;
+        _scheduleReconnect();
       },
       onDone: () {
         if (!isClosed) _scheduleReconnect();
@@ -301,7 +382,8 @@ class ConversationCubit extends Cubit<ChatState> {
         );
         unawaited(_markRead());
       } on Failure {
-        // El próximo reintento lo vuelve a intentar.
+        // Sin la historia del corte el aviso no se puede sacar: otra vuelta.
+        if (!isClosed) _scheduleReconnect();
       }
     });
   }
@@ -344,8 +426,18 @@ class ConversationCubit extends Cubit<ChatState> {
   static ChatIssue _issueOf(Failure failure) => switch (failure) {
     ForbiddenFailure() || NotFoundFailure() => ChatIssue.forbidden,
     AccountSuspendedFailure() => ChatIssue.suspended,
+    ConflictFailure() => ChatIssue.invalid,
     RateLimitedFailure() => ChatIssue.tooFast,
     _ => ChatIssue.unavailable,
+  };
+
+  /// Un rechazo que reintentar no cambia: el mensaje queda sin reintento.
+  static bool _isFinal(Failure failure) => switch (failure) {
+    ForbiddenFailure() ||
+    NotFoundFailure() ||
+    AccountSuspendedFailure() ||
+    ConflictFailure() => true,
+    _ => false,
   };
 
   @override

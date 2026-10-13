@@ -50,8 +50,19 @@ class ServerpodMessagesRepository implements MessagesRepository {
 
   @override
   Future<DirectMessage> send(String conversationId, String body) => _guard(
-    () async =>
-        toMessage(await _client.messages.send(_id(conversationId), body)),
+    () async {
+      try {
+        return toMessage(
+          await _client.messages.send(_id(conversationId), body),
+        );
+      } on api.NexoException catch (error) {
+        // El mapeo común deja `invalidInput` en `ServerFailure`, que también
+        // es un 500. En un envío es el cuerpo, y reintentarlo igual no sirve:
+        // como en el mock, es un `ConflictFailure`.
+        if (error.code != api.NexoErrorCode.invalidInput) rethrow;
+        throw ConflictFailure(error.message);
+      }
+    },
   );
 
   @override
