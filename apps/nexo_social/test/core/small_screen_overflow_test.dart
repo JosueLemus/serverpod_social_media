@@ -10,8 +10,10 @@ import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/auth/presentation/pages/auth_pages.dart';
 import 'package:nexo_social/features/explore/presentation/pages/explore_page.dart';
 import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
+import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/presentation/children/schedule_show/presentation/pages/schedule_show_page.dart';
 import 'package:nexo_social/features/live/presentation/pages/creator_studio_page.dart';
+import 'package:nexo_social/features/live/presentation/widgets/live_room_card.dart';
 import 'package:nexo_social/features/notifications/presentation/pages/activity_page.dart';
 import 'package:nexo_social/features/posts/presentation/pages/create_post_page.dart';
 import 'package:nexo_social/features/profile/presentation/pages/profile_page.dart';
@@ -86,6 +88,33 @@ void main() {
   /// etiquetas que cambian ("Activar micrófono") son lo que más aprieta.
   testWidgets('el studio no desborda', (tester) async {
     await expectNoOverflow(tester, const CreatorStudioPage());
+  });
+
+  /// La tarjeta de sala del home (SDD 0011, Etapa 5) con el apilado de hasta
+  /// cuatro avatares y "+N", y la fila de "N escuchando" junto al CTA.
+  testWidgets('la tarjeta de sala no desborda a 320', (tester) async {
+    const sala = LiveSession(
+      id: 'live-5',
+      title: 'Masterclass con nombre largo que podría romper la fila',
+      hostId: 'host-elena',
+      hostName: 'Elena Vega',
+      hostUsername: 'elena_ux',
+      status: LiveStatus.live,
+      viewers: 12345,
+      cohostIds: ['a', 'b', 'c', 'd', 'e', 'f'],
+    );
+    await expectNoOverflow(
+      tester,
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: LiveRoomCard(
+          session: sala,
+          speakers: LiveRoomSpeakers.fromSession(sala),
+          onJoin: () {},
+        ),
+      ),
+      size: smallPhone,
+    );
   });
 
   testWidgets('el menú de crear no desborda', (tester) async {

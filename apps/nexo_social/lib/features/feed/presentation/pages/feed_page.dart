@@ -17,8 +17,7 @@ import '../../../../core/widgets/section_header.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/bloc/live_list_cubit.dart';
 import '../../../live/presentation/utils/live_status_ui.dart';
-import '../../../live/presentation/widgets/featured_live_card.dart';
-import '../../../live/presentation/widgets/live_card.dart';
+import '../../../live/presentation/widgets/live_room_card.dart';
 import '../../../live/presentation/widgets/live_stories_row.dart';
 import '../../../moderation/presentation/widgets/staff_shortcut_card.dart';
 import '../../domain/entities/feed_filter.dart';
@@ -314,9 +313,11 @@ class _LiveNowList extends StatelessWidget {
             child: EnterStatic(
               key: ValueKey(session.id),
               index: index,
-              child: LiveCard(
+              child: LiveRoomCard(
                 session: session,
-                onTap: () => openLive(context, session),
+                speakers: LiveRoomSpeakers.fromSession(session),
+                onJoin: () => openLive(context, session),
+                isOwn: isOwnLive(context, session),
               ),
             ),
           ),
@@ -352,8 +353,8 @@ class _LiveStories extends StatelessWidget {
       );
 }
 
-/// La transmisión destacada, debajo de los filtros. Sólo si hay alguien al
-/// aire: un hueco reservado para un vivo que no existe se lee como un error.
+/// La sala destacada, debajo de los filtros. Sólo si hay alguien al aire: un
+/// hueco reservado para un vivo que no existe se lee como un error.
 class _FeaturedLive extends StatelessWidget {
   const _FeaturedLive();
 
@@ -373,9 +374,9 @@ class _FeaturedLive extends StatelessWidget {
             // Sólo aparece: la tarjeta lleva el botón para entrar, y una
             // traslación dejaría el hit test corrido mientras dura.
             child: EnterStatic(
-              child: FeaturedLiveCard(
+              child: LiveRoomCard(
                 session: featured,
-                hostUsername: featured.hostUsername,
+                speakers: LiveRoomSpeakers.fromSession(featured),
                 onJoin: () => openLive(context, featured),
                 isOwn: isOwnLive(context, featured),
               ),

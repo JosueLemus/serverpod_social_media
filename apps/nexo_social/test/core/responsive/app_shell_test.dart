@@ -152,7 +152,9 @@ void main() {
       await tester.tap(find.byKey(const Key('tab-/explore')));
       await AppHarness.settle(tester);
 
-      expect(find.text('En vivo ahora'), findsWidgets);
+      // Explorar abre la sección "Salas en vivo" (SDD 0011, Etapa 5): la
+      // tira de tarjetas podcast reemplazó al listado liso.
+      expect(find.text('Salas en vivo'), findsWidgets);
     });
 
     /// The whole reason for StatefulShellRoute. The old shell rebuilt the

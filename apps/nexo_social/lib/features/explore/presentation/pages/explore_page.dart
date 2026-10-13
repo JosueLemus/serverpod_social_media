@@ -12,6 +12,7 @@ import '../../../../core/widgets/search_field.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/widgets/live_card.dart';
+import '../../../live/presentation/widgets/live_room_card.dart';
 import '../bloc/explore_cubit.dart';
 import '../bloc/search_cubit.dart';
 import '../widgets/discovery_sections.dart';
@@ -147,6 +148,19 @@ class _ExploreViewState extends State<_ExploreView> {
     var index = 0;
     // Sólo aparecen: la tarjeta entera se toca, y una traslación dejaría el
     // hit test corrido mientras dura.
+    Widget roomCard(LiveSession session) => Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: EnterStatic(
+        key: ValueKey(session.id),
+        index: index++,
+        child: LiveRoomCard(
+          session: session,
+          speakers: LiveRoomSpeakers.fromSession(session),
+          onJoin: () => openLive(context, session),
+          isOwn: isOwnLive(context, session),
+        ),
+      ),
+    );
     Widget card(LiveSession session) => Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: EnterStatic(
@@ -175,13 +189,10 @@ class _ExploreViewState extends State<_ExploreView> {
       ];
     }
 
-    // Sin ícono delante del título: el borde de cada tarjeta (holo, punteado,
-    // troquel) ya dice en qué estado está cada vivo, y un ícono de Material
-    // al lado de la tipografía de display es otro trazo y otra mano.
     return [
       if (state.onAir.isNotEmpty) ...[
-        const SectionHeader(title: 'En vivo ahora'),
-        ...state.onAir.map(card),
+        const SectionHeader(title: 'Salas en vivo'),
+        ...state.onAir.map(roomCard),
       ],
       if (state.upcoming.isNotEmpty) ...[
         const SectionHeader(title: 'Próximos'),
