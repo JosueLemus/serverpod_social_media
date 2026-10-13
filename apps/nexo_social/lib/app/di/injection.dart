@@ -54,6 +54,7 @@ import '../../features/moderation/domain/repositories/moderation_repository.dart
 import '../../features/moderation/presentation/bloc/moderation_cubit.dart';
 import '../../features/subscriptions/data/repositories/mock_subscription_repository.dart';
 import '../../features/subscriptions/domain/repositories/subscription_repository.dart';
+import '../../features/subscriptions/presentation/bloc/subscription_cubit.dart';
 import '../../features/admin/data/repositories/mock_admin_repository.dart';
 import '../../features/admin/domain/repositories/admin_repository.dart';
 import '../../features/admin/presentation/bloc/account_detail_cubit.dart';
@@ -280,6 +281,11 @@ Future<void> configureDependencies({
   sl.registerLazySingleton<SubscriptionRepository>(
     MockSubscriptionRepository.new,
   );
+  // El muro de un creador lee su perfil para la cabecera: el repositorio de
+  // perfiles se registra más abajo, y `sl()` lo resuelve al crear el cubit.
+  sl.registerFactoryParam<SubscriptionCubit, String, void>(
+    (creator, _) => SubscriptionCubit(sl(), creator, sl()),
+  );
   sl.registerLazySingleton<AdminRepository>(() => MockAdminRepository(sl()));
   sl.registerFactory(() => AdminConsoleCubit(sl()));
   sl.registerFactory(() => AuditLogCubit(sl()));
@@ -294,7 +300,8 @@ Future<void> configureDependencies({
         : ServerpodProfileRepository(sl<serverpod.Client>(), sl()),
   );
   sl.registerFactoryParam<PublicProfileCubit, String, void>(
-    (username, _) => PublicProfileCubit(sl(), sl(), sl(), username, sl()),
+    (username, _) =>
+        PublicProfileCubit(sl(), sl(), sl(), username, sl(), sl()),
   );
   sl.registerFactoryParam<FollowListCubit, String, FollowListKind>(
     (userId, kind) => FollowListCubit(sl(), userId, kind),

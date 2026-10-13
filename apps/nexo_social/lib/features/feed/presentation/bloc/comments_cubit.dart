@@ -7,7 +7,20 @@ import '../../domain/entities/post_extras.dart';
 import '../../domain/repositories/post_repository.dart';
 
 /// Qué pasó con la última acción de la hoja. La View lo traduce.
-enum CommentsNotice { sent, deleted, reported, failed, forbidden, closed }
+///
+/// [cannotComment] es un `forbidden` al comentar. Puede ser un post que
+/// cerró los comentarios después de abrir la hoja o una sesión que el
+/// servidor no reconoce: los dos llegan como `ForbiddenFailure`, así que la
+/// copy no afirma cuál fue. El visitante ni siquiera llega acá: la hoja le
+/// ofrece iniciar sesión en vez del campo.
+enum CommentsNotice {
+  sent,
+  deleted,
+  reported,
+  failed,
+  forbidden,
+  cannotComment,
+}
 
 class CommentsState extends Equatable {
   const CommentsState({
@@ -155,11 +168,14 @@ class CommentsCubit extends Cubit<CommentsState> {
       emit(
         state.copyWith(
           isSending: false,
-          // `forbidden` al comentar es casi siempre un post con los
-          // comentarios cerrados.
-          notice: failure is ForbiddenFailure
-              ? CommentsNotice.closed
-              : CommentsNotice.failed,
+          // Antes todo `forbidden` se leía como "no acepta comentarios", y
+          // eso le decía a un visitante que el post estaba cerrado.
+          notice: switch (failure) {
+            ForbiddenFailure() => CommentsNotice.cannotComment,
+            MutedFailure() ||
+            AccountSuspendedFailure() => CommentsNotice.forbidden,
+            _ => CommentsNotice.failed,
+          },
           noticeSerial: state.noticeSerial + 1,
         ),
       );

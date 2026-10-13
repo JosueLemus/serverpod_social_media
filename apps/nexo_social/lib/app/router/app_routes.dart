@@ -7,6 +7,15 @@
 abstract final class AppRoutes {
   static const splash = '/splash';
   static const signIn = '/sign-in';
+
+  /// A dónde volver después de iniciar sesión. Lo lleva el splash y lo lleva
+  /// el login: un enlace compartido abierto sin sesión tiene que terminar en
+  /// la publicación, no en el feed.
+  static const fromParam = 'from';
+
+  /// El login, recordando [location] para volver ahí al autenticarse.
+  static String signInFrom(String location) =>
+      Uri(path: signIn, queryParameters: {fromParam: location}).toString();
   static const signUp = '/sign-up';
   static const passwordReset = '/password-reset';
 
@@ -54,6 +63,12 @@ abstract final class AppRoutes {
   /// se llega desde el menú de crear, que es una acción y no una pestaña.
   static const scheduleShow = '/schedule-show';
   static const premium = '/premium';
+
+  /// El muro de membresía de un creador puntual. Sin el usuario en la ruta,
+  /// la pantalla era siempre la de Elena, se abriera desde el perfil que se
+  /// abriera.
+  static const premiumPath = '$premium/:username';
+  static String premiumFor(String username) => '$premium/$username';
   static const settings = '/settings';
 
   /// Elegir el tema de la app. Se entra desde el perfil y se empuja sobre el

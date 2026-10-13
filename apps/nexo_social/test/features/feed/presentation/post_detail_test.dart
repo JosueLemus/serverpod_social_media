@@ -102,6 +102,45 @@ void main() {
       ],
       verify: (_) => expect(posts.posts, isEmpty),
     );
+
+    // Un like o un comentario desde otra pantalla deja el contador al día,
+    // sin perder el "guardado", que es local.
+    test('a change elsewhere refreshes it and keeps what is local', () async {
+      final cubit = PostDetailCubit(posts, '7');
+      await cubit.load();
+      cubit.toggleSave();
+
+      await posts.setLiked('7', liked: true);
+      await pumpEventQueue();
+
+      final post = cubit.state.post!;
+      expect(post.isLiked, isTrue);
+      expect(post.likes, 3);
+      expect(post.isSaved, isTrue);
+      await cubit.close();
+    });
+
+    test('editing keeps the saved mark', () async {
+      final cubit = PostDetailCubit(posts, '7');
+      await cubit.load();
+      cubit.toggleSave();
+
+      await cubit.edit('texto nuevo');
+
+      expect(cubit.state.post!.body, 'texto nuevo');
+      expect(cubit.state.post!.isSaved, isTrue);
+      await cubit.close();
+    });
+
+    test('closing stops listening to the repository', () async {
+      final cubit = PostDetailCubit(posts, '7');
+      await cubit.load();
+      await cubit.close();
+
+      // Sin la suscripción cancelada, esto emitiría sobre un cubit cerrado.
+      posts.emitChange();
+      await pumpEventQueue();
+    });
   });
 
   group('las fotos se abren', () {
@@ -210,6 +249,12 @@ void main() {
         routes: [
           GoRoute(path: '/', builder: (_, _) => const Text('inicio')),
           GoRoute(
+            path: AppRoutes.signIn,
+            builder: (_, state) => Text(
+              'login-${state.uri.queryParameters[AppRoutes.fromParam]}',
+            ),
+          ),
+          GoRoute(
             path: AppRoutes.postPath,
             builder: (_, state) =>
                 PostDetailPage(postId: state.pathParameters['postId']!),
@@ -249,6 +294,78 @@ void main() {
       await tester.tap(find.byKey(const Key('post-detail-back')));
       await AppHarness.settle(tester);
       expect(find.text('inicio'), findsOneWidget);
+    });
+
+    Future<void> openComments(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('post-detail-comments')));
+      await AppHarness.settle(tester);
+    }
+
+    // Regresión: un visitante podía escribir y recibía "Esta publicación no
+    // acepta comentarios" en un post abierto.
+    testWidgets('un visitante ve la invitación a iniciar sesión, no el campo', (
+      tester,
+    ) async {
+      await sl<AuthCubit>().guest();
+      await pump(tester, '7');
+      await openComments(tester);
+
+      expect(find.byKey(const Key('comment-input')), findsNothing);
+      expect(find.text('Inicia sesión para comentar'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('comments-sign-in')));
+      await AppHarness.settle(tester);
+      // Al iniciar sesión se vuelve a la publicación, no al feed.
+      expect(find.text('login-${AppRoutes.post('7')}'), findsOneWidget);
+    });
+
+    group('con sesión', () {
+      setUp(() async {
+        await AppHarness.bootstrap(
+          initialPreferences: {
+            'mock_session':
+                '{"id":"creator-1","username":"elena_ux","name":"Elena Vega","role":"creator"}',
+          },
+        );
+        posts = FakePostRepository([fakePost('7')]);
+        sl
+          ..unregister<PostRepository>()
+          ..registerLazySingleton<PostRepository>(() => posts);
+        await sl<AuthCubit>().restore();
+      });
+
+      testWidgets('una cuenta ve el campo para comentar', (tester) async {
+        await pump(tester, '7');
+        await openComments(tester);
+
+        expect(find.byKey(const Key('comment-input')), findsOneWidget);
+        expect(find.byKey(const Key('comments-sign-in')), findsNothing);
+      });
+
+      // Regresión: el aviso se mostraba en el messenger de la página, debajo
+      // de la barrera del modal, y nadie lo veía.
+      testWidgets('el aviso de un fallo se ve dentro de la hoja', (
+        tester,
+      ) async {
+        await pump(tester, '7');
+        await openComments(tester);
+
+        posts.failNext = const ServerFailure('500');
+        await tester.enterText(
+          find.byKey(const Key('comment-input')),
+          'Hola',
+        );
+        await tester.tap(find.byKey(const Key('comment-send')));
+        await AppHarness.settle(tester);
+
+        expect(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(SnackBar),
+          ),
+          findsOneWidget,
+        );
+      });
     });
   });
 

@@ -70,6 +70,10 @@ void main() {
   });
 
   testWidgets('premium no desborda', (tester) async {
+    await expectNoOverflow(tester, const SubscriptionPage(creator: 'elena_ux'));
+  });
+
+  testWidgets('membresías sin creador no desborda', (tester) async {
     await expectNoOverflow(tester, const SubscriptionPage());
   });
 

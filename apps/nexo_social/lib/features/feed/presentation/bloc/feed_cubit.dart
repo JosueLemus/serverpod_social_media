@@ -143,18 +143,55 @@ class FeedCubit extends Cubit<FeedState> {
     // shell keeps one navigator per tab, so this cubit and its list survive.
     // Without this subscription a published post only showed up after a
     // restart.
-    _changes = _posts.changes().listen((_) => unawaited(_reload()));
+    _changes = _posts.changes().listen((_) => _onChange());
+    // Seguir desde un perfil o Explorar mueve publicaciones entre "seguidos"
+    // y "descubrir", y saca la cuenta de "A quién seguir".
+    _followChanges = _follows?.changes().listen((_) => _onChange());
   }
 
   final PostRepository _posts;
   final HomeFeedRepository _home;
   final FollowRepository? _follows;
   late final StreamSubscription<void> _changes;
+  StreamSubscription<void>? _followChanges;
+
+  /// Likes y seguir optimistas todavía sin respuesta.
+  var _inFlight = 0;
+
+  /// Llegó un cambio mientras había algo en vuelo: se relee al terminar.
+  var _reloadPending = false;
 
   @override
   Future<void> close() async {
     await _changes.cancel();
+    await _followChanges?.cancel();
     return super.close();
+  }
+
+  /// Un cambio de otra pantalla (o la confirmación del propio like) relee
+  /// la primera página. Con un like o un seguir en vuelo se espera a que
+  /// termine: releer en el medio traería el dato de antes del segundo toque,
+  /// y el corazón parpadearía entre los dos estados.
+  void _onChange() {
+    if (_inFlight > 0) {
+      _reloadPending = true;
+      return;
+    }
+    unawaited(_reload());
+  }
+
+  /// Envuelve una acción optimista para que [_onChange] la espere.
+  Future<void> _optimistic(Future<void> Function() action) async {
+    _inFlight++;
+    try {
+      await action();
+    } finally {
+      _inFlight--;
+      if (_inFlight == 0 && _reloadPending && !isClosed) {
+        _reloadPending = false;
+        unawaited(_reload());
+      }
+    }
   }
 
   Future<void> load() async {
@@ -185,9 +222,11 @@ class FeedCubit extends Cubit<FeedState> {
           nextCursor: merged.nextCursor,
           notice: current is FeedLoaded ? current.notice : null,
           noticeSerial: current is FeedLoaded ? current.noticeSerial : 0,
-          suggestions:
-              home.section(FeedSectionKind.suggestedAccounts)?.accounts ??
-              const [],
+          suggestions: mergeSuggestions(
+            current is FeedLoaded ? current.suggestions : const [],
+            home.section(FeedSectionKind.suggestedAccounts)?.accounts ??
+                const [],
+          ),
         ),
       );
     } on Failure catch (failure) {
@@ -259,6 +298,34 @@ class FeedCubit extends Cubit<FeedState> {
     );
   }
 
+  /// "A quién seguir" recién leído, sin que desaparezca la cuenta que se
+  /// acaba de seguir.
+  ///
+  /// El servidor sugiere sólo cuentas que no se siguen, así que la relectura
+  /// que dispara seguir sacaba la fila justo debajo del dedo: el "Siguiendo"
+  /// no llegaba a verse. Las ya seguidas que estaban se quedan en su lugar
+  /// hasta el próximo inicio.
+  @visibleForTesting
+  static List<ProfileSummary> mergeSuggestions(
+    List<ProfileSummary> current,
+    List<ProfileSummary> fresh,
+  ) {
+    final byId = {for (final account in fresh) account.id: account};
+    final kept = [
+      for (final account in current)
+        if (byId[account.id] case final updated?)
+          updated
+        else if (account.viewerFollows)
+          account,
+    ];
+    final keptIds = {for (final account in kept) account.id};
+    return [
+      ...kept,
+      for (final account in fresh)
+        if (!keptIds.contains(account.id)) account,
+    ];
+  }
+
   /// Las publicaciones de una página del inicio, en el orden de sus
   /// secciones. Los vivos no entran: el rail de vivos los lee en tiempo real
   /// de su propio cubit.
@@ -318,16 +385,20 @@ class FeedCubit extends Cubit<FeedState> {
     _replace(
       post.copyWith(isLiked: liked, likes: post.likes + (liked ? 1 : -1)),
     );
-    try {
-      final result = await _posts.setLiked(id, liked: liked);
-      final latest = _find(id);
-      if (latest != null) {
-        _replace(latest.copyWith(isLiked: result.isLiked, likes: result.likes));
+    await _optimistic(() async {
+      try {
+        final result = await _posts.setLiked(id, liked: liked);
+        final latest = _find(id);
+        if (latest != null) {
+          _replace(
+            latest.copyWith(isLiked: result.isLiked, likes: result.likes),
+          );
+        }
+      } on Failure {
+        _replace(post);
+        _notify(FeedNotice.likeFailed);
       }
-    } on Failure {
-      _replace(post);
-      _notify(FeedNotice.likeFailed);
-    }
+    });
   }
 
   /// Seguir desde "A quién seguir". Optimista, con vuelta atrás si el
@@ -337,26 +408,28 @@ class FeedCubit extends Cubit<FeedState> {
     if (follows == null) return;
     final following = !account.viewerFollows;
     _replaceSuggestion(account.copyWith(viewerFollows: following));
-    try {
-      final result = following
-          ? await follows.follow(account.id)
-          : await follows.unfollow(account.id);
-      _replaceSuggestion(
-        account.copyWith(
-          viewerFollows: result.viewerFollows,
-          followerCount: result.followerCount == null
-              ? null
-              : () => result.followerCount,
-        ),
-      );
-    } on Failure catch (failure) {
-      _replaceSuggestion(account);
-      _notify(
-        failure is ForbiddenFailure
-            ? FeedNotice.signInToFollow
-            : FeedNotice.followFailed,
-      );
-    }
+    await _optimistic(() async {
+      try {
+        final result = following
+            ? await follows.follow(account.id)
+            : await follows.unfollow(account.id);
+        _replaceSuggestion(
+          account.copyWith(
+            viewerFollows: result.viewerFollows,
+            followerCount: result.followerCount == null
+                ? null
+                : () => result.followerCount,
+          ),
+        );
+      } on Failure catch (failure) {
+        _replaceSuggestion(account);
+        _notify(
+          failure is ForbiddenFailure
+              ? FeedNotice.signInToFollow
+              : FeedNotice.followFailed,
+        );
+      }
+    });
   }
 
   void _replaceSuggestion(ProfileSummary account) {
@@ -381,7 +454,16 @@ class FeedCubit extends Cubit<FeedState> {
   Future<void> edit(Post post, String body) async {
     try {
       final updated = await _posts.update(post.id, body: body);
-      _replace(updated);
+      // Lo local no viaja al servidor: el post editado vuelve sin "guardado"
+      // y sin saber que su autor se sigue, y reemplazarlo tal cual lo sacaba
+      // de la sección de seguidos.
+      final latest = _find(post.id) ?? post;
+      _replace(
+        updated.copyWith(
+          isSaved: latest.isSaved,
+          isFollowed: latest.isFollowed,
+        ),
+      );
       _notify(FeedNotice.edited);
     } on Failure catch (failure) {
       _notify(_noticeFor(failure));
@@ -429,7 +511,7 @@ class FeedCubit extends Cubit<FeedState> {
 
   void _replace(Post post) {
     final current = state;
-    if (current is! FeedLoaded) return;
+    if (isClosed || current is! FeedLoaded) return;
     emit(
       current.copyWith(
         posts: [
@@ -441,7 +523,7 @@ class FeedCubit extends Cubit<FeedState> {
 
   void _notify(FeedNotice notice) {
     final current = state;
-    if (current is FeedLoaded) {
+    if (!isClosed && current is FeedLoaded) {
       emit(
         current.copyWith(
           notice: notice,

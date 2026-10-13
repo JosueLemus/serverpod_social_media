@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/core/widgets/app_state_views.dart';
+import 'package:nexo_social/core/widgets/offline_view.dart';
 
 void main() {
   group('error view', () {
@@ -32,9 +33,71 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(find.text('Sin conexión a Internet'), findsOneWidget);
-      // El modo offline no sólo informa: ofrece lo que sí funciona.
       expect(find.text('Modo sin conexión'), findsOneWidget);
-      expect(find.textContaining('Lectura disponible offline'), findsOneWidget);
+      // Regresión: listaba dos lecturas "guardadas" de demo con un "Leer
+      // ahora" que no abría nada. Sin caché offline no hay qué ofrecer.
+      expect(find.textContaining('Lectura disponible offline'), findsNothing);
+      expect(find.text('Leer ahora'), findsNothing);
+      expect(find.text('Contenido guardado'), findsNothing);
+    });
+  });
+
+  group('offline view', () {
+    Future<void> pump(WidgetTester tester, AppOfflineView view) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: SingleChildScrollView(child: view)),
+          ),
+        );
+
+    testWidgets('drafts are offered only when they can be opened', (
+      tester,
+    ) async {
+      await pump(tester, AppOfflineView(onRetry: () {}, draftCount: 3));
+      expect(find.byKey(const Key('offline-drafts')), findsNothing);
+
+      var opened = false;
+      await pump(
+        tester,
+        AppOfflineView(
+          onRetry: () {},
+          draftCount: 3,
+          onViewDrafts: () => opened = true,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('offline-drafts')));
+      expect(opened, isTrue);
+    });
+
+    testWidgets('a saved reading offers "Leer ahora" only if it opens', (
+      tester,
+    ) async {
+      var opened = false;
+      await pump(
+        tester,
+        AppOfflineView(
+          onRetry: () {},
+          savedReadings: [
+            const SavedReading(
+              title: 'Sin abrir',
+              summary: 'Resumen',
+              author: 'A',
+              minutes: 2,
+            ),
+            SavedReading(
+              title: 'Se abre',
+              summary: 'Resumen',
+              author: 'B',
+              minutes: 3,
+              onOpen: () => opened = true,
+            ),
+          ],
+        ),
+      );
+
+      expect(find.text('Leer ahora'), findsOneWidget);
+      await tester.tap(find.text('Leer ahora'));
+      expect(opened, isTrue);
     });
   });
 

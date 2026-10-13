@@ -108,6 +108,9 @@ class MockPostRepository implements PostRepository {
         else
           post,
     ]);
+    // Un like desde la publicación tiene que verse en el feed y en el
+    // perfil que quedaron debajo.
+    _notify();
     return result;
   }
 

@@ -19,4 +19,9 @@ abstract interface class FollowRepository {
   /// Creadores verificados que quien mira todavía no sigue. Sin sesión, los
   /// más seguidos.
   Future<List<ProfileSummary>> suggestions({int? limit});
+
+  /// Emite cuando quien mira empieza o deja de seguir a alguien desde
+  /// cualquier pantalla, para que el feed y los perfiles abiertos se
+  /// refresquen sin recargar.
+  Stream<void> changes();
 }

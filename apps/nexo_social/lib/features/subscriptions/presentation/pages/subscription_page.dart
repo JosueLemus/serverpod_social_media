@@ -3,27 +3,84 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
+import '../../../../core/widgets/app_state_views.dart';
 import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
+import '../../../profile/domain/entities/public_profile.dart';
 import '../bloc/subscription_cubit.dart';
 
 /// El muro de membresía de un creador. Ruta empujada, así que lleva Scaffold
 /// propio y un botón de cerrar.
+///
+/// [creator] es el usuario dueño del muro. Antes tenía a `elena_ux` por
+/// defecto, y cualquier "Suscribirse" abría la membresía de Elena. Null es
+/// el atajo genérico de "Membresías": sin un creador no hay pase que vender,
+/// así que se explica de dónde sale uno.
 class SubscriptionPage extends StatelessWidget {
-  const SubscriptionPage({super.key, this.creator = 'elena_ux'});
+  const SubscriptionPage({super.key, this.creator});
 
-  final String creator;
+  final String? creator;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => SubscriptionCubit(sl(), creator)..load(),
-    child: const _SubscriptionView(),
+  Widget build(BuildContext context) {
+    final username = creator;
+    if (username == null || username.isEmpty) return const _NoCreatorView();
+    return BlocProvider(
+      create: (_) => sl<SubscriptionCubit>(param1: username)..load(),
+      child: const _SubscriptionView(),
+    );
+  }
+}
+
+/// Cierra la tarea. Si se llegó por un enlace directo no hay a dónde volver:
+/// `pop` sobre la pila vacía revienta, así que se va al feed.
+void _close(BuildContext context) =>
+    context.canPop() ? context.pop() : context.go(AppRoutes.feed);
+
+class _CloseButton extends StatelessWidget {
+  const _CloseButton();
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    key: const Key('premium-close'),
+    tooltip: 'Cerrar',
+    onPressed: () => _close(context),
+    icon: const NexoIcon(NexoGlyph.close, size: 20),
+  );
+}
+
+class _NoCreatorView extends StatelessWidget {
+  const _NoCreatorView();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      leading: const _CloseButton(),
+      title: const Text('Membresías'),
+    ),
+    body: SafeArea(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: AppEmptyView(
+            mascot: NexoMascot.crown,
+            title: 'Cada membresía es de un creador',
+            message:
+                'Entra al perfil de quien quieras apoyar y toca "Suscribirse" '
+                'para ver su pase.',
+            actionLabel: 'Explorar creadores',
+            onAction: () => context.go(AppRoutes.explore),
+          ),
+        ),
+      ),
+    ),
   );
 }
 
@@ -37,11 +94,7 @@ class _SubscriptionView extends StatelessWidget {
           final active = state.entitlement.active;
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(
-                tooltip: 'Cerrar',
-                onPressed: context.pop,
-                icon: const NexoIcon(NexoGlyph.close, size: 20),
-              ),
+              leading: const _CloseButton(),
               title: const Text('Premium'),
             ),
             body: SafeArea(
@@ -56,7 +109,12 @@ class _SubscriptionView extends StatelessWidget {
                       AppSpacing.xl,
                     ),
                     children: [
-                      const Enter(child: _CreatorHero()),
+                      Enter(
+                        child: _CreatorHero(
+                          username: state.entitlement.creator,
+                          profile: state.creatorProfile,
+                        ),
+                      ),
                       const SizedBox(height: AppSpacing.lg),
                       Enter(index: 1, child: _LockedPreview(unlocked: active)),
                       const SizedBox(height: AppSpacing.lg),
@@ -74,12 +132,22 @@ class _SubscriptionView extends StatelessWidget {
 
 /// El gato con la corona, en vez de un banner en degradado: la membresía es
 /// lo que se colecciona, no un anuncio.
+///
+/// Sale del perfil de [username]. Escrita a mano decía "Elena Vega · 42.8k
+/// miembros" para cualquier creador. Sin perfil (leyéndose, o no se pudo) se
+/// muestra sólo el usuario: un número inventado es peor que ninguno.
 class _CreatorHero extends StatelessWidget {
-  const _CreatorHero();
+  const _CreatorHero({required this.username, required this.profile});
+
+  final String username;
+  final PublicProfile? profile;
 
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final profile = this.profile;
+    final name = profile?.name ?? '@$username';
+    final followers = profile?.followers;
     return Column(
       children: [
         const MascotIllustration(NexoMascot.crown, size: 140),
@@ -87,32 +155,39 @@ class _CreatorHero extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const UserAvatar(name: 'Elena Vega', size: 30),
+            UserAvatar(name: name, imageUrl: profile?.avatarUrl, size: 30),
             const SizedBox(width: AppSpacing.xs),
             Flexible(
               child: Text(
-                'Elena Vega',
+                name,
+                key: const Key('premium-creator-name'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: text.headlineMedium,
               ),
             ),
-            const SizedBox(width: 6),
-            NexoIcon(NexoGlyph.verified, size: 18, color: AppColors.primary),
+            if (profile?.isVerified ?? false) ...[
+              const SizedBox(width: 6),
+              NexoIcon(
+                NexoGlyph.verified,
+                size: 18,
+                color: AppColors.primary,
+              ),
+            ],
           ],
         ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          '@elena_ux · 42.8k miembros activos',
-          textAlign: TextAlign.center,
-          style: text.bodySmall,
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        StatusBadge(
-          label: 'Top 1%',
-          color: AppColors.vinylLime,
-          foreground: AppColors.ink,
-        ),
+        if (profile != null) ...[
+          const SizedBox(height: AppSpacing.xxs),
+          Text(
+            followers == null
+                ? '@${profile.username}'
+                : '@${profile.username} · ${compactCount(followers)} '
+                      'seguidores',
+            key: const Key('premium-creator-handle'),
+            textAlign: TextAlign.center,
+            style: text.bodySmall,
+          ),
+        ],
       ],
     );
   }
@@ -433,6 +508,14 @@ class _DonationSectionState extends State<_DonationSection> {
     super.dispose();
   }
 
+  /// El mensaje viaja con la donación y se limpia sólo si se envió.
+  Future<void> _donate() async {
+    final sent = await context.read<SubscriptionCubit>().donate(
+      message: _message.text,
+    );
+    if (sent && mounted) _message.clear();
+  }
+
   @override
   Widget build(BuildContext context) =>
       BlocBuilder<SubscriptionCubit, SubscriptionState>(
@@ -480,10 +563,7 @@ class _DonationSectionState extends State<_DonationSection> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   key: const Key('donate-send'),
-                  onPressed: () {
-                    cubit.donate();
-                    _message.clear();
-                  },
+                  onPressed: state.isDonating ? null : _donate,
                   icon: NexoIcon(
                     NexoGlyph.heart,
                     filled: true,
