@@ -12,7 +12,10 @@ import '../../notifications/services/notification_service.dart';
 import '../../search/services/search_rules.dart';
 import '../../social/services/follow_service.dart';
 import 'live_presence.dart';
+import 'live_moderation_service.dart';
 import 'live_rules.dart';
+import 'live_sanctions.dart';
+import 'live_stage_service.dart';
 import 'show_scheduler.dart';
 
 /// Reglas de negocio de los vivos: programar, iniciar, terminar, mirar y
@@ -30,10 +33,12 @@ class LiveService {
     this._scheduler = const FutureCallShowScheduler(),
     LivePresence? presence,
     LiveChatThrottle? throttle,
+    LiveStageService? stage,
     LiveMediaGateway Function(Session session)? mediaGateway,
     DateTime Function()? now,
   }) : _presence = presence ?? LivePresence.instance,
        _throttle = throttle ?? LiveChatThrottle.instance,
+       _stage = stage ?? LiveStageService(now: now),
        _mediaGateway =
            mediaGateway ??
            ((session) => liveMediaGatewayFrom(session.passwords)),
@@ -48,6 +53,16 @@ class LiveService {
   final ShowScheduler _scheduler;
   final LivePresence _presence;
   final LiveChatThrottle _throttle;
+
+  /// El escenario: roles en la sala, quién habla y quién pidió la palabra.
+  final LiveStageService _stage;
+
+  /// Silenciar, expulsar, banear, ocultar, borrar, fijar y destacar.
+  late final LiveModerationService _moderation = LiveModerationService(
+    stage: _stage,
+    messageViews: _messageViews,
+    now: _now,
+  );
 
   /// Se resuelve por sesión porque los secretos se leen de ahí: con App
   /// Certificate, tokens firmados; sin él, el modo de prueba de Agora.
@@ -180,7 +195,10 @@ class LiveService {
     final rows = await LiveChatMessage.db.find(
       session,
       where: (t) {
-        var where = t.showId.equals(showId) & t.hiddenAt.equals(null);
+        var where =
+            t.showId.equals(showId) &
+            t.hiddenAt.equals(null) &
+            t.deletedAt.equals(null);
         if (beforeId != null) where = where & (t.id < beforeId);
         return where;
       },
@@ -296,6 +314,7 @@ class LiveService {
         entityId: '${show.id}',
         transaction: tx,
       );
+      await _stage.seedOnAir(session, show, tx);
       notices = await _notifyLiveStarted(session, show, tx);
       return show;
     });
@@ -307,8 +326,10 @@ class LiveService {
   }
 
   /// La credencial de video para entrar al canal del show. El rol lo decide
-  /// el servidor: publica sólo el host con el show al aire; el resto, incluso
-  /// sin sesión, mira. El cliente nunca pide ser publicador (D9).
+  /// el servidor: con el show al aire publica el host **y quien esté en el
+  /// escenario** (SDD 0011); el resto, incluso sin sesión, mira. El cliente
+  /// nunca pide ser publicador (D9). Cuando alguien sube o baja, el evento
+  /// `stage` le avisa que pida una credencial nueva.
   Future<LiveMediaGrant> mediaToken(Session session, int showId) async {
     final show = await requireVisible(session, showId);
     final onAir = LiveRules.isOnAir(show.status);
@@ -318,7 +339,12 @@ class LiveService {
       throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
     }
     final viewer = session.userIdOrNull;
-    final isPublisher = onAir && viewer == show.hostId;
+    await LiveSanctions.requireAdmitted(session, show, viewer);
+    final isPublisher =
+        onAir &&
+        viewer != null &&
+        (viewer == show.hostId ||
+            await _stage.isOnStage(session, showId, viewer));
     final channel = LiveRules.mediaChannel(showId);
     final uid = LiveRules.mediaUid(viewer);
     final token = await _mediaGateway(session).issueToken(
@@ -350,6 +376,11 @@ class LiveService {
     if (show.status != LiveShowStatus.live) {
       throw _error(NexoErrorCode.conflict, 'El show no está al aire.');
     }
+    await LiveSanctions.requireAdmitted(session, show, authorId);
+    if (await LiveSanctions.activeMute(session, showId, authorId, _now()) !=
+        null) {
+      throw _error(NexoErrorCode.muted, 'Estás silenciado en este vivo.');
+    }
     final text = LiveRules.normalizeChat(body);
     if (!_throttle.tryAcquire(authorId, _now(), LiveRules.chatCooldown)) {
       throw _error(
@@ -370,56 +401,10 @@ class LiveService {
     return view;
   }
 
-  /// El host del show o el staff. No borra: queda en la auditoría.
-  Future<void> hideChat(Session session, int messageId) async {
-    final actorId = session.requireUserId;
-    final hidden = await session.db.transaction((tx) async {
-      final message = await LiveChatMessage.db.findById(
-        session,
-        messageId,
-        transaction: tx,
-        lockMode: LockMode.forUpdate,
-      );
-      if (message == null) {
-        throw _error(NexoErrorCode.notFound, 'El mensaje no existe.');
-      }
-      final show = await LiveShow.db.findById(
-        session,
-        message.showId,
-        transaction: tx,
-      );
-      if (show?.hostId != actorId && !session.isStaff) {
-        throw _error(
-          NexoErrorCode.forbidden,
-          'Sólo el host o un moderador ocultan mensajes.',
-        );
-      }
-      if (message.hiddenAt != null) return null;
-
-      await LiveChatMessage.db.updateRow(
-        session,
-        message.copyWith(hiddenAt: _now(), hiddenBy: actorId),
-        columns: (t) => [t.hiddenAt, t.hiddenBy],
-        transaction: tx,
-      );
-      await _audit.record(
-        session,
-        actorId: actorId,
-        action: 'live.hideChat',
-        entityType: 'liveChatMessage',
-        entityId: '$messageId',
-        metadata: {'showId': message.showId},
-        transaction: tx,
-      );
-      return message;
-    });
-
-    if (hidden == null) return;
-    await session.messages.postMessage(
-      LiveChannels.show(hidden.showId),
-      LiveEvent(kind: LiveEventKind.chatHidden, hiddenMessageId: messageId),
-    );
-  }
+  /// Oculta un mensaje. Host o moderador, sobre alguien de rango menor
+  /// (SDD 0011). No borra: queda en la auditoría.
+  Future<void> hideChat(Session session, int messageId) =>
+      _moderation.hideChat(session, messageId);
 
   // --- Tiempo real ---------------------------------------------------------
 
@@ -434,13 +419,30 @@ class LiveService {
 
   /// Lo primero que recibe quien se conecta. Se arma en SU sesión: es el
   /// único evento que puede llevar el rol.
-  Future<LiveEvent> snapshot(Session session, LiveShow show) async => LiveEvent(
-    kind: LiveEventKind.snapshot,
-    liveShow: await _toView(session, show),
-    role: await _roleIn(session, show),
-    viewerCount: _viewerCount(show),
-    history: await chatHistory(session, show.id!),
-  );
+  Future<LiveEvent> snapshot(Session session, LiveShow show) async {
+    final (pinned, highlighted) = await _moderation.anchors(session, show);
+    final viewer = session.userIdOrNull;
+    final mute = viewer == null
+        ? null
+        : await LiveSanctions.activeMute(session, show.id!, viewer, _now());
+    return LiveEvent(
+      kind: LiveEventKind.snapshot,
+      liveShow: await _toView(session, show),
+      role: await _roleIn(session, show),
+      viewerCount: _viewerCount(show),
+      history: await chatHistory(session, show.id!),
+      stage: await _stage.view(session, show.id!),
+      pinned: pinned,
+      highlighted: highlighted,
+      sanctionKind: mute == null ? null : LiveSanctionKind.chatMute,
+      until: mute?.until,
+    );
+  }
+
+  /// `forbidden` si quien pide fue expulsado de este vivo o baneado por su
+  /// host. Lo llama `watch` antes de sumarlo a la audiencia.
+  Future<void> requireAdmitted(Session session, LiveShow show) =>
+      LiveSanctions.requireAdmitted(session, show, session.userIdOrNull);
 
   /// Suma la sesión a los espectadores, salvo que sea el host.
   Future<void> joinAudience(Session session, LiveShow show) async {
@@ -555,6 +557,15 @@ class LiveService {
     await _publishStatus(session, await _toView(session, updated));
   }
 
+  // --- Escenario (SDD 0011) -------------------------------------------------
+
+  Future<LiveStageView> stage(Session session, int showId) async =>
+      _stage.view(session, (await requireVisible(session, showId)).id!);
+
+  LiveStageService get stageService => _stage;
+
+  LiveModerationService get moderation => _moderation;
+
   // --- Internos ------------------------------------------------------------
 
   Future<LiveShowView> _transition(
@@ -629,6 +640,7 @@ class LiveService {
         transaction: tx,
       );
       if (to == LiveShowStatus.live) {
+        await _stage.seedOnAir(session, saved, tx);
         notices = await _notifyLiveStarted(session, saved, tx);
       }
       return saved;
@@ -755,20 +767,12 @@ class LiveService {
     ];
   }
 
-  Future<LiveShowRole> _roleIn(Session session, LiveShow show) async {
-    final viewer = session.userIdOrNull;
-    if (viewer == null) return LiveShowRole.audience;
-    if (show.hostId == viewer) return LiveShowRole.host;
-    if (session.isStaff) return LiveShowRole.moderator;
-    final cohost = await LiveShowGuest.db.count(
-      session,
-      where: (t) =>
-          t.showId.equals(show.id) &
-          t.userId.equals(viewer) &
-          t.status.equals(LiveShowGuestStatus.accepted),
-    );
-    return cohost > 0 ? LiveShowRole.cohost : LiveShowRole.audience;
-  }
+  Future<LiveShowRole> _roleIn(Session session, LiveShow show) => _stage.roleOf(
+    session,
+    show,
+    session.userIdOrNull,
+    isStaff: session.isStaff,
+  );
 
   int _viewerCount(LiveShow show) {
     if (LiveRules.isOnAir(show.status)) return _presence.count(show.id!);

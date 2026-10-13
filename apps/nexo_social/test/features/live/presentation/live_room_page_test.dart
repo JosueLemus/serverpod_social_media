@@ -133,11 +133,12 @@ void main() {
     expect(find.text('@elena_ux'), findsOneWidget);
   });
 
-  testWidgets('el regalo está apagado, no finge funcionar', (tester) async {
-    await pumpRoom(tester);
-
-    expect(find.byTooltip('Regalos: muy pronto'), findsOneWidget);
-  });
+  // El botón de "regalos" no vive en la sala tipo podcast (SDD 0011, Etapa 4):
+  // la barra de abajo son los controles de participación (pedir la palabra,
+  // mic, cámara, bajarse) + reaccionar + terminar. Los regalos vuelven cuando
+  // exista monetización y van en otra franja. Por eso tampoco hay un
+  // `live-love`: el "amor" migró a la hoja de reacciones (`room-react`), que
+  // además de corazones ofrece el resto de las reacciones efímeras del SDD.
 
   testWidgets('cortada antes de la primera foto dice que reconecta', (
     tester,
@@ -179,8 +180,9 @@ void main() {
 
     expect(find.byKey(const Key('live-comment-field')), findsNothing);
     expect(find.text('El host desactivó los comentarios'), findsOneWidget);
-    // El amor sigue: no es una pregunta.
-    expect(find.byKey(const Key('live-love')), findsOneWidget);
+    // Reaccionar sigue: no es una pregunta. En la sala podcast el "amor" vive
+    // dentro de la hoja de reacciones, que abre este botón.
+    expect(find.byKey(const Key('room-react')), findsOneWidget);
   });
 
   group('solo miembros', () {

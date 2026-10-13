@@ -3,17 +3,20 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/features/live/domain/entities/live_media_grant.dart';
+import 'package:nexo_social/features/live/domain/entities/live_moderation.dart';
 import 'package:nexo_social/features/live/domain/entities/live_room_event.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/domain/repositories/live_repository.dart';
 import 'package:nexo_social/features/live/presentation/bloc/live_room_cubit.dart';
 import 'package:nexo_social/features/moderation/data/repositories/mock_moderation_repository.dart';
 
+import '../../../support/stage_stubs.dart';
+
 import '../../../support/platform_harness.dart';
 
 /// La sala contra un repositorio cuyo stream maneja el test: lo que con
 /// Serverpod llega por `live.watch`.
-class _FakeLiveRepository implements LiveRepository {
+class _FakeLiveRepository with StageStubs implements LiveRepository {
   final rooms = <StreamController<LiveRoomEvent>>[];
   final watched = <String>[];
   List<LiveSession> shows = const [];
@@ -200,6 +203,49 @@ void main() {
 
     expect(cubit.state.notFound, isTrue);
     expect(cubit.state.isLoading, isFalse);
+  });
+
+  test('a kick on reconnect leaves the room instead of retrying', () async {
+    await open();
+
+    // Al reconectarse, el servidor rechaza a un expulsado con forbidden.
+    repository.room.addError(const ForbiddenFailure('live: kicked'));
+    await settle();
+    await settle();
+
+    expect(cubit.state.exclusion, LiveSanctionKind.kick);
+    expect(cubit.state.reconnecting, isFalse);
+    expect(repository.rooms, hasLength(1), reason: 'no vuelve a suscribirse');
+  });
+
+  test('a kick that reaches me as an event leaves the room', () async {
+    await open();
+
+    repository.room.add(
+      const LiveSanctioned(
+        userId: 'me',
+        kind: LiveSanctionKind.ban,
+        isMine: true,
+      ),
+    );
+    await settle();
+
+    expect(cubit.state.exclusion, LiveSanctionKind.ban);
+  });
+
+  test('someone else being kicked does not touch my room', () async {
+    await open();
+
+    repository.room.add(
+      const LiveSanctioned(
+        userId: 'other',
+        kind: LiveSanctionKind.kick,
+        isMine: false,
+      ),
+    );
+    await settle();
+
+    expect(cubit.state.exclusion, isNull);
   });
 
   test(

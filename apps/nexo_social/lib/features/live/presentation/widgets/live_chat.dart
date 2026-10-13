@@ -9,6 +9,7 @@ import '../../../../core/widgets/pills.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/presentation/widgets/moderation_sheet.dart';
+import '../../domain/entities/live_moderation.dart';
 import '../bloc/live_room_cubit.dart';
 
 /// El vidrio oscuro de todo lo que flota sobre el video: tinta translúcida.
@@ -34,6 +35,7 @@ class LiveChatOverlay extends StatelessWidget {
     this.emptyLabel = 'Sé la primera persona en comentar',
     this.maxHeight,
     this.hostId,
+    this.onLongPress,
   });
 
   final List<LiveComment> comments;
@@ -47,6 +49,13 @@ class LiveChatOverlay extends StatelessWidget {
   /// Quién transmite. Sus mensajes llevan la insignia HOST: en un chat que
   /// corre rápido, la respuesta del host es la que la gente busca.
   final String? hostId;
+
+  /// Qué hacer con una pulsación larga sobre un mensaje. Sin valor, la sala
+  /// abre su propia hoja (`moderation_sheet`) con la clasificación vieja. La
+  /// sala tipo podcast lo reemplaza con la hoja de persona, que **devuelve**
+  /// una decisión en vez de aplicarla y filtra las acciones por la tabla de
+  /// permisos.
+  final ValueChanged<LiveComment>? onLongPress;
 
   bool _byHost(LiveComment comment) {
     final host = hostId;
@@ -86,7 +95,11 @@ class LiveChatOverlay extends StatelessWidget {
         itemCount: comments.length,
         itemBuilder: (context, index) {
           final comment = comments[comments.length - 1 - index];
-          return LiveChatLine(comment: comment, byHost: _byHost(comment));
+          return LiveChatLine(
+            comment: comment,
+            byHost: _byHost(comment),
+            onLongPress: onLongPress,
+          );
         },
       ),
     );
@@ -99,12 +112,21 @@ const _legibility = [
 ];
 
 class LiveChatLine extends StatelessWidget {
-  const LiveChatLine({super.key, required this.comment, this.byHost = false});
+  const LiveChatLine({
+    super.key,
+    required this.comment,
+    this.byHost = false,
+    this.onLongPress,
+  });
 
   final LiveComment comment;
 
   /// Lo escribió quien transmite.
   final bool byHost;
+
+  /// Qué hacer con la pulsación larga. Sin valor, se usa la hoja clásica de
+  /// moderación por compatibilidad con el Studio y con el chat de posts.
+  final ValueChanged<LiveComment>? onLongPress;
 
   /// Moderar sale de una pulsación larga sobre el mensaje, no de un ícono por
   /// fila: con seis acciones disponibles, un control por comentario convierte
@@ -118,11 +140,11 @@ class LiveChatLine extends StatelessWidget {
       author: comment.author,
       comment: comment.body,
       canModerate: cubit.state.canModerate,
-      // Ni el repositorio de vivos ni el de moderación silencian o bloquean
-      // a alguien desde un directo: sólo resuelven reportes de la consola.
-      // La hoja las muestra apagadas, "Próximamente", en vez de confirmar
-      // una sanción que nunca llegó al servidor.
-      sanctionsAvailable: false,
+      // En la sala, "silenciar" es `muteInChat` (silencio de este vivo) y
+      // "bloquear" es `kick` (sacarlo de este vivo). Las dos las aplica el
+      // repositorio de vivos (SDD 0011, Etapa 3): la hoja no las muestra
+      // apagadas acá, aunque sí lo haga desde la consola de reportes.
+      sanctionsAvailable: true,
     );
     if (decision == null) return;
 
@@ -131,13 +153,22 @@ class LiveChatLine extends StatelessWidget {
         await cubit.hideComment(comment);
       case ModerationType.report:
         await cubit.reportComment(comment);
-      // No se ofrecen desde el directo (ver arriba). Si llegaran, no se
-      // confirma nada: un "Usuario silenciado" sin sanción real es peor que
-      // ningún aviso.
-      case ModerationType.muteUser ||
-          ModerationType.banUser ||
-          ModerationType.dismissReport:
-        return;
+      // En la sala, silenciar es el silencio del chat de este vivo y
+      // expulsar es sacarlo de este vivo (SDD 0011). Las sanciones de
+      // plataforma son de la consola.
+      case ModerationType.muteUser:
+        await cubit.muteInChat(
+          comment.authorId,
+          switch (decision.muteFor ?? MuteDuration.fifteenMinutes) {
+            MuteDuration.fifteenMinutes => LiveMuteDuration.fifteenMinutes,
+            MuteDuration.oneHour => LiveMuteDuration.oneHour,
+            MuteDuration.oneDay => LiveMuteDuration.restOfLive,
+          },
+        );
+      case ModerationType.banUser:
+        await cubit.kick(comment.authorId);
+      case ModerationType.dismissReport:
+        cubit.recordModeration('${decision.confirmation} (${comment.author})');
     }
     // Si el servidor lo rechazó, el listener ya avisó por qué.
     if (cubit.state.issue != null && cubit.state.issueSerial != issueBefore) {
@@ -172,7 +203,9 @@ class LiveChatLine extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: Key('chat-${comment.id}'),
-                onLongPress: () => unawaited(_moderate(context)),
+                onLongPress: () => onLongPress != null
+                    ? onLongPress!(comment)
+                    : unawaited(_moderate(context)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.sm,
@@ -423,6 +456,103 @@ class LiveGlassButton extends StatelessWidget {
                 ),
               ),
               child: face,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// La misma piel de vidrio oscuro que [LiveGlassButton], pero en forma de
+/// píldora con glifo + etiqueta: lo que la barra de acciones de la sala
+/// necesita para que cada botón diga qué hace (D6 del SDD 0011).
+///
+/// Alcanza el mismo mínimo táctil (44 px) y hace scaleDown si el idioma hace
+/// la etiqueta demasiado ancha: una píldora que recorta justo lo que explica
+/// pierde el sentido. Para controles sin texto (el disco circular del top bar
+/// y los dos del escenario del host), se sigue usando [LiveGlassButton].
+class LiveLabeledGlassButton extends StatelessWidget {
+  const LiveLabeledGlassButton({
+    super.key,
+    required this.glyph,
+    required this.label,
+    required this.onTap,
+    this.background,
+  });
+
+  final NexoGlyph glyph;
+  final String label;
+
+  /// Null lo deja apagado, como [LiveGlassButton]: un control sin acción no
+  /// se finge activo.
+  final VoidCallback? onTap;
+
+  /// El relleno de "estado activo" (silenciado, cámara prendida, destructivo):
+  /// se lee como un sticker despegado de la plancha de vidrio.
+  final Color? background;
+
+  @override
+  Widget build(BuildContext context) {
+    final solid = background != null;
+    final iconColor = solid
+        ? (background == AppColors.secondary
+              ? AppColors.onSecondary
+              : AppColors.ink)
+        : AppColors.onMedia;
+    final textColor = iconColor;
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        enabled: onTap != null,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: AppRadii.pill,
+            child: Opacity(
+              opacity: onTap == null ? .45 : 1,
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: LiveGlassButton.size,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: background ?? _glass,
+                  borderRadius: AppRadii.pill,
+                  border: Border.all(
+                    color: solid
+                        ? background!
+                        : _glassEdge,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NexoIcon(glyph, size: 18, color: iconColor),
+                    const SizedBox(width: 6),
+                    // scaleDown: lo que no entra se achica en vez de
+                    // desbordar o cortarse — la etiqueta es lo que da sentido
+                    // al glifo, no se puede recortar.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          label,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: textColor),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

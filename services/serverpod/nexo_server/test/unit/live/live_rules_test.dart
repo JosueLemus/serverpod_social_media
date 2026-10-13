@@ -86,7 +86,15 @@ void main() {
         'ana',
       ]);
       expect(
-        () => LiveRules.normalizeGuests(['a', 'b', 'c', 'd']),
+        LiveRules.normalizeGuests([
+          for (var i = 0; i < LiveRules.maxGuests; i++) 'guest$i',
+        ]),
+        hasLength(16),
+      );
+      expect(
+        () => LiveRules.normalizeGuests([
+          for (var i = 0; i <= LiveRules.maxGuests; i++) 'guest$i',
+        ]),
         _throwsInvalid(),
       );
     });

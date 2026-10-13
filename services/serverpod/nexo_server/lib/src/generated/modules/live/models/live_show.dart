@@ -34,6 +34,8 @@ abstract class LiveShow
     this.endedBy,
     bool? endedByModeration,
     int? viewerPeak,
+    this.pinnedMessageId,
+    this.highlightedMessageId,
     DateTime? createdAt,
   }) : description = description ?? '',
        durationMinutes = durationMinutes ?? 60,
@@ -59,6 +61,8 @@ abstract class LiveShow
     _is.UuidValue? endedBy,
     bool? endedByModeration,
     int? viewerPeak,
+    int? pinnedMessageId,
+    int? highlightedMessageId,
     DateTime? createdAt,
   }) = _LiveShowImpl;
 
@@ -99,6 +103,8 @@ abstract class LiveShow
               jsonSerialization['endedByModeration'],
             ),
       viewerPeak: jsonSerialization['viewerPeak'] as int?,
+      pinnedMessageId: jsonSerialization['pinnedMessageId'] as int?,
+      highlightedMessageId: jsonSerialization['highlightedMessageId'] as int?,
       createdAt: jsonSerialization['createdAt'] == null
           ? null
           : _is.DateTimeJsonExtension.fromJson(jsonSerialization['createdAt']),
@@ -141,6 +147,12 @@ abstract class LiveShow
 
   int viewerPeak;
 
+  /// El mensaje fijado arriba del chat. Uno solo.
+  int? pinnedMessageId;
+
+  /// La pregunta destacada para la conversación. Una sola.
+  int? highlightedMessageId;
+
   DateTime createdAt;
 
   @override
@@ -165,6 +177,8 @@ abstract class LiveShow
     _is.UuidValue? endedBy,
     bool? endedByModeration,
     int? viewerPeak,
+    int? pinnedMessageId,
+    int? highlightedMessageId,
     DateTime? createdAt,
   });
   @override
@@ -186,6 +200,9 @@ abstract class LiveShow
       if (endedBy != null) 'endedBy': endedBy?.toJson(),
       'endedByModeration': endedByModeration,
       'viewerPeak': viewerPeak,
+      if (pinnedMessageId != null) 'pinnedMessageId': pinnedMessageId,
+      if (highlightedMessageId != null)
+        'highlightedMessageId': highlightedMessageId,
       'createdAt': createdAt.toJson(),
     };
   }
@@ -242,6 +259,8 @@ class _LiveShowImpl extends LiveShow {
     _is.UuidValue? endedBy,
     bool? endedByModeration,
     int? viewerPeak,
+    int? pinnedMessageId,
+    int? highlightedMessageId,
     DateTime? createdAt,
   }) : super._(
          id: id,
@@ -259,6 +278,8 @@ class _LiveShowImpl extends LiveShow {
          endedBy: endedBy,
          endedByModeration: endedByModeration,
          viewerPeak: viewerPeak,
+         pinnedMessageId: pinnedMessageId,
+         highlightedMessageId: highlightedMessageId,
          createdAt: createdAt,
        );
 
@@ -282,6 +303,8 @@ class _LiveShowImpl extends LiveShow {
     Object? endedBy = _Undefined,
     bool? endedByModeration,
     int? viewerPeak,
+    Object? pinnedMessageId = _Undefined,
+    Object? highlightedMessageId = _Undefined,
     DateTime? createdAt,
   }) {
     return LiveShow(
@@ -300,6 +323,12 @@ class _LiveShowImpl extends LiveShow {
       endedBy: endedBy is _is.UuidValue? ? endedBy : this.endedBy,
       endedByModeration: endedByModeration ?? this.endedByModeration,
       viewerPeak: viewerPeak ?? this.viewerPeak,
+      pinnedMessageId: pinnedMessageId is int?
+          ? pinnedMessageId
+          : this.pinnedMessageId,
+      highlightedMessageId: highlightedMessageId is int?
+          ? highlightedMessageId
+          : this.highlightedMessageId,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -387,6 +416,16 @@ class LiveShowUpdateTable extends _is.UpdateTable<LiveShowTable> {
     value,
   );
 
+  _is.ColumnValue<int, int> pinnedMessageId(int? value) => _is.ColumnValue(
+    table.pinnedMessageId,
+    value,
+  );
+
+  _is.ColumnValue<int, int> highlightedMessageId(int? value) => _is.ColumnValue(
+    table.highlightedMessageId,
+    value,
+  );
+
   _is.ColumnValue<DateTime, DateTime> createdAt(DateTime value) =>
       _is.ColumnValue(
         table.createdAt,
@@ -461,6 +500,14 @@ class LiveShowTable extends _is.Table<int?> {
       this,
       hasDefault: true,
     );
+    pinnedMessageId = _is.ColumnInt(
+      'pinnedMessageId',
+      this,
+    );
+    highlightedMessageId = _is.ColumnInt(
+      'highlightedMessageId',
+      this,
+    );
     createdAt = _is.ColumnDateTime(
       'createdAt',
       this,
@@ -499,6 +546,12 @@ class LiveShowTable extends _is.Table<int?> {
 
   late final _is.ColumnInt viewerPeak;
 
+  /// El mensaje fijado arriba del chat. Uno solo.
+  late final _is.ColumnInt pinnedMessageId;
+
+  /// La pregunta destacada para la conversación. Una sola.
+  late final _is.ColumnInt highlightedMessageId;
+
   late final _is.ColumnDateTime createdAt;
 
   @override
@@ -518,6 +571,8 @@ class LiveShowTable extends _is.Table<int?> {
     endedBy,
     endedByModeration,
     viewerPeak,
+    pinnedMessageId,
+    highlightedMessageId,
     createdAt,
   ];
 }

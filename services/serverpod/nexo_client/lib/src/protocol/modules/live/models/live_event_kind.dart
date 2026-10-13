@@ -27,7 +27,28 @@ enum LiveEventKind implements _isc.SerializableModel {
   chat,
 
   /// Un mensaje se ocultó.
-  chatHidden;
+  chatHidden,
+
+  /// El escenario cambió: alguien subió, bajó, pidió la palabra o silenció.
+  stage,
+
+  /// Cambió el rol de una persona (`targetId`). Cada app mira si es ella.
+  roleChanged,
+
+  /// Una sanción a `targetId`: `sanctionKind` y, en un silencio, `until`.
+  sanction,
+
+  /// Un mensaje se borró (`hiddenMessageId`).
+  chatDeleted,
+
+  /// Un mensaje oculto volvió (`message`).
+  chatRestored,
+
+  /// Cambió el mensaje fijado (`pinned`; null lo despega).
+  pinned,
+
+  /// Cambió la pregunta destacada (`highlighted`; null la quita).
+  highlighted;
 
   static LiveEventKind fromJson(String name) {
     switch (name) {
@@ -41,6 +62,20 @@ enum LiveEventKind implements _isc.SerializableModel {
         return LiveEventKind.chat;
       case 'chatHidden':
         return LiveEventKind.chatHidden;
+      case 'stage':
+        return LiveEventKind.stage;
+      case 'roleChanged':
+        return LiveEventKind.roleChanged;
+      case 'sanction':
+        return LiveEventKind.sanction;
+      case 'chatDeleted':
+        return LiveEventKind.chatDeleted;
+      case 'chatRestored':
+        return LiveEventKind.chatRestored;
+      case 'pinned':
+        return LiveEventKind.pinned;
+      case 'highlighted':
+        return LiveEventKind.highlighted;
       default:
         throw ArgumentError(
           'Value "$name" cannot be converted to "LiveEventKind"',

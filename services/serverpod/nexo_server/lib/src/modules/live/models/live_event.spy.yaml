@@ -1,7 +1,8 @@
 ### Lo que viaja por `live.watch`. Plano, con [kind] y campos opcionales: el
 ### canal se tipa con una sola clase, y un cliente viejo ignora un [kind] que
-### no conoce. [role] sólo viene en `snapshot`, que arma la sesión de cada
-### espectador; los demás eventos se publican iguales para todos.
+### no conoce. [role] viene en `snapshot`, que arma la sesión de cada
+### espectador, y en `roleChanged` junto con [targetId]; los demás eventos se
+### publican iguales para todos.
 class: LiveEvent
 fields:
   kind: LiveEventKind
@@ -11,3 +12,15 @@ fields:
   message: LiveChatMessageView?
   history: List<LiveChatMessageView>?
   hiddenMessageId: int?
+  ### En `snapshot` y `stage`.
+  stage: LiveStageView?
+  ### En `roleChanged`: de quién es el rol nuevo, que viaja en `role`.
+  targetId: UuidValue?
+  ### En `sanction`, y en `snapshot` si quien mira está silenciado.
+  sanctionKind: LiveSanctionKind?
+  ### Hasta cuándo dura un silencio. Null con `chatMute`: el resto del vivo.
+  until: DateTime?
+  ### En `snapshot` y `pinned`.
+  pinned: LiveChatMessageView?
+  ### En `snapshot` y `highlighted`.
+  highlighted: LiveChatMessageView?

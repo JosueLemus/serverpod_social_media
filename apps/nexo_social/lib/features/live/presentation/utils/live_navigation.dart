@@ -30,6 +30,10 @@ String studioRouteFor(LiveSession session) =>
     session.status.isOnAir ? AppRoutes.studio : AppRoutes.studioFor(session.id);
 
 /// Abre un vivo: el host vuelve a su Studio y el resto entra a la sala.
+///
+/// La sala es inmersiva (SDD 0011, Etapa 4) y vive como sub-ruta del branch
+/// de Inicio (`/feed` → `/live/:liveId`). `go` cambia a ese branch y empuja
+/// la sala arriba, así que volver atrás regresa al feed del que se salió.
 void openLive(BuildContext context, LiveSession session) =>
     isOwnLive(context, session)
     ? context.go(studioRouteFor(session))

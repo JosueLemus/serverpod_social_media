@@ -24,6 +24,8 @@ abstract class LiveChatMessage
     DateTime? createdAt,
     this.hiddenAt,
     this.hiddenBy,
+    this.deletedAt,
+    this.deletedBy,
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory LiveChatMessage({
@@ -34,6 +36,8 @@ abstract class LiveChatMessage
     DateTime? createdAt,
     DateTime? hiddenAt,
     _is.UuidValue? hiddenBy,
+    DateTime? deletedAt,
+    _is.UuidValue? deletedBy,
   }) = _LiveChatMessageImpl;
 
   factory LiveChatMessage.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -53,6 +57,12 @@ abstract class LiveChatMessage
       hiddenBy: jsonSerialization['hiddenBy'] == null
           ? null
           : _is.UuidValueJsonExtension.fromJson(jsonSerialization['hiddenBy']),
+      deletedAt: jsonSerialization['deletedAt'] == null
+          ? null
+          : _is.DateTimeJsonExtension.fromJson(jsonSerialization['deletedAt']),
+      deletedBy: jsonSerialization['deletedBy'] == null
+          ? null
+          : _is.UuidValueJsonExtension.fromJson(jsonSerialization['deletedBy']),
     );
   }
 
@@ -75,6 +85,12 @@ abstract class LiveChatMessage
 
   _is.UuidValue? hiddenBy;
 
+  /// Borrado: desaparece para todos y del replay, pero la fila queda para la
+  /// auditoría (SDD 0011, S12). Ocultar es reversible; borrar, no.
+  DateTime? deletedAt;
+
+  _is.UuidValue? deletedBy;
+
   @override
   _is.Table<int?> get table => t;
 
@@ -89,6 +105,8 @@ abstract class LiveChatMessage
     DateTime? createdAt,
     DateTime? hiddenAt,
     _is.UuidValue? hiddenBy,
+    DateTime? deletedAt,
+    _is.UuidValue? deletedBy,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -101,6 +119,8 @@ abstract class LiveChatMessage
       'createdAt': createdAt.toJson(),
       if (hiddenAt != null) 'hiddenAt': hiddenAt?.toJson(),
       if (hiddenBy != null) 'hiddenBy': hiddenBy?.toJson(),
+      if (deletedAt != null) 'deletedAt': deletedAt?.toJson(),
+      if (deletedBy != null) 'deletedBy': deletedBy?.toJson(),
     };
   }
 
@@ -148,6 +168,8 @@ class _LiveChatMessageImpl extends LiveChatMessage {
     DateTime? createdAt,
     DateTime? hiddenAt,
     _is.UuidValue? hiddenBy,
+    DateTime? deletedAt,
+    _is.UuidValue? deletedBy,
   }) : super._(
          id: id,
          showId: showId,
@@ -156,6 +178,8 @@ class _LiveChatMessageImpl extends LiveChatMessage {
          createdAt: createdAt,
          hiddenAt: hiddenAt,
          hiddenBy: hiddenBy,
+         deletedAt: deletedAt,
+         deletedBy: deletedBy,
        );
 
   /// Returns a shallow copy of this [LiveChatMessage]
@@ -170,6 +194,8 @@ class _LiveChatMessageImpl extends LiveChatMessage {
     DateTime? createdAt,
     Object? hiddenAt = _Undefined,
     Object? hiddenBy = _Undefined,
+    Object? deletedAt = _Undefined,
+    Object? deletedBy = _Undefined,
   }) {
     return LiveChatMessage(
       id: id is int? ? id : this.id,
@@ -179,6 +205,8 @@ class _LiveChatMessageImpl extends LiveChatMessage {
       createdAt: createdAt ?? this.createdAt,
       hiddenAt: hiddenAt is DateTime? ? hiddenAt : this.hiddenAt,
       hiddenBy: hiddenBy is _is.UuidValue? ? hiddenBy : this.hiddenBy,
+      deletedAt: deletedAt is DateTime? ? deletedAt : this.deletedAt,
+      deletedBy: deletedBy is _is.UuidValue? ? deletedBy : this.deletedBy,
     );
   }
 }
@@ -220,6 +248,19 @@ class LiveChatMessageUpdateTable extends _is.UpdateTable<LiveChatMessageTable> {
     table.hiddenBy,
     value,
   );
+
+  _is.ColumnValue<DateTime, DateTime> deletedAt(DateTime? value) =>
+      _is.ColumnValue(
+        table.deletedAt,
+        value,
+      );
+
+  _is.ColumnValue<_is.UuidValue, _is.UuidValue> deletedBy(
+    _is.UuidValue? value,
+  ) => _is.ColumnValue(
+    table.deletedBy,
+    value,
+  );
 }
 
 class LiveChatMessageTable extends _is.Table<int?> {
@@ -251,6 +292,14 @@ class LiveChatMessageTable extends _is.Table<int?> {
       'hiddenBy',
       this,
     );
+    deletedAt = _is.ColumnDateTime(
+      'deletedAt',
+      this,
+    );
+    deletedBy = _is.ColumnUuid(
+      'deletedBy',
+      this,
+    );
   }
 
   late final LiveChatMessageUpdateTable updateTable;
@@ -267,6 +316,12 @@ class LiveChatMessageTable extends _is.Table<int?> {
 
   late final _is.ColumnUuid hiddenBy;
 
+  /// Borrado: desaparece para todos y del replay, pero la fila queda para la
+  /// auditoría (SDD 0011, S12). Ocultar es reversible; borrar, no.
+  late final _is.ColumnDateTime deletedAt;
+
+  late final _is.ColumnUuid deletedBy;
+
   @override
   List<_is.Column> get columns => [
     id,
@@ -276,6 +331,8 @@ class LiveChatMessageTable extends _is.Table<int?> {
     createdAt,
     hiddenAt,
     hiddenBy,
+    deletedAt,
+    deletedBy,
   ];
 }
 

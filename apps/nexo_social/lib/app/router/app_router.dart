@@ -222,6 +222,13 @@ GoRouter createRouter(
                 //
                 // Antes que `:conversationId`: si no, "with" se leería como un
                 // id.
+                //
+                // La sala en vivo ya no vive acá: migró al branch de Inicio
+                // cuando Explorar dejó de ser pestaña (ver `/feed/live/:liveId`
+                // arriba). El `parentNavigatorKey: rootNavigatorKey` que
+                // llevaba la sala sigue valiendo para las sub-rutas del chat:
+                // la empuja sobre el shell, así que el teclado abierto no
+                // compite con la barra inferior.
                 GoRoute(
                   path: AppRoutes.conversationWithSegment,
                   parentNavigatorKey: rootNavigatorKey,

@@ -43,6 +43,26 @@ live:
   - chatHistory:
   - sendChat:
   - hideChat:
+  - stage:
+  - raiseHand:
+  - lowerHand:
+  - approveRequest:
+  - denyRequest:
+  - inviteToStage:
+  - removeFromStage:
+  - leaveStage:
+  - setMicMuted:
+  - setCamera:
+  - assignModerator:
+  - muteChat:
+  - unmuteChat:
+  - kick:
+  - ban:
+  - unban:
+  - unhideChat:
+  - deleteChat:
+  - pinChat:
+  - highlightQuestion:
   - watch:
   - watchIndex:
 messages:

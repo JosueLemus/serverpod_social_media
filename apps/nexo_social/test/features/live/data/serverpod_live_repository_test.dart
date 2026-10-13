@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_client/nexo_client.dart' as api;
 import 'package:nexo_social/features/live/data/repositories/serverpod_live_repository.dart';
 import 'package:nexo_social/features/live/domain/entities/live_media_grant.dart';
+import 'package:nexo_social/features/live/domain/entities/live_moderation.dart';
 import 'package:nexo_social/features/live/domain/entities/live_room_event.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 
@@ -178,5 +179,163 @@ void main() {
         expiresAt: expiresAt,
       ),
     );
+  });
+
+  group('el escenario', () {
+    final stage = api.LiveStageView(
+      speakers: [
+        api.LiveSpeakerView(
+          userId: elena,
+          username: 'elena_ux',
+          name: 'Elena Vega',
+          role: api.LiveShowRole.host,
+          micMuted: false,
+          cameraOn: true,
+        ),
+      ],
+      hands: [
+        api.LiveHandView(
+          userId: tomas,
+          username: 'tomas',
+          raisedAt: DateTime.utc(2026, 10, 12, 20),
+        ),
+      ],
+    );
+
+    test('se traduce con quién es "yo"', () {
+      final result = ServerpodLiveRepository.toStage(
+        stage,
+        me: tomas.toString(),
+      );
+
+      expect(result.speakers.single.role, LiveRole.host);
+      expect(result.speakers.single.cameraOn, isTrue);
+      expect(result.speakers.single.isMe, isFalse);
+      // Sin nombre, el handle: nunca una fila en blanco.
+      expect(result.hands.single.name, 'tomas');
+      expect(result.myHandRaised, isTrue);
+    });
+
+    test('llega en el snapshot y como evento propio', () {
+      final event = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(kind: api.LiveEventKind.stage, stage: stage),
+        me: elena.toString(),
+      );
+      expect(event, isA<LiveStageChanged>());
+      expect((event! as LiveStageChanged).stage.meOnStage, isTrue);
+
+      final snapshot = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(
+          kind: api.LiveEventKind.snapshot,
+          liveShow: view(),
+          stage: stage,
+        ),
+        me: null,
+      );
+      expect((snapshot! as LiveRoomSnapshot).stage.speakers, hasLength(1));
+    });
+
+    test('un cambio de rol dice si es mío', () {
+      api.LiveEvent changed(api.UuidValue who) => api.LiveEvent(
+        kind: api.LiveEventKind.roleChanged,
+        targetId: who,
+        role: api.LiveShowRole.cohost,
+      );
+
+      final mine = ServerpodLiveRepository.toEvent(
+        changed(tomas),
+        me: tomas.toString(),
+      );
+      expect(
+        mine,
+        LiveRoleChanged(
+          userId: tomas.toString(),
+          role: LiveRole.cohost,
+          isMine: true,
+        ),
+      );
+      final theirs = ServerpodLiveRepository.toEvent(
+        changed(elena),
+        me: tomas.toString(),
+      );
+      expect((theirs! as LiveRoleChanged).isMine, isFalse);
+    });
+  });
+
+  group('la moderación de la sala', () {
+    test('una sanción dice si es mía, con su duración', () {
+      final until = DateTime.utc(2026, 10, 12, 21);
+      final event = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(
+          kind: api.LiveEventKind.sanction,
+          targetId: tomas,
+          sanctionKind: api.LiveSanctionKind.chatMute,
+          until: until,
+        ),
+        me: tomas.toString(),
+      );
+
+      expect(
+        event,
+        LiveSanctioned(
+          userId: tomas.toString(),
+          kind: LiveSanctionKind.chatMute,
+          until: until.toLocal(),
+          isMine: true,
+        ),
+      );
+    });
+
+    test('borrar, devolver, fijar y despegar llegan como eventos', () {
+      expect(
+        ServerpodLiveRepository.toEvent(
+          api.LiveEvent(
+            kind: api.LiveEventKind.chatDeleted,
+            hiddenMessageId: 7,
+          ),
+          me: null,
+        ),
+        const LiveCommentDeleted('7'),
+      );
+      expect(
+        ServerpodLiveRepository.toEvent(
+          api.LiveEvent(
+            kind: api.LiveEventKind.chatRestored,
+            message: message(author: tomas),
+          ),
+          me: null,
+        ),
+        isA<LiveCommentRestored>(),
+      );
+      final pinned = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(
+          kind: api.LiveEventKind.pinned,
+          pinned: message(author: tomas),
+        ),
+        me: null,
+      );
+      expect((pinned! as LivePinnedChanged).comment, isNotNull);
+      // Sin mensaje: se despegó.
+      expect(
+        ServerpodLiveRepository.toEvent(
+          api.LiveEvent(kind: api.LiveEventKind.pinned),
+          me: null,
+        ),
+        const LivePinnedChanged(null),
+      );
+    });
+
+    test('el snapshot trae el silencio propio', () {
+      final snapshot = ServerpodLiveRepository.toEvent(
+        api.LiveEvent(
+          kind: api.LiveEventKind.snapshot,
+          liveShow: view(),
+          sanctionKind: api.LiveSanctionKind.chatMute,
+        ),
+        me: tomas.toString(),
+      );
+      // Sin `until`: el resto del vivo.
+      expect((snapshot! as LiveRoomSnapshot).myMute, const LiveChatMute());
+    });
   });
 }

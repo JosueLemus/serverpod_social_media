@@ -73,6 +73,52 @@ abstract final class DemoAccounts {
     description: 'Cuenta de spam',
   );
 
+  // --- Oradores y oyentes de la sala tipo podcast (SDD 0011) ---------------
+  //
+  // Son cuentas de usuario comunes; su papel en la sala lo decide el escenario
+  // de `MockPlatform`, no el rol de plataforma. Están acá para que el selector
+  // de cuentas demo pueda recorrerlas y para sembrar el escenario de `live-1`
+  // con oradores de verdad en vez de nombres sueltos.
+  static const guestAna = DemoAccount(
+    id: 'cohost-ana',
+    email: 'ana@nexo.demo',
+    username: 'ana_mendoza',
+    name: 'Ana Mendoza',
+    description: 'Invitada en vivo · habla y comparte cámara',
+  );
+  static const guestMarcos = DemoAccount(
+    id: 'cohost-marcos',
+    email: 'marcos@nexo.demo',
+    username: 'marcos_dev',
+    name: 'Marcos Dev',
+    description: 'Invitado en vivo · silenciado por ahora',
+  );
+  static const guestLuz = DemoAccount(
+    id: 'cohost-luz',
+    email: 'luz@nexo.demo',
+    username: 'luz_herrera',
+    name: 'Luz Herrera',
+    description: 'Invitada en vivo · pidió la palabra',
+  );
+  static const listenerSofia = DemoAccount(
+    id: 'user-sofia',
+    email: 'sofia@nexo.demo',
+    username: 'sofia_streamer',
+    name: 'Sofía Streamer',
+    description: 'Oyente · pidió la palabra',
+  );
+
   /// En el orden en que aparecen en el selector.
-  static const all = [elena, operator, moderator, viewer, troll, carlos];
+  static const all = [
+    elena,
+    operator,
+    moderator,
+    viewer,
+    troll,
+    carlos,
+    guestAna,
+    guestMarcos,
+    guestLuz,
+    listenerSofia,
+  ];
 }

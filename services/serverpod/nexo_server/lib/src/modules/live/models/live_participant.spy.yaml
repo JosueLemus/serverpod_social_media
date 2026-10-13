@@ -1,0 +1,23 @@
+### Quién tiene un lugar en la sala además de mirar (SDD 0011, §4.1): el host,
+### los que están en el escenario, el moderador y quien pidió la palabra.
+#
+### El rol y el escenario son dos ejes (S5): `role` dice qué autoridad tiene,
+### `onStage` si tiene micrófono. Una fila existente manda sobre `LiveShowGuest`:
+### un invitado de la agenda que se baja vuelve a ser oyente.
+class: LiveParticipant
+table: live_participant
+serverOnly: true
+fields:
+  showId: int, relation(parent=live_show, onDelete=Cascade)
+  userId: UuidValue
+  role: LiveShowRole
+  onStage: bool, default=false
+  ### Pidió la palabra y nadie respondió todavía. Ordena la cola.
+  handRaisedAt: DateTime?
+  micMuted: bool, default=false
+  cameraOn: bool, default=false
+  updatedAt: DateTime, default=now
+indexes:
+  live_participant_unique_idx:
+    fields: showId, userId
+    unique: true

@@ -4,17 +4,29 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/mock/mock_platform.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
+import '../../domain/entities/live_moderation.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 
 /// Capa fina sobre [MockPlatform]: las reglas —el gate de verificación, la
 /// máquina de estados, quién puede ocultar— viven ahí, como van a vivir en
 /// Serverpod.
 class MockLiveRepository implements LiveRepository {
-  MockLiveRepository(this._platform);
+  MockLiveRepository(this._platform, {DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final MockPlatform _platform;
+  final DateTime Function() _now;
+
+  /// Throttle de reacciones por cuenta (D7): el servidor lo mismo, 1 cada
+  /// 300 ms; el exceso se descarta en silencio con `RateLimitedFailure`.
+  /// Vive en memoria del repositorio, igual que el throttle del chat del
+  /// mock: dos sesiones distintas no comparten estado.
+  final _reactionLastAt = <String, DateTime>{};
+  static const _reactionCooldown = Duration(milliseconds: 300);
 
   @override
   Future<List<LiveSession>> list() async => _platform.lives();
@@ -60,7 +72,8 @@ class MockLiveRepository implements LiveRepository {
   }
 
   /// Modo de prueba: token vacío y uid 0. El rol sigue la regla del
-  /// servidor: publica sólo el host con el vivo al aire.
+  /// servidor: con el vivo al aire publican el host y quien esté en el
+  /// escenario.
   @override
   Future<LiveMediaGrant> mediaToken(String liveId) async {
     final live = _platform.live(liveId);
@@ -68,10 +81,15 @@ class MockLiveRepository implements LiveRepository {
     if (!_onAir(live) && live.status != LiveStatus.scheduled) {
       throw const ConflictFailure('live.mediaToken: not on air');
     }
-    final isHost = live.hostId == _platform.sessionAccountId;
+    final me = _platform.sessionAccountId;
+    if (me != null && _platform.exclusion(liveId, me) != null) {
+      throw const ForbiddenFailure('live.mediaToken: excluded');
+    }
+    final publishes =
+        me != null && (live.hostId == me || _platform.isOnStage(liveId, me));
     return LiveMediaGrant(
       channel: 'nexo_live_${liveId.replaceAll(RegExp('[^A-Za-z0-9_]'), '_')}',
-      role: isHost && _onAir(live)
+      role: publishes && _onAir(live)
           ? LiveMediaGrantRole.publisher
           : LiveMediaGrantRole.subscriber,
     );
@@ -124,15 +142,133 @@ class MockLiveRepository implements LiveRepository {
   }
 
   LiveRoomSnapshot _snapshot(String liveId) {
+    final me = _platform.sessionAccountId;
     final session = _platform.live(liveId);
     if (session == null) throw const NotFoundFailure('live');
     return LiveRoomSnapshot(
       session: session,
       role: _platform.roleIn(liveId),
       comments: _platform.comments(liveId),
+      stage: _platform.stage(liveId),
+      pinned: _platform.pinnedComment(liveId),
+      highlighted: _platform.highlightedComment(liveId),
+      myMute: me == null ? null : _platform.roomMute(liveId, me),
+      exclusion: me == null ? null : _platform.exclusion(liveId, me),
     );
   }
 
   @override
   Stream<void> changes() => _platform.changes;
+
+  // --- Escenario (SDD 0011): las reglas viven en la plataforma ---------------
+
+  @override
+  Future<LiveStage> stage(String liveId) async => _platform.stage(liveId);
+
+  @override
+  Future<void> raiseHand(String liveId) async => _platform.raiseHand(liveId);
+
+  @override
+  Future<void> lowerHand(String liveId) async => _platform.lowerHand(liveId);
+
+  @override
+  Future<void> approveRequest(String liveId, String userId) async =>
+      _platform.approveRequest(liveId, userId);
+
+  @override
+  Future<void> denyRequest(String liveId, String userId) async =>
+      _platform.denyRequest(liveId, userId);
+
+  @override
+  Future<void> inviteToStage(String liveId, String userId) async =>
+      _platform.inviteToStage(liveId, userId);
+
+  @override
+  Future<void> removeFromStage(String liveId, String userId) async =>
+      _platform.removeFromStage(liveId, userId);
+
+  @override
+  Future<void> leaveStage(String liveId) async => _platform.leaveStage(liveId);
+
+  @override
+  Future<void> setMicMuted(
+    String liveId,
+    String userId, {
+    required bool muted,
+  }) async => _platform.setMicMuted(liveId, userId, muted: muted);
+
+  @override
+  Future<void> setCamera(String liveId, {required bool on}) async =>
+      _platform.setCamera(liveId, on: on);
+
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  @override
+  Future<void> assignModerator(String liveId, String? userId) async =>
+      _platform.assignModerator(liveId, userId);
+
+  @override
+  Future<void> muteChat(
+    String liveId,
+    String userId,
+    LiveMuteDuration duration,
+  ) async => _platform.muteChat(liveId, userId, duration);
+
+  @override
+  Future<void> unmuteChat(String liveId, String userId) async =>
+      _platform.unmuteChat(liveId, userId);
+
+  @override
+  Future<void> kick(String liveId, String userId) async =>
+      _platform.kick(liveId, userId);
+
+  @override
+  Future<void> ban(String liveId, String userId) async =>
+      _platform.banFromHost(liveId, userId);
+
+  @override
+  Future<void> unban(String userId) async => _platform.unbanFromHost(userId);
+
+  @override
+  Future<void> unhideComment(String liveId, String commentId) async =>
+      _platform.unhideComment(liveId, commentId);
+
+  @override
+  Future<void> deleteComment(String liveId, String commentId) async =>
+      _platform.deleteComment(liveId, commentId);
+
+  @override
+  Future<void> pinComment(String liveId, String? commentId) async =>
+      _platform.pinComment(liveId, commentId);
+
+  @override
+  Future<void> highlightQuestion(String liveId, String? commentId) async =>
+      _platform.highlightQuestion(liveId, commentId);
+
+  @override
+  Future<void> react(String liveId, LiveReactionKind kind) async {
+    final me = _platform.sessionAccountId;
+    if (me == null) throw const ForbiddenFailure('live.react: unauthenticated');
+    final live = _platform.live(liveId);
+    if (live == null) throw const NotFoundFailure('live');
+    if (!_onAir(live)) {
+      throw const ConflictFailure('live.react: not on air');
+    }
+    if (_platform.exclusion(liveId, me) != null) {
+      throw const ForbiddenFailure('live.react: excluded');
+    }
+    final key = '$liveId:$me';
+    final now = _now();
+    final last = _reactionLastAt[key];
+    if (last != null && now.difference(last) < _reactionCooldown) {
+      // El servidor hace lo mismo: descartar en silencio. Pero el tipo
+      // tiene que viajar para que el cubit sepa que fue descartado y no se
+      // crea que se publicó.
+      throw const RateLimitedFailure('live.react: throttled');
+    }
+    _reactionLastAt[key] = now;
+    // El mock no publica aún como evento del stream — el bus local del UI ya
+    // dibuja el feedback para quien tocó. El eco al resto llega cuando el
+    // backend implemente `reaction` como `LiveEventKind` nuevo.
+  }
 }

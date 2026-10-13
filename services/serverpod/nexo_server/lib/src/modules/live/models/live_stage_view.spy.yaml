@@ -1,0 +1,6 @@
+### El escenario de una sala: el host primero y después los demás por orden de
+### llegada, y la cola de pedidos de palabra, del más viejo al más nuevo.
+class: LiveStageView
+fields:
+  speakers: List<LiveSpeakerView>
+  hands: List<LiveHandView>

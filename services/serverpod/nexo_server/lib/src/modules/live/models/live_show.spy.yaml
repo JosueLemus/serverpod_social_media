@@ -19,6 +19,10 @@ fields:
   ### Lo terminó alguien que no era el host (un operador).
   endedByModeration: bool, default=false
   viewerPeak: int, default=0
+  ### El mensaje fijado arriba del chat. Uno solo.
+  pinnedMessageId: int?
+  ### La pregunta destacada para la conversación. Una sola.
+  highlightedMessageId: int?
   createdAt: DateTime, default=now
 indexes:
   live_show_status_idx:

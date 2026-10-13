@@ -8,8 +8,12 @@ import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/domain/repositories/moderation_repository.dart';
 import '../../../subscriptions/domain/repositories/subscription_repository.dart';
 import '../../domain/entities/live_comment.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
+import '../../domain/entities/live_moderation.dart';
+import '../../domain/entities/live_permissions.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 import '../../domain/studio_show.dart';
 
@@ -34,7 +38,6 @@ class LiveRoomState extends Equatable {
     this.loved = false,
     this.comments = const [],
     this.pinnedComment,
-    this.pendingGuests = const [],
     this.audit = const [],
     this.isLoading = true,
     this.notFound = false,
@@ -44,6 +47,10 @@ class LiveRoomState extends Equatable {
     this.issue,
     this.issueSerial = 0,
     this.reconnecting = false,
+    this.stage = LiveStage.empty,
+    this.highlightedComment,
+    this.myMute,
+    this.exclusion,
     this.loadFailed = false,
     this.locked = false,
     this.handedOff = false,
@@ -65,7 +72,6 @@ class LiveRoomState extends Equatable {
   /// fijados no destacan nada, y el chat de un vivo sólo tiene espacio para
   /// una cosa que importe más que lo que está pasando.
   final LiveComment? pinnedComment;
-  final List<String> pendingGuests;
 
   /// Every moderation action, newest last. The demo shows this to prove the
   /// action was recorded and not just hidden from view.
@@ -94,6 +100,20 @@ class LiveRoomState extends Equatable {
   /// conectarse. La View lo dice en vez de quedarse congelada.
   final bool reconnecting;
 
+  /// Quién habla y quién pidió la palabra (SDD 0011).
+  final LiveStage stage;
+
+  /// La pregunta que host, moderador o un invitado destacaron.
+  final LiveComment? highlightedComment;
+
+  /// El silencio propio en el chat de esta sala. La View lo compara con el
+  /// reloj (`LiveChatMute.activeAt`): vence solo.
+  final LiveChatMute? myMute;
+
+  /// Si quien mira fue expulsado o baneado. La sala lo dice y deja de
+  /// reconectarse: insistir sería pedirle al servidor que repita el "no".
+  final LiveSanctionKind? exclusion;
+
   /// El Studio no pudo traer los shows del host. No es lo mismo que no tener
   /// ninguno: con `notFound` la View ofrecía programar uno mientras el
   /// servidor estaba caído, y el host creía haber perdido su agenda.
@@ -108,7 +128,14 @@ class LiveRoomState extends Equatable {
   /// espectador de sí mismo.
   final bool handedOff;
 
-  bool get canModerate => role == LiveRole.host || role == LiveRole.moderator;
+  bool get isOnStage => stage.meOnStage;
+  bool get handRaised => stage.myHandRaised;
+
+  /// Si se dibuja el control de una acción propia: el repertorio del rol. La
+  /// hoja de una persona usa `LivePermissions.on`.
+  bool can(LiveAction action) => LivePermissions.hasAction(role, action);
+
+  bool get canModerate => LivePermissions.hasAction(role, LiveAction.hideChat);
 
   /// Si quien mira puede escribir en el chat. Con las preguntas apagadas
   /// sólo escriben el host y quienes moderan: la audiencia mira.
@@ -121,7 +148,6 @@ class LiveRoomState extends Equatable {
     bool? loved,
     List<LiveComment>? comments,
     LiveComment? pinnedComment,
-    List<String>? pendingGuests,
     List<String>? audit,
     bool? isLoading,
     bool? notFound,
@@ -131,6 +157,13 @@ class LiveRoomState extends Equatable {
     LiveRoomIssue? issue,
     int? issueSerial,
     bool? reconnecting,
+    LiveStage? stage,
+    LiveComment? highlightedComment,
+    LiveChatMute? myMute,
+    LiveSanctionKind? exclusion,
+    bool clearPinned = false,
+    bool clearHighlighted = false,
+    bool clearMute = false,
     bool? loadFailed,
     bool? locked,
     bool? handedOff,
@@ -139,8 +172,7 @@ class LiveRoomState extends Equatable {
     role: role ?? this.role,
     loved: loved ?? this.loved,
     comments: comments ?? this.comments,
-    pinnedComment: pinnedComment ?? this.pinnedComment,
-    pendingGuests: pendingGuests ?? this.pendingGuests,
+    pinnedComment: clearPinned ? null : pinnedComment ?? this.pinnedComment,
     audit: audit ?? this.audit,
     isLoading: isLoading ?? this.isLoading,
     notFound: notFound ?? this.notFound,
@@ -150,6 +182,12 @@ class LiveRoomState extends Equatable {
     issue: issue ?? this.issue,
     issueSerial: issueSerial ?? this.issueSerial,
     reconnecting: reconnecting ?? this.reconnecting,
+    stage: stage ?? this.stage,
+    highlightedComment: clearHighlighted
+        ? null
+        : highlightedComment ?? this.highlightedComment,
+    myMute: clearMute ? null : myMute ?? this.myMute,
+    exclusion: exclusion ?? this.exclusion,
     loadFailed: loadFailed ?? this.loadFailed,
     locked: locked ?? this.locked,
     handedOff: handedOff ?? this.handedOff,
@@ -162,7 +200,6 @@ class LiveRoomState extends Equatable {
     loved,
     comments,
     pinnedComment,
-    pendingGuests,
     audit,
     isLoading,
     notFound,
@@ -172,6 +209,10 @@ class LiveRoomState extends Equatable {
     issue,
     issueSerial,
     reconnecting,
+    stage,
+    highlightedComment,
+    myMute,
+    exclusion,
     loadFailed,
     locked,
     handedOff,
@@ -257,6 +298,12 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
           },
           onError: (Object error) {
             if (isClosed) return settle();
+            if (error is ForbiddenFailure) {
+              // Al conectarse sólo se rechaza a quien fue expulsado o
+              // baneado de esta sala.
+              _exclude(state.exclusion ?? LiveSanctionKind.kick);
+              return settle();
+            }
             if (error is NotFoundFailure) {
               emit(
                 state.copyWith(
@@ -301,12 +348,29 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
 
   void _apply(LiveRoomEvent event) {
     switch (event) {
-      case LiveRoomSnapshot(:final session, :final role, :final comments):
+      case LiveRoomSnapshot(
+        :final session,
+        :final role,
+        :final comments,
+        :final stage,
+        :final pinned,
+        :final highlighted,
+        :final myMute,
+        :final exclusion,
+      ):
+        if (exclusion != null) return _exclude(exclusion);
         emit(
           state.copyWith(
             session: session,
             role: role,
             comments: comments,
+            stage: stage,
+            pinnedComment: pinned,
+            clearPinned: pinned == null,
+            highlightedComment: highlighted,
+            clearHighlighted: highlighted == null,
+            myMute: myMute,
+            clearMute: myMute == null,
             isLoading: false,
             notFound: false,
             reconnecting: false,
@@ -323,6 +387,40 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
         _addComment(comment);
       case LiveCommentHidden(:final commentId):
         _dropComment(commentId);
+      case LiveStageChanged(:final stage):
+        emit(state.copyWith(stage: stage));
+      case LiveRoleChanged(:final role, isMine: true):
+        emit(state.copyWith(role: role));
+      case LiveRoleChanged():
+        break;
+      case LiveSanctioned(:final kind, :final until, isMine: true):
+        if (kind == LiveSanctionKind.chatMute) {
+          final mute = LiveChatMute(until: until);
+          emit(
+            mute.activeAt(_now())
+                ? state.copyWith(myMute: mute)
+                : state.copyWith(clearMute: true),
+          );
+        } else {
+          return _exclude(kind);
+        }
+      case LiveSanctioned():
+        break;
+      case LiveCommentDeleted(:final commentId):
+        _dropComment(commentId);
+      case LiveCommentRestored(:final comment):
+        _restoreComment(comment);
+      case LivePinnedChanged(:final comment):
+        emit(
+          state.copyWith(pinnedComment: comment, clearPinned: comment == null),
+        );
+      case LiveHighlightChanged(:final comment):
+        emit(
+          state.copyWith(
+            highlightedComment: comment,
+            clearHighlighted: comment == null,
+          ),
+        );
     }
     _syncClock();
     _syncAccess();
@@ -401,6 +499,29 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   void handOffToStudio() {
     pause();
     emit(state.copyWith(handedOff: true));
+  }
+
+  /// Fuera de la sala: deja de escuchar y de reconectarse.
+  void _exclude(LiveSanctionKind kind) {
+    _reconnect?.cancel();
+    unawaited(_events?.cancel());
+    _events = null;
+    emit(
+      state.copyWith(exclusion: kind, isLoading: false, reconnecting: false),
+    );
+  }
+
+  /// Un comentario que vuelve entra en su lugar, no al final: el orden del
+  /// chat es el de llegada.
+  void _restoreComment(LiveComment comment) {
+    if (state.comments.any((c) => c.id == comment.id)) return;
+    final id = int.tryParse(comment.id);
+    final comments = [...state.comments];
+    final at = id == null
+        ? comments.length
+        : comments.indexWhere((c) => (int.tryParse(c.id) ?? 0) > id);
+    comments.insert(at < 0 ? comments.length : at, comment);
+    emit(state.copyWith(comments: comments));
   }
 
   /// El reloj del Studio sale de `startedAt`, no de un contador: cerrar y
@@ -536,36 +657,124 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
     );
   }
 
-  /// Fija un mensaje arriba del chat, reemplazando el anterior.
-  void pinComment(LiveComment comment) => emit(
-    state.copyWith(
-      pinnedComment: comment,
-      audit: [
-        ...state.audit,
-        'Moderación fijó el mensaje de ${comment.author}',
-      ],
-    ),
-  );
+  /// Registra una acción de moderación que no oculta nada (silenciar,
+  /// bloquear). El registro es append-only: una auditoría que borra lo que
+  /// audita no prueba nada.
+  void recordModeration(String entry) =>
+      emit(state.copyWith(audit: [...state.audit, entry]));
 
-  void approveGuest(String guest) => emit(
-    state.copyWith(
-      pendingGuests: state.pendingGuests
-          .where((item) => item != guest)
-          .toList(),
-      audit: [...state.audit, '$guest fue aprobado como cohost'],
-    ),
-  );
+  /// Fija un mensaje arriba del chat, reemplazando el anterior, o lo despega
+  /// con null. Lo que se ve es lo que vuelve del servidor.
+  Future<void> pinComment(LiveComment? comment) =>
+      _moderate((id) => _repository.pinComment(id, comment?.id));
 
-  /// "Rechazar" llamaba a [approveGuest]: el invitado se iba de la lista y la
-  /// auditoría decía que había sido aprobado.
-  void rejectGuest(String guest) => emit(
-    state.copyWith(
-      pendingGuests: state.pendingGuests
-          .where((item) => item != guest)
-          .toList(),
-      audit: [...state.audit, 'Se rechazó la solicitud de $guest'],
-    ),
-  );
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  Future<void> highlightQuestion(LiveComment? comment) =>
+      _moderate((id) => _repository.highlightQuestion(id, comment?.id));
+
+  /// Borra para todos y del replay. A diferencia de ocultar, no vuelve.
+  Future<void> deleteComment(LiveComment comment) =>
+      _moderate((id) => _repository.deleteComment(id, comment.id));
+
+  Future<void> unhideComment(String commentId) =>
+      _moderate((id) => _repository.unhideComment(id, commentId));
+
+  Future<void> muteInChat(String userId, LiveMuteDuration duration) =>
+      _moderate((id) => _repository.muteChat(id, userId, duration));
+
+  Future<void> unmuteInChat(String userId) =>
+      _moderate((id) => _repository.unmuteChat(id, userId));
+
+  Future<void> kick(String userId) =>
+      _moderate((id) => _repository.kick(id, userId));
+
+  Future<void> ban(String userId) =>
+      _moderate((id) => _repository.ban(id, userId));
+
+  /// Nombra al moderador del vivo, o lo quita con null.
+  Future<void> assignModerator(String? userId) =>
+      _moderate((id) => _repository.assignModerator(id, userId));
+
+  Future<void> _moderate(Future<void> Function(String liveId) action) =>
+      _onStage(action);
+
+  // --- Escenario (SDD 0011) -------------------------------------------------
+  //
+  // El servidor decide y el resultado vuelve por `watch` (`stage` y, si
+  // cambió un rol, `roleChanged`): acá no se aplica nada a mano, así que la
+  // sala nunca muestra un escenario que el servidor no aceptó. Un rechazo
+  // llega como `issue`.
+
+  Future<void> raiseHand() => _onStage((id) => _repository.raiseHand(id));
+  Future<void> lowerHand() => _onStage((id) => _repository.lowerHand(id));
+  Future<void> leaveStage() => _onStage((id) => _repository.leaveStage(id));
+
+  Future<void> approveRequest(String userId) =>
+      _onStage((id) => _repository.approveRequest(id, userId));
+
+  Future<void> denyRequest(String userId) =>
+      _onStage((id) => _repository.denyRequest(id, userId));
+
+  Future<void> inviteToStage(String userId) =>
+      _onStage((id) => _repository.inviteToStage(id, userId));
+
+  Future<void> removeFromStage(String userId) =>
+      _onStage((id) => _repository.removeFromStage(id, userId));
+
+  /// El micrófono propio: lo apaga o lo prende.
+  Future<void> toggleMyMic() {
+    final me = state.stage.me;
+    if (me == null) return Future.value();
+    return _onStage(
+      (id) => _repository.setMicMuted(id, me.userId, muted: !me.micMuted),
+    );
+  }
+
+  /// Silenciar el micrófono de otro. Reactivarlo es de esa persona (S11).
+  Future<void> muteSpeaker(String userId) =>
+      _onStage((id) => _repository.setMicMuted(id, userId, muted: true));
+
+  Future<void> toggleMyCamera() {
+    final me = state.stage.me;
+    if (me == null) return Future.value();
+    return _onStage((id) => _repository.setCamera(id, on: !me.cameraOn));
+  }
+
+  /// Manda una reacción efímera. El servidor rechaza al pasarse del límite —
+  /// y lo descarta en silencio, no es error (D7 del SDD 0011) —, así que acá
+  /// un `tooFast` se traga para que no se le pida nada al usuario por una
+  /// restricción propia nuestra. El eco llega por el stream.
+  Future<void> react(LiveReactionKind kind) async {
+    final session = state.session;
+    if (session == null) return;
+    try {
+      await _repository.react(session.id, kind);
+    } on RateLimitedFailure {
+      // Silencio deliberado: no es un fallo del usuario.
+    } on Failure catch (failure) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          issue: switch (failure) {
+            CreatorNotVerifiedFailure() => LiveRoomIssue.notVerified,
+            ForbiddenFailure() => LiveRoomIssue.forbidden,
+            AccountSuspendedFailure() => LiveRoomIssue.suspended,
+            MutedFailure() => LiveRoomIssue.muted,
+            ConflictFailure() => LiveRoomIssue.conflict,
+            _ => LiveRoomIssue.other,
+          },
+          issueSerial: state.issueSerial + 1,
+        ),
+      );
+    }
+  }
+
+  Future<void> _onStage(Future<void> Function(String liveId) action) async {
+    final session = state.session;
+    if (session == null) return;
+    await _try(() => action(session.id));
+  }
 
   /// El servidor decide. Un creador desverificado ve el botón de iniciar
   /// igual —esconderlo sería justo la trampa que la demo refuta— y es acá

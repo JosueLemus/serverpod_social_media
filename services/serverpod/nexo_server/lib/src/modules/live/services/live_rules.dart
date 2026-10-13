@@ -9,7 +9,11 @@ abstract final class LiveRules {
   static const maxDescriptionLength = 2000;
   static const minDurationMinutes = 15;
   static const maxDurationMinutes = 240;
-  static const maxGuests = 3;
+
+  /// Lugares en el escenario además del host (SDD 0011, S4). Cuenta a los
+  /// invitados de la agenda y a los que suben durante el vivo: 1 + 16 es el
+  /// tope de publicadores por canal de Agora.
+  static const maxGuests = 16;
   static const maxChatLength = 280;
   static const chatPageSize = 50;
   static const listLimit = 50;
@@ -64,6 +68,24 @@ abstract final class LiveRules {
 
   static bool canTransition(LiveShowStatus from, LiveShowStatus to) =>
       transitions[from]?.contains(to) ?? false;
+
+  /// Si con [guestsOnStage] invitados arriba (sin contar al host) ya no entra
+  /// nadie más.
+  static bool stageFull(int guestsOnStage) => guestsOnStage >= maxGuests;
+
+  /// Cuánto puede durar un silencio en el chat (SDD 0011, S10). Null es "el
+  /// resto del vivo". Un conjunto cerrado y no minutos libres: el moderador
+  /// decide en medio de un directo, y la auditoría se puede agrupar.
+  static const chatMuteMinutes = {5, 15, 60};
+
+  static int? checkChatMute(int? minutes) {
+    if (minutes != null && !chatMuteMinutes.contains(minutes)) {
+      throw _invalid(
+        'Un silencio dura 5, 15 o 60 minutos, o el resto del vivo.',
+      );
+    }
+    return minutes;
+  }
 
   static bool isOnAir(LiveShowStatus status) =>
       status == LiveShowStatus.live || status == LiveShowStatus.ending;

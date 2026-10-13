@@ -7,8 +7,11 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/network/serverpod_failures.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
+import '../../domain/entities/live_moderation.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../../domain/repositories/live_repository.dart';
 
 /// Vivos contra el módulo `live` de Serverpod (SDD 0006).
@@ -126,6 +129,125 @@ class ServerpodLiveRepository implements LiveRepository {
     return toRole(await _client.live.roleIn(showId));
   });
 
+  // --- Escenario (SDD 0011) -------------------------------------------------
+
+  @override
+  Future<LiveStage> stage(String liveId) => _guard(
+    () async => toStage(await _client.live.stage(_showId(liveId)), me: _me),
+  );
+
+  @override
+  Future<void> raiseHand(String liveId) =>
+      _guard(() => _client.live.raiseHand(_showId(liveId)));
+
+  @override
+  Future<void> lowerHand(String liveId) =>
+      _guard(() => _client.live.lowerHand(_showId(liveId)));
+
+  @override
+  Future<void> approveRequest(String liveId, String userId) =>
+      _guard(() => _client.live.approveRequest(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> denyRequest(String liveId, String userId) =>
+      _guard(() => _client.live.denyRequest(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> inviteToStage(String liveId, String userId) =>
+      _guard(() => _client.live.inviteToStage(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> removeFromStage(String liveId, String userId) => _guard(
+    () => _client.live.removeFromStage(_showId(liveId), _uuid(userId)),
+  );
+
+  @override
+  Future<void> leaveStage(String liveId) =>
+      _guard(() => _client.live.leaveStage(_showId(liveId)));
+
+  @override
+  Future<void> setMicMuted(
+    String liveId,
+    String userId, {
+    required bool muted,
+  }) => _guard(
+    () => _client.live.setMicMuted(_showId(liveId), _uuid(userId), muted),
+  );
+
+  @override
+  Future<void> setCamera(String liveId, {required bool on}) =>
+      _guard(() => _client.live.setCamera(_showId(liveId), on));
+
+  // --- Moderación de la sala (SDD 0011, Etapa 3) ---------------------------
+
+  @override
+  Future<void> assignModerator(String liveId, String? userId) => _guard(
+    () => _client.live.assignModerator(
+      _showId(liveId),
+      userId == null ? null : _uuid(userId),
+    ),
+  );
+
+  @override
+  Future<void> muteChat(
+    String liveId,
+    String userId,
+    LiveMuteDuration duration,
+  ) => _guard(
+    () =>
+        _client.live.muteChat(_showId(liveId), _uuid(userId), duration.minutes),
+  );
+
+  @override
+  Future<void> unmuteChat(String liveId, String userId) =>
+      _guard(() => _client.live.unmuteChat(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> kick(String liveId, String userId) =>
+      _guard(() => _client.live.kick(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> ban(String liveId, String userId) =>
+      _guard(() => _client.live.ban(_showId(liveId), _uuid(userId)));
+
+  @override
+  Future<void> unban(String userId) =>
+      _guard(() => _client.live.unban(_uuid(userId)));
+
+  @override
+  Future<void> unhideComment(String liveId, String commentId) =>
+      _guard(() => _client.live.unhideChat(_messageId(commentId)));
+
+  @override
+  Future<void> deleteComment(String liveId, String commentId) =>
+      _guard(() => _client.live.deleteChat(_messageId(commentId)));
+
+  @override
+  Future<void> pinComment(String liveId, String? commentId) => _guard(
+    () => _client.live.pinChat(
+      _showId(liveId),
+      commentId == null ? null : _messageId(commentId),
+    ),
+  );
+
+  @override
+  Future<void> highlightQuestion(String liveId, String? commentId) => _guard(
+    () => _client.live.highlightQuestion(
+      _showId(liveId),
+      commentId == null ? null : _messageId(commentId),
+    ),
+  );
+
+  @override
+  Future<void> react(String liveId, LiveReactionKind kind) async {
+    // El endpoint `react` todavía no existe en Serverpod (ver SDD 0011 §Avance:
+    // D7 pendiente de implementar backend). Mientras tanto, se descarta en
+    // silencio para que la UI pueda publicar al bus local sin lanzar un
+    // rechazo. Un `UnimplementedError` tiraría la sala a la pantalla de
+    // "intenta de nuevo", que es peor que no mandar nada.
+    return;
+  }
+
   @override
   Stream<LiveRoomEvent> watch(String liveId) {
     final showId = int.tryParse(liveId);
@@ -193,6 +315,16 @@ class ServerpodLiveRepository implements LiveRepository {
         for (final m in event.history ?? const <api.LiveChatMessageView>[])
           toComment(m, me: me),
       ],
+      stage: event.stage == null
+          ? LiveStage.empty
+          : toStage(event.stage!, me: me),
+      pinned: event.pinned == null ? null : toComment(event.pinned!, me: me),
+      highlighted: event.highlighted == null
+          ? null
+          : toComment(event.highlighted!, me: me),
+      myMute: event.sanctionKind == api.LiveSanctionKind.chatMute
+          ? LiveChatMute(until: event.until?.toLocal())
+          : null,
     ),
     api.LiveEventKind.status when event.liveShow != null => LiveSessionChanged(
       toSession(event.liveShow!),
@@ -204,12 +336,79 @@ class ServerpodLiveRepository implements LiveRepository {
     ),
     api.LiveEventKind.chatHidden when event.hiddenMessageId != null =>
       LiveCommentHidden('${event.hiddenMessageId}'),
+    api.LiveEventKind.stage when event.stage != null => LiveStageChanged(
+      toStage(event.stage!, me: me),
+    ),
+    api.LiveEventKind.roleChanged
+        when event.targetId != null && event.role != null =>
+      LiveRoleChanged(
+        userId: event.targetId.toString(),
+        role: toRole(event.role!),
+        isMine: me != null && event.targetId.toString() == me,
+      ),
+    api.LiveEventKind.sanction
+        when event.targetId != null && event.sanctionKind != null =>
+      LiveSanctioned(
+        userId: event.targetId.toString(),
+        kind: LiveSanctionKind.values.byName(event.sanctionKind!.name),
+        until: event.until?.toLocal(),
+        isMine: me != null && event.targetId.toString() == me,
+      ),
+    api.LiveEventKind.chatDeleted when event.hiddenMessageId != null =>
+      LiveCommentDeleted('${event.hiddenMessageId}'),
+    api.LiveEventKind.chatRestored when event.message != null =>
+      LiveCommentRestored(toComment(event.message!, me: me)),
+    api.LiveEventKind.pinned => LivePinnedChanged(
+      event.pinned == null ? null : toComment(event.pinned!, me: me),
+    ),
+    api.LiveEventKind.highlighted => LiveHighlightChanged(
+      event.highlighted == null ? null : toComment(event.highlighted!, me: me),
+    ),
     _ => null,
   };
+
+  static LiveStage toStage(api.LiveStageView view, {required String? me}) =>
+      LiveStage(
+        speakers: [
+          for (final s in view.speakers)
+            LiveSpeaker(
+              userId: s.userId.toString(),
+              name: s.name ?? s.username ?? '',
+              username: s.username ?? '',
+              avatarUrl: s.avatarUrl,
+              role: toRole(s.role),
+              micMuted: s.micMuted,
+              cameraOn: s.cameraOn,
+              isMe: me != null && s.userId.toString() == me,
+            ),
+        ],
+        hands: [
+          for (final h in view.hands)
+            LiveHand(
+              userId: h.userId.toString(),
+              name: h.name ?? h.username ?? '',
+              username: h.username ?? '',
+              avatarUrl: h.avatarUrl,
+              raisedAt: h.raisedAt.toLocal(),
+              isMe: me != null && h.userId.toString() == me,
+            ),
+        ],
+      );
 
   // --- Internos ------------------------------------------------------------
 
   String? get _me => _auth.authInfo?.authUserId.toString();
+
+  static api.UuidValue _uuid(String id) {
+    try {
+      return api.UuidValue.fromString(id);
+    } on FormatException {
+      throw const NotFoundFailure('account');
+    }
+  }
+
+  static int _messageId(String id) =>
+      int.tryParse(id) ?? (throw const NotFoundFailure('comment'));
 
   static int _showId(String id) {
     final showId = int.tryParse(id);

@@ -19,6 +19,7 @@ import '../../../../core/widgets/sticker.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/live_session.dart';
+import '../../domain/entities/live_stage.dart';
 import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
 import '../utils/live_room_issue_ui.dart';
@@ -108,10 +109,7 @@ class _StudioView extends StatelessWidget {
               EnterStatic(index: 2, child: _StudioControls(session: session)),
               const SizedBox(height: AppSpacing.md),
               Enter(index: 3, child: _StudioMetrics(state: state)),
-              Enter(
-                index: 4,
-                child: _GuestRequests(guests: state.pendingGuests),
-              ),
+              Enter(index: 4, child: _GuestRequests(stage: state.stage)),
               Enter(index: 5, child: _AuditTrail(entries: state.audit)),
               const SizedBox(height: AppSpacing.md),
             ],
@@ -840,102 +838,115 @@ class _StudioControl extends StatelessWidget {
   );
 }
 
-/// Quién pidió subir a la transmisión. Aprobar es el sticker blanco; rechazar,
-/// el contorno: las dos se ofrecen, pero una es la que el host suele querer.
+/// Quién pidió la palabra en la sala. Aprobar lo manda al servidor con el
+/// `userId` real; rechazar le baja la mano. La cola sale de `stage.hands`, no
+/// de nombres locales: dos ojos sobre la misma cola es la **misma** cola, no
+/// dos listas que se separan (ya pasó: la lista de pendingGuests del cliente
+/// nunca llegaba al servidor y la sala de un oyente real ni se enteraba).
 class _GuestRequests extends StatelessWidget {
-  const _GuestRequests({required this.guests});
+  const _GuestRequests({required this.stage});
 
-  final List<String> guests;
+  final LiveStage stage;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      SectionHeader(
-        title: 'Solicitudes para unirse',
-        action: guests.isEmpty
-            ? null
-            : StatusBadge(
-                label: '${guests.length} en cola',
-                color: AppColors.vinylLime,
-                foreground: AppColors.ink,
-              ),
-      ),
-      if (guests.isEmpty)
-        Text(
-          'Nadie está esperando aprobación.',
-          style: Theme.of(context).textTheme.bodySmall,
-        )
-      else
-        for (final (index, guest) in guests.indexed) ...[
-          if (index > 0) const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                UserAvatar(name: guest, size: 44),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        guest,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      Text(
-                        'Pide emitir cámara y micrófono',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      // Debajo del nombre y no a su lado: a 320 dos botones
-                      // junto al avatar dejan al nombre sin lugar.
-                      Wrap(
-                        spacing: AppSpacing.xs,
-                        runSpacing: AppSpacing.xs,
-                        children: [
-                          // Aprobar es lo que el backend convierte en un token
-                          // de broadcaster. El cliente nunca decide volverse
-                          // emisor por su cuenta.
-                          FilledButton(
-                            key: Key('approve-$guest'),
-                            onPressed: () => context
-                                .read<LiveRoomCubit>()
-                                .approveGuest(guest),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(
-                                0,
-                                AppSizes.buttonHeightDense,
-                              ),
-                            ),
-                            child: const Text('Aceptar'),
-                          ),
-                          OutlinedButton(
-                            onPressed: () => context
-                                .read<LiveRoomCubit>()
-                                .rejectGuest(guest),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(
-                                0,
-                                AppSizes.buttonHeightDense,
-                              ),
-                            ),
-                            child: const Text('Rechazar'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+  Widget build(BuildContext context) {
+    final hands = stage.hands;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Solicitudes para unirse',
+          action: hands.isEmpty
+              ? null
+              : StatusBadge(
+                  label: '${hands.length} en cola',
+                  color: AppColors.vinylLime,
+                  foreground: AppColors.ink,
                 ),
-              ],
+        ),
+        if (hands.isEmpty)
+          Text(
+            'Nadie está esperando aprobación.',
+            style: Theme.of(context).textTheme.bodySmall,
+          )
+        else
+          for (final (index, hand) in hands.indexed) ...[
+            if (index > 0) const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  UserAvatar(
+                    name: hand.name,
+                    imageUrl: hand.avatarUrl,
+                    size: 44,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hand.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        if (hand.username.isNotEmpty)
+                          Text(
+                            '@${hand.username}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        const SizedBox(height: AppSpacing.xs),
+                        // Debajo del nombre: a 320, dos botones al lado del
+                        // avatar dejaban al nombre sin lugar.
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            FilledButton(
+                              key: Key('approve-${hand.userId}'),
+                              onPressed: () => unawaited(
+                                context
+                                    .read<LiveRoomCubit>()
+                                    .approveRequest(hand.userId),
+                              ),
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(
+                                  0,
+                                  AppSizes.buttonHeightDense,
+                                ),
+                              ),
+                              child: const Text('Subir al escenario'),
+                            ),
+                            OutlinedButton(
+                              key: Key('deny-${hand.userId}'),
+                              onPressed: () => unawaited(
+                                context
+                                    .read<LiveRoomCubit>()
+                                    .denyRequest(hand.userId),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(
+                                  0,
+                                  AppSizes.buttonHeightDense,
+                                ),
+                              ),
+                              child: const Text('Rechazar'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-    ],
-  );
+          ],
+      ],
+    );
+  }
 }
 
 /// Lo que se hizo en la sesión. Append-only: la auditoría que borra lo que

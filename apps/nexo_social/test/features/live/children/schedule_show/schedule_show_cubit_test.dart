@@ -195,16 +195,22 @@ void main() {
     });
 
     test('stops at the limit', () async {
+      // El escenario tiene 16 lugares y el mock no tiene 16 cuentas: el
+      // borrador arranca lleno desde disco.
+      await ShowDraftLocalDataSource(
+        await SharedPreferences.getInstance(),
+      ).write(
+        DemoAccounts.elena.id,
+        ShowDraft.startingFrom(now).copyWith(
+          guests: [
+            for (var i = 0; i < ShowDraft.maxGuests; i++)
+              ShowGuest(id: 'guest-$i', username: 'guest$i', name: 'Guest $i'),
+          ],
+        ),
+      );
       final cubit = build();
       await cubit.load();
-      for (final account in [
-        DemoAccounts.carlos,
-        DemoAccounts.viewer,
-        DemoAccounts.moderator,
-        DemoAccounts.operator,
-      ]) {
-        await cubit.addGuest(account.username);
-      }
+      await cubit.addGuest(DemoAccounts.carlos.username);
 
       expect(cubit.state.draft!.guests, hasLength(ShowDraft.maxGuests));
       expect(cubit.state.issue, ScheduleShowIssue.guestLimit);

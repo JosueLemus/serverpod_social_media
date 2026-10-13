@@ -1,0 +1,8 @@
+### Alguien que pidió la palabra.
+class: LiveHandView
+fields:
+  userId: UuidValue
+  username: String?
+  name: String?
+  avatarUrl: String?
+  raisedAt: DateTime

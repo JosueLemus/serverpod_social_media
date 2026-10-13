@@ -104,6 +104,76 @@ void main() {
         expect(chat.map((e) => e.message?.id), [sent.id]);
       });
 
+      test('then a kick reaches the person and keeps them out', () async {
+        final events = await watch(tomas);
+        await endpoints.live.raiseHand(tomas, showId);
+        final id = (await endpoints.live.stage(
+          fixtures.guest,
+          showId,
+        )).hands.single.userId;
+
+        await endpoints.live.kick(elena, showId, id);
+        await until(
+          () => events.any((e) => e.kind == LiveEventKind.sanction),
+        );
+
+        final sanction = events.firstWhere(
+          (e) => e.kind == LiveEventKind.sanction,
+        );
+        expect(sanction.targetId, id);
+        expect(sanction.sanctionKind, LiveSanctionKind.kick);
+        await expectLater(
+          endpoints.live.watch(tomas, showId).first,
+          throwsNexo(NexoErrorCode.forbidden),
+        );
+      });
+
+      test('then the snapshot carries the pinned message', () async {
+        final message = await endpoints.live.sendChat(ana, showId, 'link');
+        await endpoints.live.pinChat(elena, showId, message.id);
+
+        final snapshot = (await watch(tomas)).first;
+        expect(snapshot.pinned?.id, message.id);
+      });
+
+      test('then the snapshot carries the stage, host first', () async {
+        final snapshot = (await watch(tomas)).first;
+
+        expect(snapshot.stage?.speakers.map((s) => s.role), [
+          LiveShowRole.host,
+        ]);
+      });
+
+      test(
+        'then approving a hand arrives as stage and as roleChanged',
+        () async {
+          final events = await watch(tomas);
+          await endpoints.live.raiseHand(tomas, showId);
+          final tomasId = (await endpoints.live.stage(
+            fixtures.guest,
+            showId,
+          )).hands.single.userId;
+
+          await endpoints.live.approveRequest(elena, showId, tomasId);
+          await until(
+            () => events.any((e) => e.kind == LiveEventKind.roleChanged),
+          );
+
+          final changed = events.firstWhere(
+            (e) => e.kind == LiveEventKind.roleChanged,
+          );
+          expect(changed.targetId, tomasId);
+          expect(changed.role, LiveShowRole.cohost);
+          final lastStage = events.lastWhere(
+            (e) => e.kind == LiveEventKind.stage,
+          );
+          expect(
+            lastStage.stage?.speakers.map((s) => s.userId),
+            contains(tomasId),
+          );
+        },
+      );
+
       test('then hiding a message arrives as chatHidden', () async {
         final sent = await endpoints.live.sendChat(ana, showId, 'basura');
         final events = await watch(tomas);

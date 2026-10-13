@@ -10,7 +10,7 @@ import 'package:nexo_social/features/feed/presentation/pages/feed_page.dart';
 import 'package:nexo_social/features/feed/presentation/widgets/post_card.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/domain/repositories/live_repository.dart';
-import 'package:nexo_social/features/live/presentation/widgets/live_card.dart';
+import 'package:nexo_social/features/live/presentation/widgets/live_room_card.dart';
 
 import '../../../support/app_harness.dart';
 
@@ -129,8 +129,9 @@ void main() {
       await tapFilter(tester, 'En vivo');
 
       expect(find.byType(PostCard), findsNothing);
-      // La semilla del mock tiene dos al aire: Elena y Carlos.
-      expect(find.byType(LiveCard), findsNWidgets(2));
+      // La semilla del mock tiene dos al aire: Elena y Carlos. Cada una se
+      // dibuja como una tarjeta de sala (SDD 0011, Etapa 5).
+      expect(find.byType(LiveRoomCard), findsNWidgets(2));
     });
 
     testWidgets('"En vivo" with nobody on air says so', (tester) async {

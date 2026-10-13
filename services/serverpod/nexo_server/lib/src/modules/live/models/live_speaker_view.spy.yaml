@@ -1,0 +1,10 @@
+### Alguien en el escenario.
+class: LiveSpeakerView
+fields:
+  userId: UuidValue
+  username: String?
+  name: String?
+  avatarUrl: String?
+  role: LiveShowRole
+  micMuted: bool
+  cameraOn: bool

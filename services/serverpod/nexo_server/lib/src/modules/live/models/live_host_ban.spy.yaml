@@ -1,0 +1,14 @@
+### Alguien que no entra a ningún vivo de [hostId] hasta que el host lo
+### levante. Sólo el host banea (SDD 0011, §3).
+class: LiveHostBan
+table: live_host_ban
+serverOnly: true
+fields:
+  hostId: UuidValue
+  userId: UuidValue
+  actorId: UuidValue
+  createdAt: DateTime, default=now
+indexes:
+  live_host_ban_unique_idx:
+    fields: hostId, userId
+    unique: true
