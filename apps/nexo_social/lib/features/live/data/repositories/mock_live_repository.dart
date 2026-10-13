@@ -5,6 +5,7 @@ import '../../../../core/mock/mock_platform.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
 import '../../domain/entities/live_moderation.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/live_stage.dart';
@@ -14,9 +15,18 @@ import '../../domain/repositories/live_repository.dart';
 /// máquina de estados, quién puede ocultar— viven ahí, como van a vivir en
 /// Serverpod.
 class MockLiveRepository implements LiveRepository {
-  MockLiveRepository(this._platform);
+  MockLiveRepository(this._platform, {DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final MockPlatform _platform;
+  final DateTime Function() _now;
+
+  /// Throttle de reacciones por cuenta (D7): el servidor lo mismo, 1 cada
+  /// 300 ms; el exceso se descarta en silencio con `RateLimitedFailure`.
+  /// Vive en memoria del repositorio, igual que el throttle del chat del
+  /// mock: dos sesiones distintas no comparten estado.
+  final _reactionLastAt = <String, DateTime>{};
+  static const _reactionCooldown = Duration(milliseconds: 300);
 
   @override
   Future<List<LiveSession>> list() async => _platform.lives();
@@ -234,4 +244,31 @@ class MockLiveRepository implements LiveRepository {
   @override
   Future<void> highlightQuestion(String liveId, String? commentId) async =>
       _platform.highlightQuestion(liveId, commentId);
+
+  @override
+  Future<void> react(String liveId, LiveReactionKind kind) async {
+    final me = _platform.sessionAccountId;
+    if (me == null) throw const ForbiddenFailure('live.react: unauthenticated');
+    final live = _platform.live(liveId);
+    if (live == null) throw const NotFoundFailure('live');
+    if (!_onAir(live)) {
+      throw const ConflictFailure('live.react: not on air');
+    }
+    if (_platform.exclusion(liveId, me) != null) {
+      throw const ForbiddenFailure('live.react: excluded');
+    }
+    final key = '$liveId:$me';
+    final now = _now();
+    final last = _reactionLastAt[key];
+    if (last != null && now.difference(last) < _reactionCooldown) {
+      // El servidor hace lo mismo: descartar en silencio. Pero el tipo
+      // tiene que viajar para que el cubit sepa que fue descartado y no se
+      // crea que se publicó.
+      throw const RateLimitedFailure('live.react: throttled');
+    }
+    _reactionLastAt[key] = now;
+    // El mock no publica aún como evento del stream — el bus local del UI ya
+    // dibuja el feedback para quien tocó. El eco al resto llega cuando el
+    // backend implemente `reaction` como `LiveEventKind` nuevo.
+  }
 }

@@ -29,6 +29,11 @@ abstract final class AppMotion {
   /// Reaction feedback — a like bounce, a count ticking over.
   static const feedbackDuration = Duration(milliseconds: 220);
 
+  /// Cuánto flota un emoji de reacción en el vivo antes de desvanecerse. Más
+  /// cercano a 1.5s que a 1s: menos de un segundo se lee como un parpadeo y
+  /// la gente no lo asocia a su propio tap.
+  static const reactionDuration = Duration(milliseconds: 1500);
+
   /// Gap between consecutive items of a staggered list.
   static const staggerStep = Duration(milliseconds: 55);
 

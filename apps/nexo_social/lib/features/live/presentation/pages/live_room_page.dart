@@ -29,8 +29,10 @@ import '../utils/live_role_ui.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_chat.dart';
+import '../widgets/live_host_end_sheet.dart';
 import '../widgets/live_media_sync.dart';
 import '../widgets/live_person_sheet.dart';
+import '../widgets/live_reactions.dart';
 import '../widgets/live_video_surface.dart';
 
 /// La sala tipo podcast (SDD 0011, Etapa 4).
@@ -96,6 +98,27 @@ class _RoomViewState extends State<_RoomView> {
   void _leave() => context.go(AppRoutes.explore);
 
   void _back() => context.canPop() ? context.pop() : _leave();
+
+  /// El host no sale: elige si termina el vivo o sigue al aire. La misma hoja
+  /// se usa desde la X del top bar y desde "Terminar" en la barra de acciones
+  /// (D6 del SDD 0011): dos entradas, una sola confirmación — porque la
+  /// decisión tiene las mismas consecuencias.
+  Future<void> _leaveAsHost(LiveSession session) async {
+    final cubit = context.read<LiveRoomCubit>();
+    final choice = await showHostEndSheet(context);
+    if (choice == HostLeaveChoice.endLive) {
+      await cubit.transition(LiveStatus.recorded);
+      if (!mounted) return;
+      _leave();
+    } else if (choice == HostLeaveChoice.leaveOnAir) {
+      // "Seguir al aire" no corta la transmisión: sale de la sala y deja al
+      // Studio controlándola. El Studio redirect ya corre si el host vuelve a
+      // entrar como audiencia (`LiveRoomCubit.load` + listener del rol).
+      _leave();
+    }
+    // null: el host se arrepintió y se queda.
+  }
+
 
   @override
   Widget build(BuildContext context) =>
@@ -180,10 +203,22 @@ class _RoomViewState extends State<_RoomView> {
                       const IgnorePointer(
                         child: ColoredBox(color: AppColors.stageScrim),
                       ),
+                    // Las reacciones flotan sobre todo lo demás, dentro del
+                    // Stack de la sala: no pueden salir de la pantalla y, al
+                    // estar en IgnorePointer, no comen taps del chrome.
+                    const LiveReactionsOverlay(),
                     SafeArea(
                       child: Column(
                         children: [
-                          _RoomTopBar(session: session, onLeave: _leave),
+                          _RoomTopBar(
+                            session: session,
+                            // El host confirma antes de salir; el resto sale
+                            // directo. La hoja decide qué pasa con el vivo.
+                            onLeave: state.role == LiveRole.host &&
+                                    session.status.isOnAir
+                                ? () => unawaited(_leaveAsHost(session))
+                                : _leave,
+                          ),
                           if (state.reconnecting && ending == null)
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -755,55 +790,73 @@ class _ActionBar extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (onStage && me != null) ...[
-            LiveGlassButton(
+            LiveLabeledGlassButton(
               key: const Key('room-mic'),
+              // El micrófono prende/apaga con un único control; su estado se
+              // lee del color y del glifo, no de dos botones.
               glyph: me.micMuted ? NexoGlyph.micOff : NexoGlyph.mic,
-              tooltip: me.micMuted ? 'Prender el micrófono' : 'Silenciar',
+              label: me.micMuted ? 'Prender micrófono' : 'Silenciar',
               onTap: () => unawaited(cubit.toggleMyMic()),
-              background:
-                  me.micMuted ? AppColors.warning : null,
+              background: me.micMuted ? AppColors.warning : null,
             ),
-            LiveGlassButton(
+            LiveLabeledGlassButton(
               key: const Key('room-camera'),
               glyph: NexoGlyph.media,
-              tooltip: me.cameraOn ? 'Apagar cámara' : 'Prender cámara',
+              label: me.cameraOn ? 'Apagar cámara' : 'Prender cámara',
               onTap: () => unawaited(cubit.toggleMyCamera()),
-              background:
-                  me.cameraOn ? AppColors.secondary : null,
+              background: me.cameraOn ? AppColors.secondary : null,
             ),
-            LiveGlassButton(
+            LiveLabeledGlassButton(
               key: const Key('room-leave-stage'),
               glyph: NexoGlyph.logout,
-              tooltip: 'Bajarme del escenario',
+              label: 'Bajarme',
               onTap: () => unawaited(cubit.leaveStage()),
             ),
           ] else if (canRaise)
             if (state.handRaised)
-              LiveGlassButton(
+              LiveLabeledGlassButton(
                 key: const Key('room-lower-hand'),
                 glyph: NexoGlyph.close,
-                tooltip: 'Bajar la mano',
+                label: 'Bajar la mano',
                 onTap: () => unawaited(cubit.lowerHand()),
                 background: AppColors.warning,
               )
             else
-              LiveGlassButton(
+              LiveLabeledGlassButton(
                 key: const Key('room-raise-hand'),
+                // Reusamos el glifo del micrófono para "pedir la palabra" —
+                // el set de íconos no tiene mano todavía—, pero con **texto
+                // visible** no se confunde con el micrófono del escenario:
+                // ese otro vive adentro de otra rama de este `if` y además
+                // dice "Silenciar" o "Prender micrófono". La etiqueta deshace
+                // la ambigüedad que tenía la versión sin texto.
                 glyph: NexoGlyph.mic,
-                tooltip: 'Pedir la palabra',
+                label: 'Pedir la palabra',
                 onTap: () => unawaited(cubit.raiseHand()),
               ),
+          // Reacciones efímeras: todos pueden mandar (D7 del SDD 0011).
+          // El permiso vuelve a chequearse en el servidor; acá sólo se
+          // dibuja el control cuando el rol lo tiene en su repertorio.
+          if (state.can(LiveAction.react))
+            LiveLabeledGlassButton(
+              key: const Key('room-react'),
+              glyph: NexoGlyph.heart,
+              label: 'Reaccionar',
+              onTap: () => unawaited(_openReactionsSheet(context)),
+            ),
           if (showHandsQueue)
             _HandsButton(
               hands: hands,
               onOpen: () => unawaited(_openHandsSheet(context)),
             ),
           if (state.can(LiveAction.end) && session.status.isOnAir)
-            LiveGlassButton(
+            LiveLabeledGlassButton(
               key: const Key('room-end'),
               glyph: NexoGlyph.close,
-              tooltip: 'Terminar el vivo',
-              onTap: () => unawaited(cubit.transition(LiveStatus.recorded)),
+              label: 'Terminar',
+              // El host confirma antes de cortar: terminar un vivo tiene
+              // consecuencias y no puede ser un tap suelto.
+              onTap: () => unawaited(_confirmAndEnd(context)),
               background: AppColors.error,
             ),
         ],
@@ -867,6 +920,33 @@ class _HandsButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// El tap de "Terminar" en la barra de acciones. Reusa la misma hoja que
+/// "Salir" del host, pero con una sola opción: no hay otro resultado del
+/// gesto en esta rama.
+Future<void> _confirmAndEnd(BuildContext context) async {
+  final cubit = context.read<LiveRoomCubit>();
+  final choice = await showHostEndSheet(context, endOnly: true);
+  if (choice == HostLeaveChoice.endLive) {
+    await cubit.transition(LiveStatus.recorded);
+  }
+}
+
+/// Abre el picker de reacciones. Lo que elija el usuario viaja al cubit
+/// (que luego hablará con el servidor); además, lo publicamos localmente al
+/// bus para que el emoji flote **ya**, sin esperar el eco. El día que el
+/// servidor emita `reaction`, el bus sigue siendo el mismo canal y la
+/// publicación local se saca.
+Future<void> _openReactionsSheet(BuildContext context) async {
+  final cubit = context.read<LiveRoomCubit>();
+  await showReactionsSheet(
+    context,
+    onPick: (kind) {
+      LiveReactionBus.instance.publish(kind);
+      unawaited(cubit.react(kind));
+    },
+  );
 }
 
 Future<void> _openHandsSheet(BuildContext context) async {
@@ -1258,14 +1338,22 @@ class _RoomTopBar extends StatelessWidget {
   final VoidCallback onLeave;
 
   /// Por debajo de este ancho los espectadores bajan debajo del botón de
-  /// cerrar.
-  static const _stackBelow = 360.0;
+  /// "Salir". Antes era 360; se subió al cruzar la X por un pill con texto
+  /// (D6), que es ~40 px más ancha, y en 420 el `_HostPill` se queda sin
+  /// espacio para el nombre del host y su botón de seguir. El breakpoint ahora
+  /// se parece al límite teléfono/tablet, que es cuando el ancho alcanza para
+  /// las dos cosas en una fila.
+  static const _stackBelow = 600.0;
 
   @override
   Widget build(BuildContext context) {
-    final close = LiveGlassButton(
+    // "Salir" con texto, no la X ambigua que confunde con "Terminar" en el
+    // host (D6 del SDD 0011). La hoja de confirmación la decide el llamador —
+    // acá sólo pedimos el gesto.
+    final close = LiveLabeledGlassButton(
+      key: const Key('room-leave'),
       glyph: NexoGlyph.close,
-      tooltip: 'Salir del vivo',
+      label: 'Salir',
       onTap: onLeave,
     );
     final viewers = _ViewerCount(viewers: session.viewers);

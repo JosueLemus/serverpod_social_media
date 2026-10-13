@@ -394,6 +394,38 @@ void main() {
       expect(find.text('El host te bloqueó de sus vivos'), findsOneWidget);
     });
 
+    testWidgets(
+      '"Salir" tiene texto visible, no sólo la X (D6)',
+      (tester) async {
+        final repo = _FakeLiveRepository(_snapshot(role: LiveRole.audience));
+        await _pumpRoom(tester, repo);
+
+        expect(find.byKey(const Key('room-leave')), findsOneWidget);
+        expect(find.text('Salir'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      '"Pedir la palabra" tiene texto visible, el mic sin texto confundía',
+      (tester) async {
+        final repo = _FakeLiveRepository(_snapshot(role: LiveRole.audience));
+        await _pumpRoom(tester, repo);
+
+        expect(find.text('Pedir la palabra'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'el oyente ve el botón de reaccionar (todos pueden mandar, D7)',
+      (tester) async {
+        final repo = _FakeLiveRepository(_snapshot(role: LiveRole.audience));
+        await _pumpRoom(tester, repo);
+
+        expect(find.byKey(const Key('room-react')), findsOneWidget);
+        expect(find.text('Reaccionar'), findsOneWidget);
+      },
+    );
+
     testWidgets('subir al escenario anuncia con snackbar', (tester) async {
       final repo = _FakeLiveRepository(_snapshot(role: LiveRole.audience));
       await _pumpRoom(tester, repo);

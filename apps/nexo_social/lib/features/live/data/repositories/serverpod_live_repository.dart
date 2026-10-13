@@ -8,6 +8,7 @@ import '../../../../core/network/serverpod_failures.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_media_grant.dart';
 import '../../domain/entities/live_moderation.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/entities/live_stage.dart';
@@ -236,6 +237,16 @@ class ServerpodLiveRepository implements LiveRepository {
       commentId == null ? null : _messageId(commentId),
     ),
   );
+
+  @override
+  Future<void> react(String liveId, LiveReactionKind kind) async {
+    // El endpoint `react` todavía no existe en Serverpod (ver SDD 0011 §Avance:
+    // D7 pendiente de implementar backend). Mientras tanto, se descarta en
+    // silencio para que la UI pueda publicar al bus local sin lanzar un
+    // rechazo. Un `UnimplementedError` tiraría la sala a la pantalla de
+    // "intenta de nuevo", que es peor que no mandar nada.
+    return;
+  }
 
   @override
   Stream<LiveRoomEvent> watch(String liveId) {

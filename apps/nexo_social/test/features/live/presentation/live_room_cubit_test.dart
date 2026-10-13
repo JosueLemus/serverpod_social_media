@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/core/mock/demo_accounts.dart';
 import 'package:nexo_social/core/mock/mock_platform.dart';
 import 'package:nexo_social/features/live/data/repositories/mock_live_repository.dart';
+import 'package:nexo_social/features/live/domain/entities/live_reaction.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/presentation/bloc/live_room_cubit.dart';
 import 'package:nexo_social/features/moderation/data/repositories/mock_moderation_repository.dart';
@@ -105,5 +106,36 @@ void main() {
 
     platform.bindSession(DemoAccounts.moderator.id);
     expect(platform.openReports(), hasLength(3));
+  });
+
+  group('reactions (D7)', () {
+    test(
+      'a throttled reaction does not show up as an issue — the server is '
+      'enforcing our own rule, not surfacing a user error',
+      () async {
+        platform.bindSession(DemoAccounts.viewer.id);
+        await cubit.load('live-1');
+        final issueSerial = cubit.state.issueSerial;
+
+        await cubit.react(LiveReactionKind.heart);
+        // Dentro de la ventana: la segunda devuelve `RateLimitedFailure` que
+        // el cubit tiene que tragar.
+        await cubit.react(LiveReactionKind.heart);
+
+        expect(cubit.state.issueSerial, issueSerial);
+        expect(cubit.state.issue, isNull);
+      },
+    );
+
+    test('a conflict on react — the live isnt on air — surfaces normally',
+        () async {
+      platform.bindSession(DemoAccounts.viewer.id);
+      // live-2 está programado, no al aire: el mock rechaza con conflict.
+      await cubit.load('live-2');
+
+      await cubit.react(LiveReactionKind.heart);
+
+      expect(cubit.state.issue, LiveRoomIssue.conflict);
+    });
   });
 }

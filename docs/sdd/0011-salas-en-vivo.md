@@ -221,7 +221,51 @@ Y cambia lo que ya existe:
     ahora ninguna lista lo pide — un GET por fila costaría una petición por
     tarjeta.
 
-- **Pendiente para la Etapa 6** (riesgoso, no bloquea la demo):
+- **Etapa 6a — chrome legible y reacciones efímeras (2026-10-12)**: pase de UX
+  sobre la sala, pensado para que un usuario que la abre por primera vez entienda
+  qué puede hacer **sin tooltips**:
+
+  - **"Salir" con texto, no la X**: la barra superior ahora tiene
+    `LiveLabeledGlassButton` con la etiqueta "Salir". Antes era la misma X
+    circular que "Terminar el vivo" en la barra de acciones del host, y la gente
+    tocaba una creyendo que era la otra (D6 del brief).
+  - **El host confirma antes de salir o terminar.** Al tocar "Salir" se abre
+    `LiveHostEndSheet` con dos opciones: **Terminar el vivo** (rojo, destructivo)
+    y **Seguir al aire** (outline — el Studio sigue dueño de la transmisión).
+    El botón "Terminar" de la barra de acciones también pasa por la misma hoja,
+    pero con `endOnly: true`: no hay otra consecuencia del gesto, así que no se
+    ofrecen las dos opciones.
+  - **"Pedir la palabra" con texto.** Lo que estaba ambiguo era el glifo: el
+    micrófono también significa "silenciar/activar" en el escenario, así que el
+    oyente leía el icono y no sabía si pedía hablar o se callaba a sí mismo. El
+    `LiveLabeledGlassButton` nuevo dibuja glifo + etiqueta en el mínimo táctil
+    (44 px) con `FittedBox(scaleDown)` para que una etiqueta larga en portugués
+    no desborde. **No se agregó un glifo de mano** porque el set actual no lo
+    tiene y copiarlo mal se nota primero en la barra; la etiqueta deshace la
+    ambigüedad y el día que entre un glifo propio, va acá.
+  - **Reacciones efímeras — cinco fijas, floating overlay (D7 del brief,
+    parcial)**. `LiveReactionKind` es un enum con `heart`, `fire`, `laugh`,
+    `clap`, `hundred`; `showReactionsSheet` abre un picker con los cinco emoji y
+    `LiveReactionsOverlay` dibuja los que llegan al `LiveReactionBus` flotando
+    desde el pie hacia arriba (1.5s, opacidad que cae al final, drift horizontal
+    aleatorio, tope **12** simultáneos — la más vieja se descarta antes que la
+    nueva, porque quien tocó espera ver la suya). El overlay va en
+    `IgnorePointer` + `RepaintBoundary`: no come taps del chrome y su repintado
+    por frame no sube al Stack del video. Con `MediaQuery.disableAnimations` el
+    emoji aparece quieto en vez de animarse.
+  - **El throttle del mock es 300 ms por cuenta y vivo**, igual a lo que el
+    servidor va a hacer. El exceso tira `RateLimitedFailure`, que
+    `LiveRoomCubit.react` **se traga en silencio**: es una regla nuestra, no un
+    error del usuario, y mostrar un snackbar "demasiado rápido" castiga al que
+    toca con energía.
+  - **Lo pendiente** (ir pendiente al Etapa 6b, con backend):
+    - El endpoint `live.react` en Serverpod y el `LiveEventKind.reaction`:
+      hoy `ServerpodLiveRepository.react` es un no-op para no tirar la sala a
+      pantalla roja. El bus local dibuja el feedback de quien tocó; el resto no
+      ve nada hasta que el server emita el eco.
+    - El contador agregado por tipo de reacción para la métrica del vivo.
+
+- **Pendiente para la Etapa 6b** (riesgoso, no bloquea la demo):
   - La app no pide una credencial de video nueva al subir o bajar del
     escenario (`LiveMediaSync` sólo mira el rol inicial). Hay que renovar el
     token cuando el `LiveRoleChanged` llega como `isMine`.
@@ -229,6 +273,17 @@ Y cambia lo que ya existe:
     pintar un anillo pulsante con `AppColors.secondary`, pero sin fuente de
     niveles de audio queda en false. Agora emite ese evento; hay que
     engancharlo al estado del cubit.
+  - **Invitación con consentimiento (D1 y D2 del brief)**: hoy
+    `inviteToStage` **sube directo** a la persona sin preguntarle y
+    `seedOnAir` sube a los invitados de la agenda igual. La invitación tiene
+    que ser una fila pendiente (`LiveInvite`, TTL 120 s), aceptar vuelve a
+    chequear cupo y exclusión, y la agenda recibe la invitación al salir al
+    aire en vez de subir sola. Backend + mock + UI (banner "Elena te invita"
+    con cuenta regresiva + Aceptar/Rechazar).
+  - **Video por diseño según cámaras prendidas (D5)**: 0 cámaras → grilla
+    de audio (hoy); 1–2 → foco + tira; ≥3 → grilla de video. Requiere
+    `remoteView(channel, uid, highQuality:)` con dual stream, y por tanto
+    Agora real.
   - La tarjeta destacada todavía no pide `repository.stage(id)` para
     mostrar los oradores de verdad (sigue leyendo `cohostIds` de la
     agenda). El cambio es un cubit nuevo que pida el stage de la sala

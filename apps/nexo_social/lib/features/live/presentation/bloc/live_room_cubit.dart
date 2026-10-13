@@ -7,6 +7,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/domain/repositories/moderation_repository.dart';
 import '../../domain/entities/live_comment.dart';
+import '../../domain/entities/live_reaction.dart';
 import '../../domain/entities/live_room_event.dart';
 import '../../domain/entities/live_moderation.dart';
 import '../../domain/entities/live_permissions.dart';
@@ -594,6 +595,35 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
     final me = state.stage.me;
     if (me == null) return Future.value();
     return _onStage((id) => _repository.setCamera(id, on: !me.cameraOn));
+  }
+
+  /// Manda una reacción efímera. El servidor rechaza al pasarse del límite —
+  /// y lo descarta en silencio, no es error (D7 del SDD 0011) —, así que acá
+  /// un `tooFast` se traga para que no se le pida nada al usuario por una
+  /// restricción propia nuestra. El eco llega por el stream.
+  Future<void> react(LiveReactionKind kind) async {
+    final session = state.session;
+    if (session == null) return;
+    try {
+      await _repository.react(session.id, kind);
+    } on RateLimitedFailure {
+      // Silencio deliberado: no es un fallo del usuario.
+    } on Failure catch (failure) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          issue: switch (failure) {
+            CreatorNotVerifiedFailure() => LiveRoomIssue.notVerified,
+            ForbiddenFailure() => LiveRoomIssue.forbidden,
+            AccountSuspendedFailure() => LiveRoomIssue.suspended,
+            MutedFailure() => LiveRoomIssue.muted,
+            ConflictFailure() => LiveRoomIssue.conflict,
+            _ => LiveRoomIssue.other,
+          },
+          issueSerial: state.issueSerial + 1,
+        ),
+      );
+    }
   }
 
   Future<void> _onStage(Future<void> Function(String liveId) action) async {

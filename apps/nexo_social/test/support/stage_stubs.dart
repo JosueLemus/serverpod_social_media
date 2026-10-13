@@ -1,4 +1,5 @@
 import 'package:nexo_social/features/live/domain/entities/live_moderation.dart';
+import 'package:nexo_social/features/live/domain/entities/live_reaction.dart';
 import 'package:nexo_social/features/live/domain/entities/live_stage.dart';
 
 /// El escenario vacío y la moderación de la sala sin efecto, para los fakes
@@ -33,4 +34,5 @@ mixin StageStubs {
   Future<void> deleteComment(String liveId, String commentId) async {}
   Future<void> pinComment(String liveId, String? commentId) async {}
   Future<void> highlightQuestion(String liveId, String? commentId) async {}
+  Future<void> react(String liveId, LiveReactionKind kind) async {}
 }

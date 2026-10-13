@@ -1,6 +1,7 @@
 import '../entities/live_comment.dart';
 import '../entities/live_media_grant.dart';
 import '../entities/live_moderation.dart';
+import '../entities/live_reaction.dart';
 import '../entities/live_room_event.dart';
 import '../entities/live_session.dart';
 import '../entities/live_stage.dart';
@@ -109,6 +110,12 @@ abstract interface class LiveRepository {
 
   /// Fija un comentario, o lo despega con [commentId] null.
   Future<void> pinComment(String liveId, String? commentId);
+
+  /// Manda una reacción efímera (D7 del SDD 0011). No se guarda; se publica
+  /// como evento `reaction` por [watch] y desaparece. `RateLimitedFailure`
+  /// si pasa el throttle del servidor (y el cubit lo descarta en silencio:
+  /// es nuestra regla, no un error del usuario).
+  Future<void> react(String liveId, LiveReactionKind kind);
 
   /// Destaca una pregunta, o la quita con [commentId] null.
   Future<void> highlightQuestion(String liveId, String? commentId);

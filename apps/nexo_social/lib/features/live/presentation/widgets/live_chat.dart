@@ -429,6 +429,103 @@ class LiveGlassButton extends StatelessWidget {
   }
 }
 
+/// La misma piel de vidrio oscuro que [LiveGlassButton], pero en forma de
+/// píldora con glifo + etiqueta: lo que la barra de acciones de la sala
+/// necesita para que cada botón diga qué hace (D6 del SDD 0011).
+///
+/// Alcanza el mismo mínimo táctil (44 px) y hace scaleDown si el idioma hace
+/// la etiqueta demasiado ancha: una píldora que recorta justo lo que explica
+/// pierde el sentido. Para controles sin texto (el disco circular del top bar
+/// y los dos del escenario del host), se sigue usando [LiveGlassButton].
+class LiveLabeledGlassButton extends StatelessWidget {
+  const LiveLabeledGlassButton({
+    super.key,
+    required this.glyph,
+    required this.label,
+    required this.onTap,
+    this.background,
+  });
+
+  final NexoGlyph glyph;
+  final String label;
+
+  /// Null lo deja apagado, como [LiveGlassButton]: un control sin acción no
+  /// se finge activo.
+  final VoidCallback? onTap;
+
+  /// El relleno de "estado activo" (silenciado, cámara prendida, destructivo):
+  /// se lee como un sticker despegado de la plancha de vidrio.
+  final Color? background;
+
+  @override
+  Widget build(BuildContext context) {
+    final solid = background != null;
+    final iconColor = solid
+        ? (background == AppColors.secondary
+              ? AppColors.onSecondary
+              : AppColors.ink)
+        : AppColors.onMedia;
+    final textColor = iconColor;
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        enabled: onTap != null,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: AppRadii.pill,
+            child: Opacity(
+              opacity: onTap == null ? .45 : 1,
+              child: Container(
+                constraints: BoxConstraints(
+                  minHeight: LiveGlassButton.size,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: background ?? _glass,
+                  borderRadius: AppRadii.pill,
+                  border: Border.all(
+                    color: solid
+                        ? background!
+                        : _glassEdge,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    NexoIcon(glyph, size: 18, color: iconColor),
+                    const SizedBox(width: 6),
+                    // scaleDown: lo que no entra se achica en vez de
+                    // desbordar o cortarse — la etiqueta es lo que da sentido
+                    // al glifo, no se puede recortar.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          label,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: textColor),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Una cápsula de vidrio oscuro para lo que flota sobre el video: el host,
 /// los espectadores. La misma piel que [LiveGlassButton].
 class LiveGlassPill extends StatelessWidget {
