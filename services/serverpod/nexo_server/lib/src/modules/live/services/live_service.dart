@@ -63,30 +63,52 @@ class LiveService {
   Future<List<LiveShowView>> list(Session session) async {
     final shows = await LiveShow.db.find(
       session,
-      where: (t) => t.status.inSet({
-        LiveShowStatus.live,
-        LiveShowStatus.ending,
-        LiveShowStatus.scheduled,
-        LiveShowStatus.recorded,
-        LiveShowStatus.published,
-      }),
+      where: (t) => t.status.inSet(_listed),
       orderByList: (t) => [t.startsAt.desc()],
       limit: LiveRules.listLimit,
     );
+    return _toViews(session, shows..sort(_listOrder));
+  }
+
+  /// Los shows cuyo título coincide con [pattern], un patrón de `ILIKE` ya
+  /// escapado, con los mismos estados y el mismo orden que [list].
+  Future<List<LiveShowView>> search(
+    Session session,
+    String pattern, {
+    required int limit,
+  }) async {
+    final shows = await LiveShow.db.find(
+      session,
+      where: (t) => t.status.inSet(_listed) & t.title.ilike(pattern),
+      orderByList: (t) => [t.startsAt.desc()],
+      limit: LiveRules.listLimit,
+    );
+    shows.sort(_listOrder);
+    return _toViews(session, shows.take(limit).toList());
+  }
+
+  /// Lo que se lista: nada cancelado, fallido ni retirado.
+  static const _listed = {
+    LiveShowStatus.live,
+    LiveShowStatus.ending,
+    LiveShowStatus.scheduled,
+    LiveShowStatus.recorded,
+    LiveShowStatus.published,
+  };
+
+  /// Al aire, programados y replays. Programados: el más próximo primero. El
+  /// resto: el más reciente.
+  static int _listOrder(LiveShow a, LiveShow b) {
     int rank(LiveShow s) => LiveRules.isOnAir(s.status)
         ? 0
         : s.status == LiveShowStatus.scheduled
         ? 1
         : 2;
-    shows.sort((a, b) {
-      final byRank = rank(a).compareTo(rank(b));
-      if (byRank != 0) return byRank;
-      // Programados: el más próximo primero. El resto: el más reciente.
-      return rank(a) == 1
-          ? a.startsAt.compareTo(b.startsAt)
-          : (b.startedAt ?? b.startsAt).compareTo(a.startedAt ?? a.startsAt);
-    });
-    return _toViews(session, shows);
+    final byRank = rank(a).compareTo(rank(b));
+    if (byRank != 0) return byRank;
+    return rank(a) == 1
+        ? a.startsAt.compareTo(b.startsAt)
+        : (b.startedAt ?? b.startsAt).compareTo(a.startedAt ?? a.startsAt);
   }
 
   /// Los shows al aire, con los de [prioritize] (las cuentas que sigue quien

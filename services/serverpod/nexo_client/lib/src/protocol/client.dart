@@ -58,6 +58,8 @@ import 'package:nexo_client/src/protocol/modules/notifications/models/notificati
     as _iu8vyvf0;
 import 'package:nexo_client/src/protocol/modules/notifications/models/notification_view.dart'
     as _iloot1zz;
+import 'package:nexo_client/src/protocol/modules/search/models/search_results.dart'
+    as _iu557ba1;
 import 'package:nexo_client/src/protocol/modules/social/models/follow_page.dart'
     as _ie4jjjxk;
 import 'package:nexo_client/src/protocol/modules/social/models/follow_state.dart'
@@ -768,6 +770,31 @@ class EndpointNotifications extends _isc.EndpointRef {
       );
 }
 
+/// El buscador de Explorar. Desde Flutter: `client.search`.
+/// {@category Endpoint}
+class EndpointSearch extends _isc.EndpointRef {
+  EndpointSearch(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'search';
+
+  /// Cuentas, publicaciones, vivos y etiquetas que coinciden con [text].
+  /// Público: un invitado también busca, y ve sólo lo que vería en el feed.
+  /// Con menos de dos letras devuelve todo vacío. [limit] es por sección
+  /// (10 por defecto, 20 como máximo).
+  _ida.Future<_iu557ba1.SearchResults> query(
+    String text, {
+    int? limit,
+  }) => caller.callServerEndpoint<_iu557ba1.SearchResults>(
+    'search',
+    'query',
+    {
+      'text': text,
+      'limit': limit,
+    },
+  );
+}
+
 /// Comentarios de posts. Desde Flutter: `client.comments`.
 /// {@category Endpoint}
 class EndpointComments extends _isc.EndpointRef {
@@ -989,6 +1016,7 @@ class Client extends _isc.ServerpodClientShared {
     live = EndpointLive(this);
     moderation = EndpointModeration(this);
     notifications = EndpointNotifications(this);
+    search = EndpointSearch(this);
     comments = EndpointComments(this);
     follows = EndpointFollows(this);
     likes = EndpointLikes(this);
@@ -1012,6 +1040,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointNotifications notifications;
 
+  late final EndpointSearch search;
+
   late final EndpointComments comments;
 
   late final EndpointFollows follows;
@@ -1032,6 +1062,7 @@ class Client extends _isc.ServerpodClientShared {
     'live': live,
     'moderation': moderation,
     'notifications': notifications,
+    'search': search,
     'comments': comments,
     'follows': follows,
     'likes': likes,

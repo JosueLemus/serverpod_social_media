@@ -1,0 +1,10 @@
+### Lo que encontró `search.query`: cuentas, publicaciones, vivos y
+### etiquetas que coinciden con el texto. [query] es el texto ya normalizado:
+### la app lo usa para descartar una respuesta que llegó tarde.
+class: SearchResults
+fields:
+  query: String
+  accounts: List<ProfileView>
+  posts: List<PostView>
+  lives: List<LiveShowView>
+  tags: List<String>

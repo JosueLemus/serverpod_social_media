@@ -45,6 +45,7 @@ import '../modules/live/endpoints/live_endpoint.dart' as _i440evyb;
 import '../modules/moderation/endpoints/moderation_endpoint.dart' as _ityzuh2k;
 import '../modules/notifications/endpoints/notifications_endpoint.dart'
     as _it1fxm15;
+import '../modules/search/endpoints/search_endpoint.dart' as _ienimu5x;
 import '../modules/social/endpoints/comments_endpoint.dart' as _iiig3ywm;
 import '../modules/social/endpoints/follows_endpoint.dart' as _ihvtp8yg;
 import '../modules/social/endpoints/likes_endpoint.dart' as _ippoapkl;
@@ -101,6 +102,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'notifications',
+          null,
+        ),
+      'search': _ienimu5x.SearchEndpoint()
+        ..initialize(
+          server,
+          'search',
           null,
         ),
       'comments': _iiig3ywm.CommentsEndpoint()
@@ -1107,6 +1114,37 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['notifications']
                           as _it1fxm15.NotificationsEndpoint)
                       .watch(session),
+        ),
+      },
+    );
+    connectors['search'] = _is.EndpointConnector(
+      name: 'search',
+      endpoint: endpoints['search']!,
+      methodConnectors: {
+        'query': _is.MethodConnector(
+          name: 'query',
+          params: {
+            'text': _is.ParameterDescription(
+              name: 'text',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'limit': _is.ParameterDescription(
+              name: 'limit',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['search'] as _ienimu5x.SearchEndpoint).query(
+                    session,
+                    params['text'],
+                    limit: params['limit'],
+                  ),
         ),
       },
     );

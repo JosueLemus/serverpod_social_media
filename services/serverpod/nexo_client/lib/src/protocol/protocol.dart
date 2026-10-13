@@ -62,6 +62,7 @@ import 'modules/moderation/models/report_target_type.dart' as _i5s3tooi;
 import 'modules/notifications/models/notification_kind.dart' as _iuphy7om;
 import 'modules/notifications/models/notification_page.dart' as _ipp18xpo;
 import 'modules/notifications/models/notification_view.dart' as _imgpiqz3;
+import 'modules/search/models/search_results.dart' as _il66wur0;
 import 'modules/social/models/follow_page.dart' as _i6r55qgl;
 import 'modules/social/models/follow_state.dart' as _ihy6a719;
 import 'modules/social/models/like_state.dart' as _i0kd3w76;
@@ -110,6 +111,7 @@ export 'modules/moderation/models/report_target_type.dart';
 export 'modules/notifications/models/notification_kind.dart';
 export 'modules/notifications/models/notification_page.dart';
 export 'modules/notifications/models/notification_view.dart';
+export 'modules/search/models/search_results.dart';
 export 'modules/social/models/follow_page.dart';
 export 'modules/social/models/follow_state.dart';
 export 'modules/social/models/like_state.dart';
@@ -269,6 +271,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _imgpiqz3.NotificationView) {
       return _imgpiqz3.NotificationView.fromJson(data) as T;
+    }
+    if (t == _il66wur0.SearchResults) {
+      return _il66wur0.SearchResults.fromJson(data) as T;
     }
     if (t == _i6r55qgl.FollowPage) {
       return _i6r55qgl.FollowPage.fromJson(data) as T;
@@ -442,6 +447,10 @@ class Protocol extends _isc.SerializationManager {
       return (data != null ? _imgpiqz3.NotificationView.fromJson(data) : null)
           as T;
     }
+    if (t == _isc.getType<_il66wur0.SearchResults?>()) {
+      return (data != null ? _il66wur0.SearchResults.fromJson(data) : null)
+          as T;
+    }
     if (t == _isc.getType<_i6r55qgl.FollowPage?>()) {
       return (data != null ? _i6r55qgl.FollowPage.fromJson(data) : null) as T;
     }
@@ -540,6 +549,12 @@ class Protocol extends _isc.SerializationManager {
               .toList()
           as T;
     }
+    if (t == List<_iky3rvks.LiveShowView>) {
+      return (data as List)
+              .map((e) => deserialize<_iky3rvks.LiveShowView>(e))
+              .toList()
+          as T;
+    }
     if (t == List<_i5ho22g4.PostCommentView>) {
       return (data as List)
               .map((e) => deserialize<_i5ho22g4.PostCommentView>(e))
@@ -628,6 +643,7 @@ class Protocol extends _isc.SerializationManager {
       _iuphy7om.NotificationKind => 'NotificationKind',
       _ipp18xpo.NotificationPage => 'NotificationPage',
       _imgpiqz3.NotificationView => 'NotificationView',
+      _il66wur0.SearchResults => 'SearchResults',
       _i6r55qgl.FollowPage => 'FollowPage',
       _ihy6a719.FollowState => 'FollowState',
       _i0kd3w76.LikeState => 'LikeState',
@@ -728,6 +744,8 @@ class Protocol extends _isc.SerializationManager {
         return 'NotificationPage';
       case _imgpiqz3.NotificationView():
         return 'NotificationView';
+      case _il66wur0.SearchResults():
+        return 'SearchResults';
       case _i6r55qgl.FollowPage():
         return 'FollowPage';
       case _ihy6a719.FollowState():
@@ -883,6 +901,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'NotificationView') {
       return deserialize<_imgpiqz3.NotificationView>(data['data']);
+    }
+    if (dataClassName == 'SearchResults') {
+      return deserialize<_il66wur0.SearchResults>(data['data']);
     }
     if (dataClassName == 'FollowPage') {
       return deserialize<_i6r55qgl.FollowPage>(data['data']);
