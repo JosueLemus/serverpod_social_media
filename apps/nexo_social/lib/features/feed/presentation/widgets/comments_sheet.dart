@@ -2,14 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/di/injection.dart';
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../admin/presentation/widgets/reason_sheet.dart';
+import '../../../auth/domain/entities/app_user.dart';
+import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_extras.dart';
 import '../bloc/comments_cubit.dart';
@@ -56,68 +60,146 @@ class _CommentsSheetState extends State<_CommentsSheet> {
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => BlocListener<CommentsCubit, CommentsState>(
-    listenWhen: (previous, current) =>
-        current.notice != null && previous.noticeSerial != current.noticeSerial,
-    listener: (context, state) {
-      final message = state.notice!.message;
-      if (message == null) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    },
-    child: Padding(
-      // El teclado no tapa el campo de comentar.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .7,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Row(
-                children: [
-                  Text(
-                    'Comentarios',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                ],
-              ),
+  Widget build(BuildContext context) => Padding(
+    // El teclado no tapa el campo de comentar.
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: SizedBox(
+      height: MediaQuery.sizeOf(context).height * .7,
+      // Messenger y Scaffold propios: el de la página queda debajo de la
+      // barrera del modal, así que un aviso mostrado ahí se dibujaba detrás
+      // de la hoja y nadie lo veía. Transparente, para que la hoja conserve
+      // su superficie y su forma.
+      child: ScaffoldMessenger(
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          resizeToAvoidBottomInset: false,
+          body: Builder(
+            // El context de adentro del Scaffold es el que encuentra este
+            // messenger y no el de la página.
+            builder: (context) => BlocListener<CommentsCubit, CommentsState>(
+              listenWhen: (previous, current) =>
+                  current.notice != null &&
+                  previous.noticeSerial != current.noticeSerial,
+              listener: (context, state) {
+                final message = state.notice!.message;
+                if (message == null) return;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              },
+              child: _content(context),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            const Expanded(child: _CommentList()),
-            const Divider(height: 1),
-            if (widget.post.allowComments)
-              _CommentComposer(controller: _controller, onSend: _send)
-            else
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
-                    children: [
-                      NexoIcon(
-                        NexoGlyph.lock,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Expanded(
-                        child: Text(
-                          'Los comentarios están desactivados en esta publicación.',
-                          key: const Key('comments-closed'),
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.textSecondary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
+      ),
+    ),
+  );
+
+  Widget _content(BuildContext context) {
+    // Del árbol, nunca con `BlocProvider(create:)`: la sesión es singleton y
+    // un provider propio la cerraría al cerrar la hoja. Nullable porque una
+    // hoja montada sin sesión arriba (un test) no tiene a quién preguntar.
+    final auth = context.watch<AuthCubit?>()?.state;
+    final isVisitor =
+        auth != null &&
+        (auth is! AuthAuthenticated || auth.user.role == UserRole.visitor);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Row(
+            children: [
+              Text(
+                'Comentarios',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        const Expanded(child: _CommentList()),
+        const Divider(height: 1),
+        if (!widget.post.allowComments)
+          const _CommentsClosed()
+        // Un visitante podía escribir y recibía "no acepta comentarios":
+        // el campo prometía algo que el servidor iba a rechazar. Se le
+        // ofrece lo que sí puede hacer.
+        else if (isVisitor)
+          _SignInToComment(postId: widget.post.id)
+        else
+          _CommentComposer(controller: _controller, onSend: _send),
+      ],
+    );
+  }
+}
+
+/// La invitación a iniciar sesión donde iría el campo de comentar.
+class _SignInToComment extends StatelessWidget {
+  const _SignInToComment({required this.postId});
+
+  final String postId;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      // En columna: a 320 el botón y la frase no entran en una fila.
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Con una cuenta puedes sumarte a la conversación.',
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          FilledButton(
+            key: const Key('comments-sign-in'),
+            onPressed: () {
+              // El router se lee antes de cerrar la hoja: después, este
+              // context ya no está montado. Al volver con sesión se aterriza
+              // en la publicación, no en el feed.
+              final router = GoRouter.of(context);
+              Navigator.of(context).pop();
+              router.go(AppRoutes.signInFrom(AppRoutes.post(postId)));
+            },
+            child: const Text('Inicia sesión para comentar'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _CommentsClosed extends StatelessWidget {
+  const _CommentsClosed();
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Row(
+        children: [
+          NexoIcon(
+            NexoGlyph.lock,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: Text(
+              'Los comentarios están desactivados en esta publicación.',
+              key: const Key('comments-closed'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            ),
+          ),
+        ],
       ),
     ),
   );
@@ -383,6 +465,7 @@ extension on CommentsNotice {
     CommentsNotice.failed =>
       'No pudimos completar la acción. Inténtalo de nuevo.',
     CommentsNotice.forbidden => 'Tu cuenta no puede hacer esto.',
-    CommentsNotice.closed => 'Esta publicación no acepta comentarios.',
+    CommentsNotice.cannotComment =>
+      'No puedes comentar en esta publicación ahora.',
   };
 }
