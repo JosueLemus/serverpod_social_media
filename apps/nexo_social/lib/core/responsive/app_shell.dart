@@ -32,6 +32,7 @@ class AppShell extends StatelessWidget {
     super.key,
     required this.navigationShell,
     this.unreadActivity = 0,
+    this.unreadMessages = 0,
   });
 
   final StatefulNavigationShell navigationShell;
@@ -39,6 +40,16 @@ class AppShell extends StatelessWidget {
   /// Notificaciones sin leer. Con 0 la campana va sola; con más, lleva el
   /// contador. Lo calcula quien construye el shell: el shell sólo lo dibuja.
   final int unreadActivity;
+
+  /// Conversaciones con algo sin leer, sobre la pestaña Mensajes.
+  final int unreadMessages;
+
+  /// El contador de cada pestaña, por ruta. Un destino que no está acá no
+  /// lleva badge.
+  Map<String, int> get _unread => {
+    AppRoutes.activity: unreadActivity,
+    AppRoutes.messages: unreadMessages,
+  };
 
   /// Switches branch, and taps on the branch you are already in pop that
   /// branch back to its root — the standard tab-bar gesture, and the only way
@@ -94,7 +105,7 @@ class AppShell extends StatelessWidget {
               _ShellRail(
                 form: form,
                 currentBranch: navigationShell.currentIndex,
-                unreadActivity: unreadActivity,
+                unread: _unread,
                 onSelected: _select,
                 onCompose: () => unawaited(_openCreate(context)),
               ),
@@ -105,7 +116,7 @@ class AppShell extends StatelessWidget {
         bottomNavigationBar: form.isCompact
             ? _ShellBottomBar(
                 currentBranch: navigationShell.currentIndex,
-                unreadActivity: unreadActivity,
+                unread: _unread,
                 onSelected: _select,
                 onCompose: () => unawaited(_openCreate(context)),
               )
@@ -118,13 +129,13 @@ class AppShell extends StatelessWidget {
 class _ShellBottomBar extends StatelessWidget {
   const _ShellBottomBar({
     required this.currentBranch,
-    required this.unreadActivity,
+    required this.unread,
     required this.onSelected,
     required this.onCompose,
   });
 
   final int currentBranch;
-  final int unreadActivity;
+  final Map<String, int> unread;
   final ValueChanged<int> onSelected;
   final VoidCallback onCompose;
 
@@ -154,20 +165,18 @@ class _ShellBottomBar extends StatelessWidget {
               height: 62,
               child: Row(
                 children: [
-                  for (var slot = 0; slot < destinations.length + 1; slot++)
+                  for (final (index, destination) in destinations.indexed) ...[
+                    if (index == _composeSlot)
+                      Expanded(child: _ComposeButton(onPressed: onCompose)),
                     Expanded(
-                      child: slot == _composeSlot
-                          ? _ComposeButton(onPressed: onCompose)
-                          : _BottomBarItem(
-                              destination:
-                                  destinations[slot < _composeSlot
-                                      ? slot
-                                      : slot - 1],
-                              currentBranch: currentBranch,
-                              unreadActivity: unreadActivity,
-                              onSelected: onSelected,
-                            ),
+                      child: _BottomBarItem(
+                        destination: destination,
+                        currentBranch: currentBranch,
+                        unread: unread[destination.path] ?? 0,
+                        onSelected: onSelected,
+                      ),
                     ),
+                  ],
                 ],
               ),
             ),
@@ -182,20 +191,19 @@ class _BottomBarItem extends StatelessWidget {
   const _BottomBarItem({
     required this.destination,
     required this.currentBranch,
-    required this.unreadActivity,
+    required this.unread,
     required this.onSelected,
   });
 
   final ShellDestination destination;
   final int currentBranch;
-  final int unreadActivity;
+  final int unread;
   final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final selected = destination.branch == currentBranch;
     final color = selected ? AppColors.textPrimary : AppColors.textSecondary;
-    final unread = destination.path == AppRoutes.activity ? unreadActivity : 0;
     return Semantics(
       selected: selected,
       button: true,
@@ -229,14 +237,19 @@ class _BottomBarItem extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              destination.label,
-              maxLines: 1,
-              overflow: TextOverflow.clip,
-              style: Theme.of(context).textTheme.labelSmall!.copyWith(
-                fontSize: 10.5,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                color: color,
+            // Con seis lugares, a 320 cada uno tiene ~52 px: la etiqueta se
+            // achica antes que cortarse. Un "Mensaj" recortado es un bug que
+            // no falla en ningún test de desborde.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                destination.label,
+                maxLines: 1,
+                style: Theme.of(context).textTheme.labelSmall!.copyWith(
+                  fontSize: 10.5,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  color: color,
+                ),
               ),
             ),
           ],
@@ -356,14 +369,14 @@ class _ShellRail extends StatelessWidget {
   const _ShellRail({
     required this.form,
     required this.currentBranch,
-    required this.unreadActivity,
+    required this.unread,
     required this.onSelected,
     required this.onCompose,
   });
 
   final FormFactor form;
   final int currentBranch;
-  final int unreadActivity;
+  final Map<String, int> unread;
   final ValueChanged<int> onSelected;
 
   /// La misma hoja que el + de la barra inferior. El rail empujaba el
@@ -408,9 +421,7 @@ class _ShellRail extends StatelessWidget {
           for (final destination in destinations)
             NavigationRailDestination(
               icon: _WithCount(
-                count: destination.path == AppRoutes.activity
-                    ? unreadActivity
-                    : 0,
+                count: unread[destination.path] ?? 0,
                 child: NexoIcon(destination.glyph),
               ),
               selectedIcon: NexoIcon(destination.glyph, filled: true),

@@ -27,12 +27,9 @@ void main() {
         'shell como el compositor',
     'lib/features/subscriptions/presentation/pages/subscription_page.dart':
         'paywall empujado sobre el shell',
-    'lib/features/messages/presentation/pages/messages_inbox_page.dart':
-        'bandeja de mensajes: ruta raíz empujada sobre el shell, como editar '
-        'perfil',
     'lib/features/messages/presentation/pages/conversation_page.dart':
-        'chat: lista anclada abajo con el campo de escribir fijo, empujada '
-        'sobre el shell',
+        'chat: sub-ruta de la pestaña Mensajes dibujada sobre el shell, con '
+        'la lista anclada abajo y el campo de escribir fijo',
     'lib/features/profile/presentation/pages/edit_profile_page.dart':
         'editar perfil: tarea a pantalla completa, empujada sobre el shell '
         'como el compositor',

@@ -949,12 +949,13 @@ class _ProfileActions extends StatelessWidget {
         ],
         const SizedBox(width: AppSpacing.xs),
         // Mensajes directos (SDD 0010): abre el chat con esta cuenta, y lo
-        // crea si todavía no existía.
+        // crea si todavía no existía. Con `go` y no `push`: el chat vive en la
+        // pestaña Mensajes, y empujarlo desde acá lo dejaría en el Navigator
+        // equivocado. Así queda la bandeja debajo y el back vuelve a ella.
         IconButton.outlined(
           key: const Key('profile-message'),
           tooltip: 'Enviar mensaje',
-          onPressed: () =>
-              unawaited(context.push(AppRoutes.conversationWith(profile.id))),
+          onPressed: () => context.go(AppRoutes.conversationWith(profile.id)),
           icon: const NexoIcon(NexoGlyph.send, size: 20),
         ),
       ],

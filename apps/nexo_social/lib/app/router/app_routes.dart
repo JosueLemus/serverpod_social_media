@@ -64,8 +64,10 @@ abstract final class AppRoutes {
   /// compositor, para que la barra no invite a dejarla a medias.
   static const editProfile = '/edit-profile';
 
-  /// Mensajes directos (SDD 0010): la bandeja y cada chat son rutas raíz
-  /// empujadas sobre el shell, como editar perfil.
+  /// Mensajes directos (SDD 0010). La bandeja es una pestaña del shell, con su
+  /// branch y su pila. Cada chat es una sub-ruta de esa pestaña que se dibuja
+  /// sobre el shell, sin la barra: con el teclado abierto, la barra sólo le
+  /// quita alto a la conversación.
   static const messages = '/messages';
   static const conversationSegment = ':conversationId';
   static const conversationWithSegment = 'with/:userId';

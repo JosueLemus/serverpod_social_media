@@ -7,17 +7,17 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/di/injection.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../app/theme/app_tokens.dart';
+import '../../../../core/layout/nexo_page.dart';
 import '../../../../core/utils/relative_time.dart';
 import '../../../../core/widgets/app_state_views.dart';
-import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/user_avatar.dart';
 import '../../../auth/presentation/bloc/auth_cubit.dart';
 import '../../domain/entities/direct_message.dart';
 import '../bloc/messages_inbox_cubit.dart';
 
-/// La bandeja de mensajes directos (SDD 0010). Ruta raíz empujada sobre el
-/// shell, como editar perfil: es una tarea, no una pestaña.
+/// La bandeja de mensajes directos (SDD 0010). Es una pestaña del shell, con
+/// su branch: cada chat se abre encima y el back vuelve acá.
 class MessagesInboxPage extends StatelessWidget {
   const MessagesInboxPage({super.key});
 
@@ -35,33 +35,37 @@ class _InboxView extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthCubit>().state;
     final me = auth is AuthAuthenticated ? auth.user.id : '';
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: IconButton(
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () => unawaited(Navigator.of(context).maybePop()),
-          icon: const NexoIcon(NexoGlyph.back),
-        ),
-        title: const Text('Mensajes'),
-      ),
-      body: BlocBuilder<MessagesInboxCubit, InboxState>(
-        builder: (context, state) {
-          final cubit = context.read<MessagesInboxCubit>();
-          return switch (state.status) {
-            InboxStatus.loading => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            InboxStatus.failure => Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: AppErrorView(onRetry: () => unawaited(cubit.load())),
-              ),
-            ),
-            InboxStatus.ready when state.isEmpty => Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: AppEmptyView(
+    return BlocBuilder<MessagesInboxCubit, InboxState>(
+      builder: (context, state) {
+        final cubit = context.read<MessagesInboxCubit>();
+        final ready = state.status == InboxStatus.ready;
+        // La página es un CustomScrollView: la paginación escucha su scroll
+        // en vez de anidar una lista propia, que adentro de NexoPage no
+        // tendría altura acotada.
+        return NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (ready && notification.metrics.extentAfter < 200) {
+              unawaited(cubit.loadMore());
+            }
+            return false;
+          },
+          child: NexoPage(
+            section: 'Mensajes',
+            title: 'Mensajes',
+            subtitle: 'Tus conversaciones',
+            onRefresh: ready ? cubit.refresh : null,
+            children: switch (state.status) {
+              InboxStatus.loading => const [
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ],
+              InboxStatus.failure => [
+                AppErrorView(onRetry: () => unawaited(cubit.load())),
+              ],
+              InboxStatus.ready when state.isEmpty => [
+                AppEmptyView(
                   mascot: NexoMascot.empty,
                   title: 'Todavía no hay mensajes',
                   message:
@@ -70,33 +74,18 @@ class _InboxView extends StatelessWidget {
                   actionLabel: 'Explorar',
                   onAction: () => context.go(AppRoutes.explore),
                 ),
-              ),
-            ),
-            InboxStatus.ready => RefreshIndicator(
-              onRefresh: cubit.refresh,
-              child: NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification.metrics.extentAfter < 200) {
-                    unawaited(cubit.loadMore());
-                  }
-                  return false;
-                },
-                child: ListView.separated(
-                  key: const Key('messages-inbox-list'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-                  itemCount: state.conversations.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, index) => _ConversationTile(
-                    conversation: state.conversations[index],
-                    me: me,
-                  ),
-                ),
-              ),
-            ),
-          };
-        },
-      ),
+              ],
+              InboxStatus.ready => [
+                for (final (index, conversation)
+                    in state.conversations.indexed) ...[
+                  if (index > 0) const Divider(height: 1),
+                  _ConversationTile(conversation: conversation, me: me),
+                ],
+              ],
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -123,10 +112,8 @@ class _ConversationTile extends StatelessWidget {
       onTap: () =>
           unawaited(context.push(AppRoutes.conversation(conversation.id))),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
+        // Sin margen lateral propio: lo pone NexoPage.
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Row(
           children: [
             UserAvatar(name: peer.name, imageUrl: peer.avatarUrl, size: 48),

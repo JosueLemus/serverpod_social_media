@@ -20,6 +20,7 @@ import '../../features/live/presentation/children/schedule_show/presentation/pag
 import '../../features/live/presentation/pages/creator_studio_page.dart';
 import '../../features/live/presentation/pages/live_room_page.dart';
 import '../../features/moderation/presentation/pages/moderation_page.dart';
+import '../../features/messages/presentation/bloc/unread_messages_cubit.dart';
 import '../../features/notifications/presentation/bloc/unread_activity_cubit.dart';
 import '../../features/notifications/presentation/pages/activity_page.dart';
 import '../../features/posts/presentation/pages/create_post_page.dart';
@@ -38,12 +39,14 @@ final rootNavigatorKey = GlobalKey<NavigatorState>();
 /// a seeded [AuthCubit] and assert the guards. A global would bind to whatever
 /// the previous test left in the service locator.
 ///
-/// [unread] es el conteo de la campana. Opcional para que los tests de
-/// guardas no tengan que armar la bandeja; sin él, el shell no dibuja badge.
+/// [unread] es el conteo de la campana y [unreadMessages], el de Mensajes.
+/// Opcionales para que los tests de guardas no tengan que armar las bandejas;
+/// sin ellos, el shell no dibuja badge.
 GoRouter createRouter(
   AuthCubit auth, {
   String? initialLocation,
   UnreadActivityCubit? unread,
+  UnreadMessagesCubit? unreadMessages,
 }) => GoRouter(
   navigatorKey: rootNavigatorKey,
   initialLocation: initialLocation ?? AppRoutes.splash,
@@ -106,27 +109,6 @@ GoRouter createRouter(
           PostDetailPage(postId: state.pathParameters['postId'] ?? ''),
     ),
     GoRoute(
-      path: AppRoutes.messages,
-      parentNavigatorKey: rootNavigatorKey,
-      builder: (context, state) => const MessagesInboxPage(),
-      routes: [
-        // Antes que `:conversationId`: si no, "with" se leería como un id.
-        GoRoute(
-          path: AppRoutes.conversationWithSegment,
-          parentNavigatorKey: rootNavigatorKey,
-          builder: (context, state) =>
-              ConversationPage(userId: state.pathParameters['userId']),
-        ),
-        GoRoute(
-          path: AppRoutes.conversationSegment,
-          parentNavigatorKey: rootNavigatorKey,
-          builder: (context, state) => ConversationPage(
-            conversationId: state.pathParameters['conversationId'],
-          ),
-        ),
-      ],
-    ),
-    GoRoute(
       path: AppRoutes.userProfilePath,
       parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) =>
@@ -155,17 +137,27 @@ GoRouter createRouter(
     ),
 
     StatefulShellRoute.indexedStack(
-      // Sólo el shell escucha el conteo: el router no se reconstruye por un
-      // aviso nuevo, y las pestañas conservan su pila.
-      builder: (context, state, navigationShell) => unread == null
-          ? AppShell(navigationShell: navigationShell)
-          : BlocBuilder<UnreadActivityCubit, int>(
-              bloc: unread,
-              builder: (context, count) => AppShell(
-                navigationShell: navigationShell,
-                unreadActivity: count,
-              ),
-            ),
+      // Sólo el shell escucha los conteos: el router no se reconstruye por un
+      // aviso o un mensaje nuevo, y las pestañas conservan su pila.
+      builder: (context, state, navigationShell) {
+        Widget shell(int activity, int messages) => AppShell(
+          navigationShell: navigationShell,
+          unreadActivity: activity,
+          unreadMessages: messages,
+        );
+        Widget withMessages(int activity) => unreadMessages == null
+            ? shell(activity, 0)
+            : BlocBuilder<UnreadMessagesCubit, int>(
+                bloc: unreadMessages,
+                builder: (context, messages) => shell(activity, messages),
+              );
+        return unread == null
+            ? withMessages(0)
+            : BlocBuilder<UnreadActivityCubit, int>(
+                bloc: unread,
+                builder: (context, activity) => withMessages(activity),
+              );
+      },
       branches: [
         StatefulShellBranch(
           routes: [
@@ -189,6 +181,35 @@ GoRouter createRouter(
                   path: AppRoutes.liveRoomSegment,
                   builder: (context, state) => LiveRoomPage(
                     liveId: state.pathParameters['liveId'] ?? 'preview',
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: AppRoutes.messages,
+              builder: (context, state) => const MessagesInboxPage(),
+              routes: [
+                // Sub-rutas de la pestaña, dibujadas sobre el shell: el back
+                // vuelve a la bandeja, y el chat no comparte el alto con la
+                // barra mientras el teclado está abierto.
+                //
+                // Antes que `:conversationId`: si no, "with" se leería como un
+                // id.
+                GoRoute(
+                  path: AppRoutes.conversationWithSegment,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) =>
+                      ConversationPage(userId: state.pathParameters['userId']),
+                ),
+                GoRoute(
+                  path: AppRoutes.conversationSegment,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => ConversationPage(
+                    conversationId: state.pathParameters['conversationId'],
                   ),
                 ),
               ],
