@@ -201,5 +201,28 @@ void main() {
       expect(many.accounts, hasLength(20));
       expect(byDefault.accounts, hasLength(10));
     });
+
+    test('then accents are optional on either side', () async {
+      final jose = await fixtures.seedCreator('jose_p', 'José Pérez');
+      await endpoints.posts.create(
+        fixtures.signedIn(jose),
+        fixtures.draft('Mi nueva Canción', tags: ['música']),
+      );
+      await endpoints.live.goLive(fixtures.signedIn(jose), 'Diseño en vivo');
+
+      final plain = await endpoints.search.query(fixtures.guest, 'perez');
+      final song = await endpoints.search.query(fixtures.guest, 'cancion');
+      final tag = await endpoints.search.query(fixtures.guest, '#musica');
+      final live = await endpoints.search.query(fixtures.guest, 'diseno');
+      final accented = await endpoints.search.query(fixtures.guest, 'jósé');
+
+      expect(usernames(plain), ['jose_p']);
+      expect(bodies(song), ['Mi nueva Canción']);
+      expect(tag.tags, ['música']);
+      expect([for (final l in live.lives) l.title], ['Diseño en vivo']);
+      expect(usernames(accented), ['jose_p']);
+      // Lo que vuelve es lo que se escribió, no la versión plegada.
+      expect(accented.query, 'jósé');
+    });
   });
 }

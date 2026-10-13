@@ -104,6 +104,26 @@ void main() {
     expect(cubit.state.results?.accounts, [_elena]);
   });
 
+  test('typing again discards the answer still in flight', () async {
+    cubit.changed('elena');
+    await wait();
+    // "elena" está en vuelo y el debounce de "elenav" todavía corre.
+    cubit.changed('elenav');
+    search.answer('elena', _results('elena', accounts: [_elena]));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(cubit.state.status, SearchStatus.loading);
+    expect(cubit.state.results, isNull);
+
+    await wait();
+    expect(search.calls, ['elena', 'elenav']);
+    search.answer('elenav', _results('elenav'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(cubit.state.status, SearchStatus.ready);
+    expect(cubit.state.results?.query, 'elenav');
+  });
+
   test('less than two letters stops searching and clears', () async {
     cubit.changed('elena');
     await wait();

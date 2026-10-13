@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -48,10 +50,12 @@ class _ExploreViewState extends State<_ExploreView> {
   // La View es dueña del campo; el cubit, de la búsqueda. Tocar una etiqueta
   // reemplaza el texto, y eso sólo se puede desde el controller.
   final _query = TextEditingController();
+  final _focus = FocusNode();
 
   @override
   void dispose() {
     _query.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -76,9 +80,34 @@ class _ExploreViewState extends State<_ExploreView> {
         ),
       ),
     ),
+    // Una sola página con el buscador siempre primero, y debajo lo que toca.
+    // Antes eran dos `NexoPage` distintas (resultados y Explorar), así que
+    // al pasar la segunda letra el campo se montaba de nuevo: perdía el foco
+    // y el teclado se cerraba en medio de la palabra.
     child: BlocBuilder<SearchCubit, SearchState>(
-      builder: (context, search) =>
-          search.isSearching ? _results(context, search) : _explore(context),
+      builder: (context, search) => BlocBuilder<ExploreCubit, ExploreState>(
+        builder: (context, explore) {
+          final searchCubit = context.read<SearchCubit>();
+          final exploreCubit = context.read<ExploreCubit>();
+          return NexoPage(
+            section: 'Explorar',
+            onRefresh: search.isSearching
+                ? searchCubit.retry
+                : exploreCubit.load,
+            children: [
+              _searchField(context),
+              if (search.isSearching)
+                SearchResultsView(
+                  state: search,
+                  onTag: _search,
+                  onClear: _clear,
+                )
+              else
+                ..._explore(context, explore),
+            ],
+          );
+        },
+      ),
     ),
   );
 
@@ -86,7 +115,9 @@ class _ExploreViewState extends State<_ExploreView> {
     key: const Key('explore-search'),
     hint: 'Buscar creadores, temas o transmisiones…',
     controller: _query,
+    focusNode: _focus,
     onChanged: context.read<SearchCubit>().changed,
+    onSubmitted: (_) => unawaited(context.read<SearchCubit>().retry()),
     trailing: ValueListenableBuilder<TextEditingValue>(
       valueListenable: _query,
       builder: (context, value, _) => value.text.isEmpty
@@ -100,43 +131,20 @@ class _ExploreViewState extends State<_ExploreView> {
     ),
   );
 
-  Widget _results(BuildContext context, SearchState search) => NexoPage(
-    section: 'Explorar',
-    onRefresh: context.read<SearchCubit>().retry,
-    children: [
-      _searchField(context),
-      SearchResultsView(state: search, onTag: _search, onClear: _clear),
-    ],
-  );
-
-  Widget _explore(BuildContext context) =>
-      BlocBuilder<ExploreCubit, ExploreState>(
-        builder: (context, state) {
-          final cubit = context.read<ExploreCubit>();
-          return NexoPage(
-            section: 'Explorar',
-            onRefresh: cubit.load,
-            children: [
-              _searchField(context),
-              if (state.isLoading)
-                const _ExploreSkeleton()
-              else if (state.hasFailed)
-                AppErrorView(onRetry: cubit.load)
-              else ...[
-                ..._liveSections(context, state),
-                TrendingTopicsSection(
-                  topics: state.topics,
-                  onToggle: cubit.toggleTopic,
-                ),
-                SuggestedCreatorsSection(
-                  creators: state.creators,
-                  onToggle: cubit.toggleCreator,
-                ),
-              ],
-            ],
-          );
-        },
-      );
+  /// El contenido normal de Explorar, debajo del buscador.
+  List<Widget> _explore(BuildContext context, ExploreState state) {
+    final cubit = context.read<ExploreCubit>();
+    if (state.isLoading) return const [_ExploreSkeleton()];
+    if (state.hasFailed) return [AppErrorView(onRetry: cubit.load)];
+    return [
+      ..._liveSections(context, state),
+      TrendingTopicsSection(topics: state.topics, onToggle: cubit.toggleTopic),
+      SuggestedCreatorsSection(
+        creators: state.creators,
+        onToggle: cubit.toggleCreator,
+      ),
+    ];
+  }
 
   /// Agrupados por lo que el usuario puede hacer con cada uno: entrar ahora,
   /// que le avisen, o ver el replay. Una lista plana hace imposible encontrar
