@@ -2,6 +2,7 @@ import 'package:serverpod/serverpod.dart';
 
 import '../../../generated/protocol.dart';
 import '../../../shared/auth/auth_context.dart';
+import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
 import '../../content/services/post_rules.dart';
 import '../../content/services/post_service.dart';
@@ -54,6 +55,7 @@ class LikeService {
     final hasMore = rows.length > size;
     final items = hasMore ? rows.sublist(0, size) : rows;
     final profiles = await profilesOf(session, items.map((l) => l.userId));
+    final avatars = await avatarsOf(session, items.map((l) => l.userId));
     return PostLikerPage(
       items: [
         for (final like in items)
@@ -61,6 +63,7 @@ class LikeService {
             userId: like.userId,
             username: profiles[like.userId]?.userName,
             name: profiles[like.userId]?.fullName,
+            avatarUrl: avatars[like.userId],
             likedAt: like.createdAt,
           ),
       ],
