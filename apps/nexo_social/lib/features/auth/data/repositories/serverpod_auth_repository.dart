@@ -32,7 +32,7 @@ class ServerpodAuthRepository implements AuthRepository {
         throw const AuthenticationFailure(AuthFailureReason.network);
       }
       final user = await _account();
-      if (!user.isActive) throw const AccountSuspendedFailure('restore');
+      if (!user.isActive) throw user.suspendedFailure('restore');
       return user;
     } on Failure {
       rethrow;
@@ -195,7 +195,7 @@ class ServerpodAuthRepository implements AuthRepository {
     await _session.updateSignedInUser(success);
     try {
       final user = await _account();
-      if (!user.isActive) throw const AccountSuspendedFailure('signIn');
+      if (!user.isActive) throw user.suspendedFailure('signIn');
       return user;
     } catch (_) {
       await _session.signOutDevice();
