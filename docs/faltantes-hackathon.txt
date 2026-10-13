@@ -1,0 +1,225 @@
+QUÉ LE FALTA A NEXO PARA LA HACKATHON "BUILD SOMETHING REAL" (SERVERPOD)
+Revisado el 12/10/2026, 22:20 hora local (UTC-4), sobre main = 8ba0235
+
+======================================================================
+0. EL PLAZO (lo primero)
+======================================================================
+
+  Cierre oficial: 14/10/2026 21:59 UTC = MIÉRCOLES 14/10 A LAS 17:59 hora
+  local (UTC-4). Quedan unas 43 horas.
+
+  Ojo: los SDD y el PDF de benchmark dicen "14/10 23:59". Es la misma hora,
+  pero en el horario de Dinamarca (CEST), donde está Serverpod. En nuestra
+  hora es 17:59. Tomar 17:59 como límite duro, sin prórroga.
+
+  De dónde sale: la página de BuilderBase publica sólo "endDate
+  2026-10-14T21:59:00+00:00". Las reglas detalladas (entregables y pesos)
+  no se pueden leer desde afuera, porque la página se arma con JavaScript.
+  Los entregables y los pesos de abajo salen de la copia de las bases que
+  citó otro equipo (github.com/Zer0-Knowledge-Hack/puls3/issues/4) y de
+  nuestro PDF docs/benchmark-hackathon-nexo.pdf. Conviene confirmarlos
+  entrando a BuilderBase con la cuenta del equipo.
+
+======================================================================
+1. ENTREGABLES OBLIGATORIOS
+======================================================================
+
+  [OK]    App full-stack funcional con backend Serverpod.
+          Producción en AWS:
+            web: https://52-45-123-215.sslip.io/  (responde 200)
+            API: https://api.52-45-123-215.sslip.io/  (responde 200)
+
+  [OK]    Repositorio con todo el código.
+          https://github.com/JosueLemus/serverpod_social_media (PÚBLICO)
+
+  [MEDIO] Instrucciones para compilar y correr.
+          El README tiene "Probarlo en un comando" (tool/demo.sh), las
+          cuentas de demo y el deploy en AWS. Falta:
+            - Poner arriba de todo el link de la web en producción y el
+              del video: el jurado no debería tener que clonar nada.
+            - Probarlo en una máquina limpia (SDD 0005, §4), que no se hizo.
+            - Avisar en el README que el repo no puede clonarse en una ruta
+              con espacios (el PostgreSQL embebido falla).
+
+  [FALTA] Video de demo de MENOS DE 2 MINUTOS, subido a YouTube o Vimeo.
+          No existe. El .mov de la raíz dura 18 segundos y es del 30/9: no
+          sirve. Ver la sección 4: guion ajustado a lo que funciona hoy.
+
+  [FALTA] Descripción del proyecto (el texto del formulario de BuilderBase).
+          Sirven de base el README, la "frase para el jurado" del PDF y la
+          lista de piezas de Serverpod de la sección 2.
+
+  [?]     Envío en BuilderBase antes del cierre.
+          No sé si ya está inscripto el equipo ni si se envió algo. Hay que
+          entrar y revisar qué campos pide el formulario. Hacerlo HOY, no
+          el miércoles.
+
+  [FALTA] Extra: post en redes etiquetando a Serverpod.
+          Hay un premio aparte de USD 500 en créditos de Serverpod Cloud
+          por equipo. Es barato: un clip del video más el link.
+
+======================================================================
+2. CRITERIOS DE EVALUACIÓN Y DÓNDE ESTAMOS
+======================================================================
+
+  ¿Funciona? (30%) ............................................ BIEN, con un hueco
+    Anda contra el servidor real, desplegado y desde un link:
+      - Login y registro con código por email (SMTP activo desde el 13/10).
+      - Publicaciones con foto y video, likes y comentarios.
+      - Seguir, feed por secciones y búsqueda.
+      - Vivos con video Agora (el token lo firma el servidor).
+      - Chat en tiempo real, notificaciones y mensajes directos.
+      - Reportes y cola de moderación (ocultar y descartar).
+    EL HUECO: la consola del operador (suspender, banear, restaurar,
+    verificar o revocar) sigue en MOCK (MockAdminRepository), igual que su
+    auditoría. Eso quiere decir que:
+      - Suspender a alguien desde la consola NO lo saca de la app en otro
+        dispositivo. El mock vive en el storage de cada dispositivo.
+      - Revocarle la verificación a Elena NO le impide iniciar un vivo: el
+        servidor sigue leyendo su verificación real.
+      - Silenciar 24 h desde la cola no existe en el servidor: `resolve`
+        sólo acepta hideContent y dismiss.
+    Y esa es justamente la tesis del pitch: "cada permiso lo aplica el
+    servidor".
+
+  Uso del stack de Serverpod (25%) ............................ BIEN
+    Se usa:
+      - ORM con relaciones, migraciones y transacciones (auditoría en la
+        misma transacción).
+      - Auth de Serverpod (email IdP + JWT) con scopes moderator y admin.
+      - Streaming Methods (live.watch, notificaciones, mensajes) y
+        session.messages.
+      - Future Calls: aviso 15 minutos antes, vencimiento del show sin host
+        y replay que se publica solo.
+      - Cloud Storage: subida directa de fotos, videos y avatares.
+      - Endpoints por módulo y tests de integración con withServerpod.
+    No se usa:
+      - Serverpod Insights (cero referencias).
+      - El web server de Serverpod: la web la sirve Caddy.
+      - Serverpod Cloud: el equipo decidió AWS.
+      - La sincronización offline de Serverpod 4.
+    Mejora barata: activar Insights y mostrarlo 5 segundos en el video.
+
+  Calidad y creatividad técnica (25%) ......................... BIEN
+    Clean Architecture, 101 archivos de test, CI en cada PR, deploy
+    automático en cada push a main y SDDs que documentan cada decisión.
+    Se nota lo que queda de transición: MockPlatform y BridgedAuthRepository
+    en el runtime (el "corte del mock", M7, no se hizo). El default de
+    AUTH_SOURCE en el código sigue siendo `mock`, aunque demo.sh y los
+    builds de producción pasan `serverpod`.
+
+  Utilidad (20%) .............................................. BIEN si se cuenta bien
+    El caso de uso (moderación auditable para comunidades de creadores) es
+    claro. Pierde fuerza si en el video la auditoría y las sanciones son
+    del mock. No hay un endpoint para consultar la auditoría del servidor,
+    aunque el servidor la escribe.
+
+======================================================================
+3. LO QUE FALTA, EN ORDEN DE IMPACTO
+======================================================================
+
+  Esfuerzo: S = horas · M = medio día · L = un día o más
+
+  1. [ENTREGABLE] Video de menos de 2 minutos, en YouTube o Vimeo. ..... M
+     Sin esto la entrega está incompleta. Grabarlo a más tardar el martes
+     a la noche.
+
+  2. [ENTREGABLE] Descripción y envío en BuilderBase. .................. S
+     Revisar hoy qué pide el formulario.
+
+  3. [ENTREGABLE] README con los links arriba, y prueba en una
+     máquina limpia. ................................................... S
+
+  4. [FUNCIONA + UTILIDAD] Sanciones y verificación en el servidor
+     (M6 del SDD 0004). ................................................ L
+       - Endpoint admin: suspend / restore / setVerification, con
+         auditoría en la misma transacción.
+       - Suspender revoca las sesiones (revokeAllTokens) y avisa por
+         stream: la app del sancionado se cierra en el acto.
+       - `audit(filter)` para consultar la auditoría.
+       - `resolve` suma muteAuthor(duración).
+     Es lo que hace verdadera la tesis del pitch. Con 43 horas es el
+     riesgo más grande: si se empieza, que sea ya, y sólo
+     suspend + setVerification + audit (el silenciamiento queda afuera).
+     SI NO ENTRA: sacarlo del video y contarlo como hoja de ruta. NO
+     mostrar en el video la consola mock como si fuera real.
+
+  5. [STACK] Activar Serverpod Insights y mostrarlo en el video. ........ S
+
+  6. [EXTRA] Post en redes etiquetando a Serverpod (USD 500 en
+     créditos). ........................................................ S
+
+  7. [PULIDO] Reportar un mensaje del chat del vivo al servidor. ........ M
+     Hoy ese reporte va al mock (fase 3 del SDD 0006). Sólo si sobra
+     tiempo.
+
+  8. [PULIDO] Destacados automáticos del vivo (P0 #8 del benchmark). .... M
+     No existe. No entra: va al pitch.
+
+  NO TOCAR a esta altura: pagos reales, push, OBS, IA, gamificación. Van al
+  pitch como hoja de ruta (sección 05 del PDF).
+
+  Regla de la organización (sección 07 del PDF): "mejor chico y terminado
+  que grande y roto". Nada nuevo después del martes a la noche.
+
+======================================================================
+4. GUION DEL VIDEO CON LO QUE FUNCIONA HOY (menos de 2 minutos)
+======================================================================
+
+  Todo contra producción (AWS), con dos dispositivos: el teléfono como
+  host y la web o la tablet como audiencia y moderación.
+
+   0–12 s  El problema: "En Twitch o TikTok la moderación es una caja
+           negra. Nexo es la red de creadores donde cada decisión de
+           moderación es auditable y cada permiso lo aplica el servidor."
+  12–30 s  Elena inicia su vivo programado (Studio). En el otro
+           dispositivo, el vivo aparece solo en "En vivo ahora", con video
+           Agora real.                                  [Streaming, Agora]
+  30–50 s  Tomás comenta algo abusivo y Lucía, la moderadora, lo oculta
+           con una pulsación larga: desaparece en todas las pantallas al
+           instante.                         [Streaming Methods, scopes]
+  50–65 s  Un post reportado desde el feed llega a la cola. Lucía lo
+           oculta y el reporte se cierra en un solo paso.
+                                        [ORM, transacción, auditoría]
+  65–80 s  Registro de una cuenta nueva con el código que llega por mail.
+           Seguir a Elena; llega la notificación.
+                                      [Auth, notificaciones en tiempo real]
+  80–95 s  Elena termina el vivo y el replay se publica solo.
+                                                         [Future Calls]
+  95–115 s Cierre: Flutter + Serverpod de punta a punta, desplegado. Un
+           vistazo a Insights (si se activó) y la hoja de ruta: sanciones
+           desde la consola, pagos reales y destacados.
+
+  Si el punto 4 de la sección 3 llega a tiempo, reemplazar 65–80 s por:
+  "el operador revoca la verificación de Elena; ella intenta iniciar otro
+  vivo y el servidor lo rechaza". Es la frase del pitch.
+
+======================================================================
+5. PLAN SUGERIDO (43 horas)
+======================================================================
+
+  Hoy (lunes 12/10, noche)
+    - Entrar a BuilderBase: confirmar la inscripción del equipo, los
+      campos del envío y la hora de cierre.
+    - Decidir si se hace el punto 4 (sanciones en el servidor) o se saca
+      del video.
+
+  Martes 13/10
+    - Mañana: punto 4 (si se decidió hacerlo) e Insights.
+    - Tarde: README con los links y prueba en una máquina limpia.
+    - Noche: grabar el video. Congelar main: nada nuevo después de esto.
+
+  Miércoles 14/10 (cierre 17:59)
+    - Mañana: subir el video, escribir la descripción y ENVIAR en
+      BuilderBase antes del mediodía.
+    - Publicar el post en redes etiquetando a Serverpod.
+    - Margen hasta las 17:59 para imprevistos.
+
+======================================================================
+6. LO QUE NECESITO SABER DE USTEDES
+======================================================================
+
+  - ¿El equipo ya está inscripto en BuilderBase? ¿Quién envía?
+  - ¿Quién graba el video y con qué dispositivos?
+  - ¿Se hace el M6 (sanciones en el servidor) o queda para el pitch?
+  - ¿Qué cuenta publica el post en redes?
