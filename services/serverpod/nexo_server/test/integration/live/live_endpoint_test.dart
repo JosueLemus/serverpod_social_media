@@ -1,5 +1,6 @@
 import 'package:nexo_server/src/generated/protocol.dart';
 import 'package:nexo_server/src/shared/auth/auth_context.dart';
+import 'package:nexo_server/src/modules/live/services/live_rules.dart';
 import 'package:test/test.dart';
 
 import '../support/fixtures.dart';
@@ -49,27 +50,35 @@ void main() {
         expect(show.guestIds, hasLength(1));
       });
 
-      test('then a past date or four guests are rejected', () async {
-        await expectLater(
-          endpoints.live.schedule(
-            elena,
-            fixtures.showDraft(
-              'Ayer',
-              startsAt: DateTime.now().toUtc().subtract(
-                const Duration(hours: 1),
+      test(
+        'then a past date or more guests than the stage are rejected',
+        () async {
+          await expectLater(
+            endpoints.live.schedule(
+              elena,
+              fixtures.showDraft(
+                'Ayer',
+                startsAt: DateTime.now().toUtc().subtract(
+                  const Duration(hours: 1),
+                ),
               ),
             ),
-          ),
-          throwsNexo(NexoErrorCode.invalidInput),
-        );
-        await expectLater(
-          endpoints.live.schedule(
-            elena,
-            fixtures.showDraft('Muchos', guests: ['a', 'b', 'c', 'd']),
-          ),
-          throwsNexo(NexoErrorCode.invalidInput),
-        );
-      });
+            throwsNexo(NexoErrorCode.invalidInput),
+          );
+          await expectLater(
+            endpoints.live.schedule(
+              elena,
+              fixtures.showDraft(
+                'Muchos',
+                guests: [
+                  for (var i = 0; i <= LiveRules.maxGuests; i++) 'guest$i',
+                ],
+              ),
+            ),
+            throwsNexo(NexoErrorCode.invalidInput),
+          );
+        },
+      );
 
       test('then an unknown guest is notFound', () async {
         await expectLater(

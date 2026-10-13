@@ -9,7 +9,10 @@ abstract final class LiveRules {
   static const maxDescriptionLength = 2000;
   static const minDurationMinutes = 15;
   static const maxDurationMinutes = 240;
-  static const maxGuests = 3;
+  /// Lugares en el escenario además del host (SDD 0011, S4). Cuenta a los
+  /// invitados de la agenda y a los que suben durante el vivo: 1 + 16 es el
+  /// tope de publicadores por canal de Agora.
+  static const maxGuests = 16;
   static const maxChatLength = 280;
   static const chatPageSize = 50;
   static const listLimit = 50;

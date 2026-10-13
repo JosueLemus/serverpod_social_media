@@ -8,6 +8,7 @@ import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../../moderation/domain/repositories/moderation_repository.dart';
 import '../../domain/entities/live_comment.dart';
 import '../../domain/entities/live_room_event.dart';
+import '../../domain/entities/live_permissions.dart';
 import '../../domain/entities/live_session.dart';
 import '../../domain/repositories/live_repository.dart';
 import '../../domain/studio_show.dart';
@@ -90,7 +91,7 @@ class LiveRoomState extends Equatable {
   /// conectarse. La View lo dice en vez de quedarse congelada.
   final bool reconnecting;
 
-  bool get canModerate => role == LiveRole.host || role == LiveRole.moderator;
+  bool get canModerate => LivePermissions.hasAction(role, LiveAction.hideChat);
 
   LiveRoomState copyWith({
     LiveSession? session,

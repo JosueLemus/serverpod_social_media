@@ -165,8 +165,8 @@ class MockPlatform {
     return updated;
   }
 
-  // TODO: max set with dependency of backend when are available
-  static const maxCohosts = 3;
+  /// Lugares en el escenario además del host: `LiveRules.maxGuests`.
+  static const maxCohosts = 16;
 
   // TODO(backend): portar estas reglas al endpoint `live.scheduleShow` de
   // Serverpod (creador verificado, fecha futura, tope de co-hosts) y borrar
@@ -287,6 +287,10 @@ class MockPlatform {
     if (actor == null) return LiveRole.audience;
     if (_lives[liveId]?.hostId == actor.id) return LiveRole.host;
     if (actor.canModerate) return LiveRole.moderator;
+    // Un invitado de la agenda es invitado en la sala, como en el servidor.
+    if (_lives[liveId]?.cohostIds.contains(actor.id) ?? false) {
+      return LiveRole.cohost;
+    }
     return LiveRole.audience;
   }
 
