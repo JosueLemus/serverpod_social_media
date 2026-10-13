@@ -182,11 +182,10 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
   LiveRoomCubit(
     this._repository,
     this._moderation, {
-    SubscriptionRepository? subscriptions,
+    this._subscriptions,
     DateTime Function()? now,
     this.reconnectDelays = defaultReconnectDelays,
-  }) : _subscriptions = subscriptions,
-       _now = now ?? DateTime.now,
+  }) : _now = now ?? DateTime.now,
        super(const LiveRoomState());
 
   final LiveRepository _repository;

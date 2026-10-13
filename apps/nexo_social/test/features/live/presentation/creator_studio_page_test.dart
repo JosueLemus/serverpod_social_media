@@ -412,11 +412,16 @@ void main() {
         id: 'show-1',
         title: 'Masterclass de Diseño Mobile',
         hostName: 'Elena Vega',
-        status: LiveStatus.recorded,
+        status: LiveStatus.live,
         recordReplay: false,
       ),
     );
     await pumpStudio(tester);
+
+    // Al abrir, el Studio elige el vivo al aire, no uno ya terminado: el
+    // estado "grabado" se alcanza finalizando.
+    await tester.tap(find.byKey(const Key('studio-end')));
+    await AppHarness.settle(tester);
 
     expect(find.byKey(const Key('studio-publish')), findsNothing);
     expect(find.byKey(const Key('studio-new-live')), findsOneWidget);

@@ -216,6 +216,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(server.resolved, [('r1', ModerationType.banUser)]);
+      // La cola se rearma y sus tarjetas entran con demora: dejar que
+      // terminen antes de desmontar.
+      await tester.pump(const Duration(seconds: 2));
     });
 
     testWidgets('los botones se apagan mientras corre una acción', (
@@ -239,6 +242,7 @@ void main() {
         find.byKey(const Key('hide-r2')),
       );
       expect(hide.onPressed, isNotNull);
+      await tester.pump(const Duration(seconds: 2));
     });
   });
 }

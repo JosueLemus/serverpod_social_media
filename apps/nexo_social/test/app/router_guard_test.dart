@@ -348,7 +348,7 @@ void main() {
     // location loops until go_router throws. Following each answer once and
     // requiring the second hop to be null proves there is no two-step cycle.
     test('no location redirects to another location that redirects', () {
-      const locations = [
+      final locations = [
         AppRoutes.splash,
         AppRoutes.signIn,
         AppRoutes.signUp,

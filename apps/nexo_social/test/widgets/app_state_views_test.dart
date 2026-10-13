@@ -96,6 +96,9 @@ void main() {
       );
 
       expect(find.text('Leer ahora'), findsOneWidget);
+      // La segunda lectura queda debajo del pliegue de la pantalla de test.
+      await tester.ensureVisible(find.text('Leer ahora'));
+      await tester.pump();
       await tester.tap(find.text('Leer ahora'));
       expect(opened, isTrue);
     });
