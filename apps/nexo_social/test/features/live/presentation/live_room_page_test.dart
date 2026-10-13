@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/core/media/live_media_engine.dart';
 import 'package:nexo_social/core/media/simulated_live_media_engine.dart';
 import 'package:nexo_social/features/live/domain/entities/live_comment.dart';
@@ -11,6 +12,7 @@ import 'package:nexo_social/features/live/domain/entities/live_room_event.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
 import 'package:nexo_social/features/live/domain/repositories/live_repository.dart';
 import 'package:nexo_social/features/live/presentation/pages/live_room_page.dart';
+import 'package:nexo_social/features/subscriptions/domain/repositories/subscription_repository.dart';
 
 import '../../../support/app_harness.dart';
 
@@ -22,8 +24,12 @@ class _AudienceRepository implements LiveRepository {
   LiveSession show;
   final events = StreamController<LiveRoomEvent>.broadcast();
 
+  /// Si no es null, la sala se corta antes de la primera foto.
+  Object? dropWith;
+
   @override
   Stream<LiveRoomEvent> watch(String liveId) async* {
+    if (dropWith case final error?) throw error;
     yield LiveRoomSnapshot(
       session: show,
       role: LiveRole.audience,
@@ -131,5 +137,80 @@ void main() {
     await pumpRoom(tester);
 
     expect(find.byTooltip('Regalos: muy pronto'), findsOneWidget);
+  });
+
+  testWidgets('cortada antes de la primera foto dice que reconecta', (
+    tester,
+  ) async {
+    repository.dropWith = const NetworkFailure('socket closed');
+    await pumpRoom(tester);
+
+    expect(find.byKey(const Key('live-waiting')), findsOneWidget);
+    expect(find.text('Reconectando…'), findsOneWidget);
+    expect(find.text('Este vivo ya no está disponible'), findsNothing);
+
+    repository.dropWith = null;
+    await tester.pump(const Duration(seconds: 2));
+    await AppHarness.settle(tester);
+    expect(find.byKey(const Key('live-comment-field')), findsOneWidget);
+  });
+
+  testWidgets('un vivo que no existe sí dice que no está disponible', (
+    tester,
+  ) async {
+    repository.dropWith = const NotFoundFailure('live');
+    await pumpRoom(tester);
+
+    expect(find.text('Este vivo ya no está disponible'), findsOneWidget);
+  });
+
+  testWidgets('con las preguntas apagadas no se ofrece el campo', (
+    tester,
+  ) async {
+    repository.show = LiveSession(
+      id: '5',
+      title: 'Masterclass',
+      hostName: 'Elena Vega',
+      hostUsername: 'elena_ux',
+      status: LiveStatus.live,
+      allowQuestions: false,
+    );
+    await pumpRoom(tester);
+
+    expect(find.byKey(const Key('live-comment-field')), findsNothing);
+    expect(find.text('El host desactivó los comentarios'), findsOneWidget);
+    // El amor sigue: no es una pregunta.
+    expect(find.byKey(const Key('live-love')), findsOneWidget);
+  });
+
+  group('solo miembros', () {
+    const membersOnly = LiveSession(
+      id: '5',
+      title: 'Masterclass',
+      hostName: 'Elena Vega',
+      hostUsername: 'elena_ux',
+      status: LiveStatus.live,
+      isPremium: true,
+    );
+
+    testWidgets('quien no es miembro ve la invitación, no el vivo', (
+      tester,
+    ) async {
+      repository.show = membersOnly;
+      await pumpRoom(tester);
+
+      expect(find.byKey(const Key('live-members-only')), findsOneWidget);
+      expect(find.text('Hacerme miembro'), findsOneWidget);
+      expect(find.byKey(const Key('live-comment-field')), findsNothing);
+    });
+
+    testWidgets('un miembro entra como siempre', (tester) async {
+      await sl<SubscriptionRepository>().subscribe('elena_ux');
+      repository.show = membersOnly;
+      await pumpRoom(tester);
+
+      expect(find.byKey(const Key('live-members-only')), findsNothing);
+      expect(find.byKey(const Key('live-comment-field')), findsOneWidget);
+    });
   });
 }

@@ -45,12 +45,17 @@ class CreatorStudioPage extends StatelessWidget {
       ),
       BlocProvider(create: (_) => sl<LiveMediaCubit>()),
     ],
-    child: const LiveMediaSync(role: LiveMediaRole.host, child: _StudioView()),
+    child: LiveMediaSync(
+      role: LiveMediaRole.host,
+      child: _StudioView(showId: showId),
+    ),
   );
 }
 
 class _StudioView extends StatelessWidget {
-  const _StudioView();
+  const _StudioView({required this.showId});
+
+  final String? showId;
 
   @override
   Widget build(
@@ -67,15 +72,24 @@ class _StudioView extends StatelessWidget {
     child: BlocBuilder<LiveRoomCubit, LiveRoomState>(
       builder: (context, state) {
         final session = state.session;
+        final cubit = context.read<LiveRoomCubit>();
+        Future<void> reload() => cubit.loadStudio(requested: showId);
         return NexoPage(
           section: 'Studio',
           title: 'Creator Studio',
           subtitle: 'Controla tu transmisión, tus invitados y tu comunidad',
+          // Al aire no: recargar desmonta el escenario a mitad de la
+          // transmisión, y la sala ya llega en tiempo real.
+          onRefresh: session?.status.isOnAir == true ? null : reload,
           children: [
             if (state.isLoading)
               const FeedSkeleton(count: 1)
+            else if (session == null && state.loadFailed)
+              // Un servidor caído no es "no tienes vivos": ofrecer programar
+              // ahí hace creer al host que perdió su agenda.
+              AppErrorView(onRetry: () => unawaited(reload()))
             else if (session == null)
-              const _StudioEmpty()
+              _StudioEmpty(onReload: reload)
             else ...[
               // Todo lo que se toca sólo aparece: una traslación deja los
               // botones corridos mientras dura y los toques caen al vacío.
@@ -166,6 +180,32 @@ Future<void> _goLiveNow(BuildContext context) async {
   await _withCameraAndMicrophone(context, () => room.goLive(title));
 }
 
+/// Cancelar un show programado, con confirmación: no se deshace.
+Future<void> _confirmCancel(BuildContext context, LiveRoomCubit cubit) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('¿Cancelar este show?'),
+      content: const Text(
+        'Tu comunidad lo verá como cancelado. No se puede deshacer.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Mantener'),
+        ),
+        TextButton(
+          key: const Key('studio-cancel-confirm'),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
+          child: const Text('Cancelar show'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) await cubit.transition(LiveStatus.cancelled);
+}
+
 /// Salir al aire es la única acción roja del Studio: el rojo de sticker es la
 /// marca de "en vivo", y el botón que lo enciende la lleva.
 ButtonStyle _goLiveStyle() => FilledButton.styleFrom(
@@ -179,7 +219,17 @@ ButtonStyle _goLiveStyle() => FilledButton.styleFrom(
 /// Sin show propio. Lo primero es salir en vivo ya; programar queda como
 /// segunda opción.
 class _StudioEmpty extends StatelessWidget {
-  const _StudioEmpty();
+  const _StudioEmpty({required this.onReload});
+
+  /// Vuelve a buscar el show del host. Al volver de programar: el cambio
+  /// también llega por `changes()`, pero sin tiempo real (o con la conexión
+  /// cortada) el Studio quedaba diciendo que no había ninguno.
+  final Future<void> Function() onReload;
+
+  Future<void> _schedule(BuildContext context) async {
+    await context.push(AppRoutes.scheduleShow);
+    if (context.mounted) await onReload();
+  }
 
   @override
   Widget build(BuildContext context) => Column(
@@ -195,7 +245,7 @@ class _StudioEmpty extends StatelessWidget {
       ),
       OutlinedButton.icon(
         key: const Key('studio-schedule'),
-        onPressed: () => unawaited(context.push(AppRoutes.scheduleShow)),
+        onPressed: () => unawaited(_schedule(context)),
         icon: const NexoIcon(NexoGlyph.calendar, size: 18),
         label: const Text('Programar show'),
       ),
@@ -320,6 +370,7 @@ class _BroadcastBar extends StatelessWidget {
     final cubit = context.read<LiveRoomCubit>();
     final status = session.status;
     final onAir = status.isOnAir;
+    final hasReplay = status == LiveStatus.recorded && session.recordReplay;
     const dense = Size(0, AppSizes.buttonHeightDense);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,6 +428,16 @@ class _BroadcastBar extends StatelessWidget {
                 icon: const NexoIcon(NexoGlyph.live, size: 18),
                 label: const Text('Salir al aire'),
               ),
+            // El servidor acepta `scheduled → cancelled`. Pide confirmación:
+            // la audiencia que lo tenía agendado lo ve cancelado y no se
+            // deshace.
+            if (status == LiveStatus.scheduled)
+              OutlinedButton(
+                key: const Key('studio-cancel'),
+                onPressed: () => unawaited(_confirmCancel(context, cubit)),
+                style: OutlinedButton.styleFrom(minimumSize: dense),
+                child: const Text('Cancelar show'),
+              ),
             if (onAir)
               OutlinedButton(
                 key: const Key('studio-end'),
@@ -388,7 +449,9 @@ class _BroadcastBar extends StatelessWidget {
                 ),
                 child: const Text('Finalizar vivo'),
               ),
-            if (status == LiveStatus.recorded)
+            // Sin grabación no hay replay que publicar: el botón prometía
+            // algo que el servidor no tiene.
+            if (hasReplay)
               FilledButton.icon(
                 key: const Key('studio-publish'),
                 onPressed: () => cubit.transition(LiveStatus.published),
@@ -402,7 +465,7 @@ class _BroadcastBar extends StatelessWidget {
             // replay espera publicarse, esa es la acción principal y ésta
             // queda en segundo plano: dos botones rellenos no jerarquizan.
             if (_isOver(status))
-              status == LiveStatus.recorded
+              hasReplay
                   ? OutlinedButton.icon(
                       key: const Key('studio-new-live'),
                       onPressed: () => unawaited(_goLiveNow(context)),
@@ -629,9 +692,12 @@ class _StudioChatState extends State<_StudioChat> {
     super.dispose();
   }
 
-  void _send() {
-    unawaited(context.read<LiveRoomCubit>().sendComment(_composer.text));
-    _composer.clear();
+  /// El campo se limpia sólo si el servidor aceptó el mensaje: borrarlo
+  /// antes perdía lo escrito cuando el envío fallaba.
+  Future<void> _send() async {
+    final text = _composer.text;
+    final sent = await context.read<LiveRoomCubit>().sendComment(text);
+    if (sent && mounted && _composer.text == text) _composer.clear();
   }
 
   @override
@@ -647,7 +713,7 @@ class _StudioChatState extends State<_StudioChat> {
       if (widget.canWrite)
         LiveChatComposer(
           controller: _composer,
-          onSend: _send,
+          onSend: () => unawaited(_send()),
           fieldKey: const Key('studio-comment-field'),
           sendKey: const Key('studio-send'),
           // La página del Studio sí se acomoda al teclado.

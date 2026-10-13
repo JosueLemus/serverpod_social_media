@@ -21,6 +21,7 @@ import '../../../profile/presentation/utils/profile_notice_ui.dart';
 import '../../domain/entities/live_session.dart';
 import '../bloc/live_media_cubit.dart';
 import '../bloc/live_room_cubit.dart';
+import '../utils/live_navigation.dart';
 import '../utils/live_room_issue_ui.dart';
 import '../utils/live_status_ui.dart';
 import '../widgets/live_chat.dart';
@@ -41,19 +42,30 @@ class LiveRoomPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MultiBlocProvider(
     providers: [
-      BlocProvider(create: (_) => LiveRoomCubit(sl(), sl())..load(liveId)),
+      BlocProvider(
+        create: (_) =>
+            LiveRoomCubit(sl(), sl(), subscriptions: sl())..load(liveId),
+      ),
       BlocProvider(create: (_) => sl<LiveMediaCubit>()),
     ],
     child: BlocListener<LiveRoomCubit, LiveRoomState>(
       // El host no mira su propio vivo como audiencia: llega acá desde una
       // notificación o un enlace, y lo que busca es su Studio.
       // Un replay propio sí se mira como cualquiera.
+      //
+      // Antes de irse deja de escuchar: el branch de Explorar conserva esta
+      // página montada, y seguía contando al host como espectador de sí
+      // mismo.
       listenWhen: (previous, current) =>
           previous.role != current.role &&
           current.role == LiveRole.host &&
+          !current.handedOff &&
           (current.session?.status.isOnAir == true ||
               current.session?.status == LiveStatus.scheduled),
-      listener: (context, state) => context.go(AppRoutes.studio),
+      listener: (context, state) {
+        context.read<LiveRoomCubit>().handOffToStudio();
+        context.go(studioRouteFor(state.session!));
+      },
       child: const LiveMediaSync(
         role: LiveMediaRole.audience,
         child: _RoomView(),
@@ -81,12 +93,23 @@ class _RoomViewState extends State<_RoomView> {
     super.dispose();
   }
 
-  void _send() {
-    unawaited(context.read<LiveRoomCubit>().sendComment(_composer.text));
-    _composer.clear();
+  /// El campo se limpia sólo si el servidor aceptó el mensaje: borrarlo
+  /// antes perdía lo escrito cuando la cuenta estaba silenciada.
+  Future<void> _send() async {
+    final text = _composer.text;
+    final sent = await context.read<LiveRoomCubit>().sendComment(text);
+    if (sent && mounted && _composer.text == text) _composer.clear();
   }
 
   void _leave() => context.go(AppRoutes.explore);
+
+  /// El paywall es una tarea: se empuja sobre el shell. Al volver se
+  /// pregunta de nuevo, por si la persona se sumó.
+  Future<void> _becomeMember() async {
+    final room = context.read<LiveRoomCubit>();
+    await context.push(AppRoutes.premium);
+    if (mounted) room.refreshAccess();
+  }
 
   /// Atrás de verdad cuando se llegó empujando (desde el feed o un perfil);
   /// si la sala se abrió directo, Explorar es el único "atrás" que existe.
@@ -127,7 +150,49 @@ class _RoomViewState extends State<_RoomView> {
             ),
           );
         }
+        // El host se fue a su Studio: la sala no lo sigue escuchando, y si
+        // vuelve a esta pestaña encuentra el camino, no su propio vivo como
+        // espectador.
+        if (state.handedOff && session != null) {
+          return Scaffold(
+            appBar: AppBar(),
+            body: AppEmptyView(
+              key: const Key('live-handed-off'),
+              mascot: NexoMascot.mic,
+              title: 'Este vivo es tuyo',
+              message: 'Lo manejas desde tu Studio.',
+              actionLabel: 'Ir a mi Studio',
+              onAction: () => context.go(studioRouteFor(session)),
+            ),
+          );
+        }
         if (session == null) {
+          // Sin foto y sin `notFound` la sala todavía no llegó: se cortó la
+          // conexión antes de la primera foto. Decir "ya no está disponible"
+          // ahí mandaba a la gente fuera de un vivo que seguía al aire.
+          if (!state.notFound) {
+            return Scaffold(
+              key: const Key('live-waiting'),
+              backgroundColor: AppColors.stageDark,
+              appBar: AppBar(),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: AppSpacing.md),
+                    // Sobre el escenario oscuro en cualquier tema.
+                    Text(
+                      'Reconectando…',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onMedia,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           return Scaffold(
             appBar: AppBar(),
             body: AppEmptyView(
@@ -136,6 +201,26 @@ class _RoomViewState extends State<_RoomView> {
               message: 'Puede haber terminado o haber sido retirado.',
               actionLabel: 'Ver otros vivos',
               onAction: _leave,
+            ),
+          );
+        }
+        // "Solo miembros": la sala no entra al video. La invitación nombra al
+        // host, que es a quien uno se suma.
+        if (state.locked) {
+          final host = session.hostUsername.isEmpty
+              ? session.hostName
+              : '@${session.hostUsername}';
+          return Scaffold(
+            appBar: AppBar(),
+            body: AppEmptyView(
+              key: const Key('live-members-only'),
+              mascot: NexoMascot.lock,
+              title: 'Vivo solo para miembros',
+              message:
+                  'Súmate a la comunidad de $host para ver este vivo y '
+                  'participar del chat.',
+              actionLabel: 'Hacerme miembro',
+              onAction: () => unawaited(_becomeMember()),
             ),
           );
         }
@@ -203,7 +288,12 @@ class _RoomViewState extends State<_RoomView> {
                         ),
                         LiveChatComposer(
                           controller: _composer,
-                          onSend: _send,
+                          onSend: () => unawaited(_send()),
+                          // Con las preguntas apagadas por el host, el campo
+                          // no se ofrece: se dice por qué, y el amor sigue.
+                          disabledNotice: state.canComment
+                              ? null
+                              : 'El host desactivó los comentarios',
                           trailing: [
                             // Sin regalos todavía: apagado, no escondido.
                             const LiveGlassButton(
