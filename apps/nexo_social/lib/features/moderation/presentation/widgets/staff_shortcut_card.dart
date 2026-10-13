@@ -65,7 +65,7 @@ class _CardBody extends StatelessWidget {
     final pending = state.reports.length;
     final status = state.isLoading
         ? _QueueStatus.loading
-        : state.issue != null && pending == 0
+        : state.failedToLoad
         ? _QueueStatus.unreadable
         : pending == 0
         ? _QueueStatus.clear

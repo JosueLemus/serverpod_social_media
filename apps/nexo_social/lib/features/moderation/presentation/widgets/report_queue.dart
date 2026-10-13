@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -28,11 +30,24 @@ class ReportQueueSection extends StatelessWidget {
       BlocBuilder<ModerationCubit, ModerationState>(
         builder: (context, state) {
           if (state.isLoading) return const FeedSkeleton(count: 2);
-          final issue = state.issue;
+          // Sin cola que mostrar, un fallo de lectura no es "no hay
+          // reportes": es la pantalla de error, con su reintento.
+          final loadIssue = state.loadIssue;
+          if (state.failedToLoad) return _LoadFailed(issue: loadIssue!);
+          final actionIssue = state.actionIssue;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (issue != null) _IssueBanner(issue: issue),
+              if (loadIssue != null)
+                _IssueBanner(
+                  key: const Key('moderation-stale'),
+                  message: _staleMessage(loadIssue),
+                ),
+              if (actionIssue != null)
+                _IssueBanner(
+                  key: const Key('moderation-issue'),
+                  message: _actionMessage(actionIssue),
+                ),
               _SectionTitle(
                 'Cola de reportes',
                 glyph: NexoGlyph.flag,
@@ -78,22 +93,58 @@ class ReportQueueSection extends StatelessWidget {
       );
 }
 
-class _IssueBanner extends StatelessWidget {
-  const _IssueBanner({required this.issue});
+/// Lo que se le dice al moderador cuando una acción no se aplicó.
+String _actionMessage(ModerationIssue issue) => switch (issue) {
+  ModerationIssue.forbidden =>
+    'Tu cuenta no tiene permisos para esta acción de moderación.',
+  ModerationIssue.conflict =>
+    'Ese reporte ya no está abierto: alguien lo resolvió antes.',
+  ModerationIssue.other => 'No pudimos completar la acción.',
+};
+
+/// Lo que se le dice cuando la relectura falló pero queda la cola anterior.
+String _staleMessage(ModerationIssue issue) => switch (issue) {
+  ModerationIssue.forbidden =>
+    'Tu cuenta ya no tiene permisos de moderación: la cola puede estar '
+        'desactualizada.',
+  ModerationIssue.conflict || ModerationIssue.other =>
+    'No pudimos actualizar la cola. Lo que ves puede estar desactualizado.',
+};
+
+/// La cola no se pudo leer y no hay nada anterior que mostrar.
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.issue});
 
   final ModerationIssue issue;
 
-  String get _message => switch (issue) {
-    ModerationIssue.forbidden =>
-      'Tu cuenta no tiene permisos para esta acción de moderación.',
-    ModerationIssue.conflict =>
-      'Ese reporte ya no está abierto: alguien lo resolvió antes.',
-    ModerationIssue.other => 'No pudimos completar la acción.',
-  };
+  @override
+  Widget build(BuildContext context) {
+    final cubit = context.read<ModerationCubit>();
+    void retry() => unawaited(cubit.load());
+    return KeyedSubtree(
+      key: const Key('moderation-load-error'),
+      child: issue == ModerationIssue.forbidden
+          ? AppEmptyView(
+              mascot: NexoMascot.lock,
+              title: 'Sin acceso a la cola',
+              message:
+                  'Tu cuenta no tiene permisos de moderación. Si te los '
+                  'acaban de dar, vuelve a intentarlo.',
+              actionLabel: 'Reintentar',
+              onAction: retry,
+            )
+          : AppErrorView(onRetry: retry),
+    );
+  }
+}
+
+class _IssueBanner extends StatelessWidget {
+  const _IssueBanner({super.key, required this.message});
+
+  final String message;
 
   @override
   Widget build(BuildContext context) => Container(
-    key: const Key('moderation-issue'),
     margin: const EdgeInsets.only(bottom: AppSpacing.md),
     padding: const EdgeInsets.all(AppSpacing.sm),
     decoration: BoxDecoration(
@@ -111,7 +162,7 @@ class _IssueBanner extends StatelessWidget {
         ),
         const SizedBox(width: AppSpacing.sm),
         Expanded(
-          child: Text(_message, style: Theme.of(context).textTheme.bodyMedium),
+          child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ),
       ],
     ),
@@ -241,9 +292,52 @@ class _ReportBody extends StatelessWidget {
 
   final ModerationReport report;
 
+  /// Expulsar no se deshace desde la cola: se confirma, nombrando a quién.
+  /// En un tap, al lado de "Ocultar", era la sanción más grave a un dedo
+  /// de distancia de la más leve.
+  Future<void> _confirmBan(BuildContext context) async {
+    final cubit = context.read<ModerationCubit>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('¿Expulsar a ${report.author}?'),
+        content: Text(
+          'La cuenta pierde el acceso a la comunidad y el reporte se cierra. '
+          'Queda registrado en la auditoría.',
+          style: Theme.of(
+            dialogContext,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            key: const Key('ban-cancel'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            style: TextButton.styleFrom(foregroundColor: AppColors.textPrimary),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('ban-confirm'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.sticker,
+              overlayColor: AppColors.sticker,
+            ),
+            child: const Text('Expulsar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed ?? false) await cubit.resolve(report, ModerationType.banUser);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<ModerationCubit>();
+    // Mientras una acción corre, ninguna otra: el primer tap ya decidió.
+    final working = context.select<ModerationCubit, bool>(
+      (cubit) => cubit.state.isWorking,
+    );
     final text = Theme.of(context).textTheme;
     const dense = Size(0, AppSizes.buttonHeightDense);
     const densePadding = EdgeInsets.symmetric(horizontal: AppSpacing.md);
@@ -289,8 +383,11 @@ class _ReportBody extends StatelessWidget {
             // Dentro de la tarjeta el CTA del tema es relleno de tinta.
             FilledButton.icon(
               key: Key('hide-${report.id}'),
-              onPressed: () =>
-                  cubit.resolve(report, ModerationType.hideComment),
+              onPressed: working
+                  ? null
+                  : () => unawaited(
+                      cubit.resolve(report, ModerationType.hideComment),
+                    ),
               style: FilledButton.styleFrom(
                 minimumSize: dense,
                 padding: densePadding,
@@ -300,7 +397,9 @@ class _ReportBody extends StatelessWidget {
             ),
             TextButton(
               key: Key('dismiss-${report.id}'),
-              onPressed: () => cubit.dismiss(report),
+              onPressed: working
+                  ? null
+                  : () => unawaited(cubit.dismiss(report)),
               style: TextButton.styleFrom(
                 minimumSize: dense,
                 padding: densePadding,
@@ -323,7 +422,11 @@ class _ReportBody extends StatelessWidget {
             children: [
               OutlinedButton.icon(
                 key: Key('mute-${report.id}'),
-                onPressed: () => cubit.resolve(report, ModerationType.muteUser),
+                onPressed: working
+                    ? null
+                    : () => unawaited(
+                        cubit.resolve(report, ModerationType.muteUser),
+                      ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: dense,
                   padding: densePadding,
@@ -335,7 +438,9 @@ class _ReportBody extends StatelessWidget {
               // relleno del CTA.
               FilledButton.icon(
                 key: Key('ban-${report.id}'),
-                onPressed: () => cubit.resolve(report, ModerationType.banUser),
+                onPressed: working
+                    ? null
+                    : () => unawaited(_confirmBan(context)),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.error,
                   foregroundColor: AppColors.sticker,

@@ -77,7 +77,8 @@ void main() {
     platform.bindSession(DemoAccounts.viewer.id);
     await cubit.load();
 
-    expect(cubit.state.issue, ModerationIssue.forbidden);
+    expect(cubit.state.loadIssue, ModerationIssue.forbidden);
+    expect(cubit.state.failedToLoad, isTrue);
     expect(cubit.state.reports, isEmpty);
   });
 
