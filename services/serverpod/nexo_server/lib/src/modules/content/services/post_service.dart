@@ -7,6 +7,7 @@ import '../../../shared/gateways/media_storage_gateway.dart';
 import '../../../shared/gateways/serverpod_media_storage_gateway.dart';
 import '../../../shared/profiles/avatar_lookup.dart';
 import '../../../shared/profiles/profile_lookup.dart';
+import '../../search/services/search_rules.dart';
 import 'post_rules.dart';
 
 /// Reglas de negocio de los posts: quién ve, publica, edita y elimina.
@@ -118,7 +119,7 @@ class PostService {
   }
 
   /// Los posts que la sesión puede ver cuyo cuerpo o alguna etiqueta
-  /// coincide con [pattern], un patrón de `ILIKE` ya escapado
+  /// coincide con [pattern], un patrón de `ILIKE` ya escapado y plegado
   /// (`SearchRules.containsPattern`). Del más nuevo al más viejo, con la
   /// misma visibilidad que cualquier lectura.
   Future<List<PostView>> search(
@@ -127,14 +128,11 @@ class PostService {
     required int limit,
   }) async {
     final followees = await _followeesOf(session);
-    final tagged = await _idsWithTagLike(session, pattern);
+    final matching = await _idsMatching(session, pattern);
+    if (matching.isEmpty) return const [];
     final rows = await Post.db.find(
       session,
-      where: (t) {
-        var matches = t.body.ilike(pattern);
-        if (tagged.isNotEmpty) matches = matches | t.id.inSet(tagged);
-        return _visibleWhere(t, session, followees) & matches;
-      },
+      where: (t) => _visibleWhere(t, session, followees) & t.id.inSet(matching),
       orderByList: (t) => [t.createdAt.desc(), t.id.desc()],
       limit: limit,
       include: _withMedia,
@@ -156,7 +154,7 @@ class PostService {
       'SELECT lower(tag) AS tag, count(*) AS uses '
       'FROM post, json_array_elements_text(post.tags) AS tag '
       'WHERE post."deletedAt" IS NULL AND post.visibility = @public '
-      r"AND lower(tag) LIKE @pattern ESCAPE '\' "
+      "AND ${SearchRules.foldSql('tag')} ILIKE @pattern ESCAPE '\\' "
       'GROUP BY lower(tag) ORDER BY uses DESC, tag ASC LIMIT @limit',
       parameters: QueryParameters.named({
         'public': PostVisibility.public.name,
@@ -167,26 +165,30 @@ class PostService {
     return [for (final row in rows) row[0] as String];
   }
 
-  /// Los ids de posts con alguna etiqueta que coincide con [pattern]. La
-  /// visibilidad la aplica quien los usa.
-  Future<Set<int>> _idsWithTagLike(Session session, String pattern) async {
+  /// Los ids de posts cuyo cuerpo o alguna etiqueta coincide con [pattern],
+  /// del más nuevo al más viejo. Va en SQL porque se compara sin tildes
+  /// (`SearchRules.foldSql`) y el ORM no compara una columna transformada.
+  /// La visibilidad la aplica quien los usa.
+  Future<Set<int>> _idsMatching(Session session, String pattern) async {
     final rows = await session.db.unsafeQuery(
-      'SELECT DISTINCT post.id '
-      'FROM post, json_array_elements_text(post.tags) AS tag '
+      'SELECT post.id FROM post '
       'WHERE post."deletedAt" IS NULL '
-      r"AND lower(tag) LIKE @pattern ESCAPE '\' "
+      "AND (${SearchRules.foldSql('post.body')} ILIKE @pattern ESCAPE '\\' "
+      'OR EXISTS (SELECT 1 FROM json_array_elements_text(post.tags) AS tag '
+      "WHERE ${SearchRules.foldSql('tag')} ILIKE @pattern ESCAPE '\\')) "
+      'ORDER BY post."createdAt" DESC, post.id DESC '
       'LIMIT @cap',
       parameters: QueryParameters.named({
         'pattern': pattern,
-        'cap': _searchTagCandidates,
+        'cap': _searchCandidates,
       }),
     );
     return {for (final row in rows) row[0] as int};
   }
 
-  /// Tope de candidatos por etiqueta: la búsqueda muestra una página, no
-  /// recorre la tabla entera.
-  static const _searchTagCandidates = 500;
+  /// Tope de candidatos: la búsqueda muestra una página, no recorre la tabla
+  /// entera. Son los más nuevos, que es el orden en que se muestran.
+  static const _searchCandidates = 500;
 
   /// Las etiquetas de los posts que [userId] likeó en los últimos [days]
   /// días, para `discover`.

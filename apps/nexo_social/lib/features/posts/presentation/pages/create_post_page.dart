@@ -25,6 +25,11 @@ class CreatePostPage extends StatelessWidget {
   );
 }
 
+/// Sale del compositor. Abierto desde un enlace o recargando la pestaña no
+/// hay nada debajo: `pop` sobre la pila vacía revienta, así que se va al feed.
+void _leave(BuildContext context) =>
+    context.canPop() ? context.pop() : context.go(AppRoutes.feed);
+
 class _ComposerView extends StatefulWidget {
   const _ComposerView();
 
@@ -69,8 +74,9 @@ class _ComposerViewState extends State<_ComposerView> {
           final messenger = ScaffoldMessenger.of(context);
           // Pop y no `go('/')`: el compositor se empujó sobre la pestaña en la
           // que estaba el usuario, y `go` lo dejaría en el feed en vez de
-          // devolverlo a donde salió.
-          context.pop();
+          // devolverlo a donde salió. Abierto por URL no hay nada debajo, y
+          // ahí sí se va al feed, donde se ve lo publicado.
+          _leave(context);
           messenger.showSnackBar(
             const SnackBar(content: Text('Publicación creada')),
           );
@@ -246,7 +252,7 @@ class _ComposerBar extends StatelessWidget {
                   // el blanco de publicar.
                   TextButton(
                     key: const Key('composer-close'),
-                    onPressed: context.pop,
+                    onPressed: () => _leave(context),
                     style: TextButton.styleFrom(
                       backgroundColor: AppColors.linerHigh,
                       foregroundColor: AppColors.textPrimary,

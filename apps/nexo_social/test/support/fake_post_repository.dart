@@ -120,6 +120,9 @@ class FakePostRepository implements PostRepository {
       for (final p in posts)
         p.id == postId ? p.copyWith(isLiked: liked, likes: likes) : p,
     ];
+    // Como los repositorios de verdad: un like avisa, para que el feed y el
+    // perfil que quedaron debajo de la publicación se enteren.
+    _changes.add(null);
     return LikeResult(isLiked: liked, likes: likes);
   }
 

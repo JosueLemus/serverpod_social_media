@@ -76,9 +76,12 @@ class AppErrorView extends StatelessWidget {
   /// nuestro. Sin conexión, la vista además ofrece lo que sí funciona.
   final bool isOffline;
 
+  // Sin lecturas guardadas: no hay caché offline todavía, y las de demo que
+  // había acá se mostraban como contenido descargado con un "Leer ahora"
+  // que no abría nada.
   @override
   Widget build(BuildContext context) => isOffline
-      ? AppOfflineView(onRetry: onRetry, savedReadings: _demoReadings)
+      ? AppOfflineView(onRetry: onRetry)
       : AppEmptyView(
           mascot: NexoMascot.error,
           title: 'Algo no salió como esperábamos',
@@ -86,23 +89,6 @@ class AppErrorView extends StatelessWidget {
           actionLabel: 'Reintentar',
           onAction: onRetry,
         );
-
-  /// Mock hasta que exista caché offline de verdad. Nombrado así para que no
-  /// se confunda con contenido realmente descargado.
-  static const _demoReadings = [
-    SavedReading(
-      title: 'Arquitecturas modernas de streaming y micro-frontends',
-      summary: 'Reflexiones sobre diseño reactivo y sincronización de estado.',
-      author: 'Elena Rostova',
-      minutes: 4,
-    ),
-    SavedReading(
-      title: 'Guía de diseño para experiencias táctiles',
-      summary: 'Cómo convertir micro-estados y pantallas en sistemas.',
-      author: 'Marc Dupont',
-      minutes: 8,
-    ),
-  ];
 }
 
 /// Una barra de un placeholder de carga.

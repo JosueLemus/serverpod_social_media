@@ -235,7 +235,10 @@ class _LoadedProfile extends StatelessWidget {
           if (tabs)
             SliverPersistentHeader(
               pinned: true,
-              delegate: _TabsHeaderDelegate(premium: premium),
+              delegate: _TabsHeaderDelegate(
+                premium: premium,
+                premiumUnlocked: state.isMember,
+              ),
             ),
         ],
         body: tabs
@@ -244,7 +247,11 @@ class _LoadedProfile extends StatelessWidget {
                   posts,
                   _LivesTab(lives: state.lives),
                   if (premium)
-                    _PremiumTab(profile: profile, canUnlock: canAct && !isOwn),
+                    _PremiumTab(
+                      profile: profile,
+                      canUnlock: canAct && !isOwn,
+                      isMember: state.isMember,
+                    ),
                 ],
               )
             : posts,
@@ -844,7 +851,10 @@ class _ProfileSummary extends StatelessWidget {
                   !isOwn &&
                   _membershipsAvailable) ...[
                 const SizedBox(height: AppSpacing.lg),
-                _VipCard(creatorName: profile.name),
+                _VipCard(
+                  creatorName: profile.name,
+                  creatorUsername: profile.username,
+                ),
               ],
             ],
           ),
@@ -1130,7 +1140,9 @@ class _ProfileActions extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Expanded(
             child: OutlinedButton(
-              onPressed: () => unawaited(context.push(AppRoutes.premium)),
+              onPressed: () => unawaited(
+                context.push(AppRoutes.premiumFor(profile.username)),
+              ),
               style: OutlinedButton.styleFrom(
                 minimumSize: _dense,
                 padding: _densePadding,
@@ -1169,9 +1181,12 @@ class _ButtonLabel extends StatelessWidget {
 }
 
 class _VipCard extends StatelessWidget {
-  const _VipCard({required this.creatorName});
+  const _VipCard({required this.creatorName, required this.creatorUsername});
 
   final String creatorName;
+
+  /// El dueño del pase: el muro que abre "Unirme" es el suyo.
+  final String creatorUsername;
 
   List<String> get _perks => [
     'Acceso a directos semanales privados & Q&A',
@@ -1197,7 +1212,7 @@ class _VipCard extends StatelessWidget {
             AppSpacing.md,
             AppSpacing.md,
           ),
-          child: _VipBody(perks: _perks),
+          child: _VipBody(perks: _perks, creatorUsername: creatorUsername),
         ),
       ),
       // Pegada sobre el borde, apenas torcida.
@@ -1219,9 +1234,10 @@ class _VipCard extends StatelessWidget {
 /// la [StickerCard], que lo invierte a tinta: leído desde afuera, el texto
 /// saldría claro sobre blanco.
 class _VipBody extends StatelessWidget {
-  const _VipBody({required this.perks});
+  const _VipBody({required this.perks, required this.creatorUsername});
 
   final List<String> perks;
+  final String creatorUsername;
 
   @override
   Widget build(BuildContext context) {
@@ -1262,7 +1278,8 @@ class _VipBody extends StatelessWidget {
           width: double.infinity,
           child: FilledButton.icon(
             key: const Key('profile-join-vip'),
-            onPressed: () => unawaited(context.push(AppRoutes.premium)),
+            onPressed: () =>
+                unawaited(context.push(AppRoutes.premiumFor(creatorUsername))),
             style: FilledButton.styleFrom(
               minimumSize: const Size(0, AppSizes.buttonHeightDense),
             ),
@@ -1281,11 +1298,14 @@ class _VipBody extends StatelessWidget {
 }
 
 class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  _TabsHeaderDelegate({required this.premium});
+  _TabsHeaderDelegate({required this.premium, required this.premiumUnlocked});
 
   /// Sin membresías reales, la pestaña Premium no existe (ver
   /// [_membershipsAvailable]).
   final bool premium;
+
+  /// Con la membresía activa la pestaña pierde el candado.
+  final bool premiumUnlocked;
 
   @override
   double get minExtent => kTextTabBarHeight;
@@ -1312,13 +1332,16 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
         // El candado dice que la pestaña existe y está cerrada. Esconderla
         // haría que el pase VIP prometa algo sin lugar donde verse.
         if (premium)
-          const Tab(
+          Tab(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Premium'),
-                SizedBox(width: 6),
-                NexoIcon(NexoGlyph.lock, size: 14),
+                const Text('Premium'),
+                const SizedBox(width: 6),
+                NexoIcon(
+                  premiumUnlocked ? NexoGlyph.crown : NexoGlyph.lock,
+                  size: 14,
+                ),
               ],
             ),
           ),
@@ -1328,7 +1351,8 @@ class _TabsHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _TabsHeaderDelegate oldDelegate) =>
-      oldDelegate.premium != premium;
+      oldDelegate.premium != premium ||
+      oldDelegate.premiumUnlocked != premiumUnlocked;
 }
 
 /// Las publicaciones de la cuenta, de `posts.byAuthor`. Antes era una grilla
@@ -1778,13 +1802,77 @@ class _LiveTile extends StatelessWidget {
 }
 
 class _PremiumTab extends StatelessWidget {
-  const _PremiumTab({required this.profile, required this.canUnlock});
+  const _PremiumTab({
+    required this.profile,
+    required this.canUnlock,
+    required this.isMember,
+  });
 
   final PublicProfile profile;
   final bool canUnlock;
 
+  /// Con la membresía activa la pestaña se abre: seguir mostrando el candado
+  /// a quien ya pagó se lee como que el pago no anduvo.
+  final bool isMember;
+
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) =>
+      isMember ? _memberView(context) : _lockedView(context);
+
+  Widget _memberView(BuildContext context) => ListView(
+    key: const PageStorageKey('profile-premium'),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.md,
+      AppSpacing.md,
+      AppSpacing.md,
+      96,
+    ),
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Column(
+          children: [
+            const MascotIllustration(NexoMascot.crown, size: 128),
+            const SizedBox(height: AppSpacing.sm),
+            StatusBadge(
+              key: const Key('profile-premium-unlocked'),
+              label: 'Desbloqueado',
+              color: AppColors.tertiary,
+              foreground: AppColors.ink,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Eres miembro de ${profile.name}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 340),
+              child: Text(
+                'Lo que publique sólo para miembros aparece acá apenas lo '
+                'comparta.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton.icon(
+              onPressed: () => unawaited(
+                context.push(AppRoutes.premiumFor(profile.username)),
+              ),
+              icon: const NexoIcon(NexoGlyph.crown, size: 18),
+              label: const Text('Ver mi membresía'),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _lockedView(BuildContext context) => ListView(
     key: const PageStorageKey('profile-premium'),
     padding: const EdgeInsets.fromLTRB(
       AppSpacing.md,
@@ -1821,7 +1909,9 @@ class _PremiumTab extends StatelessWidget {
             if (canUnlock) ...[
               const SizedBox(height: AppSpacing.md),
               FilledButton.icon(
-                onPressed: () => unawaited(context.push(AppRoutes.premium)),
+                onPressed: () => unawaited(
+                  context.push(AppRoutes.premiumFor(profile.username)),
+                ),
                 icon: const NexoIcon(NexoGlyph.lock, filled: true, size: 18),
                 label: const Text('Desbloquear'),
               ),

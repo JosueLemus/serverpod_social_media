@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -49,10 +51,27 @@ class PostDetailState extends Equatable {
 /// Una publicación sola: la que se abre desde el feed, la grilla de un
 /// perfil, una notificación o un enlace compartido.
 class PostDetailCubit extends Cubit<PostDetailState> {
-  PostDetailCubit(this._posts, this.postId) : super(const PostDetailState());
+  PostDetailCubit(this._posts, this.postId) : super(const PostDetailState()) {
+    // Un like o un comentario desde otra pantalla (o desde el feed que quedó
+    // debajo, en escritorio) deja el contador de acá al día.
+    _changes = _posts.changes().listen((_) => _onChange());
+  }
 
   final PostRepository _posts;
   final String postId;
+  late final StreamSubscription<void> _changes;
+
+  /// Likes optimistas todavía sin respuesta.
+  var _inFlight = 0;
+
+  /// Llegó un cambio con un like en vuelo: se relee al terminar.
+  var _refreshPending = false;
+
+  @override
+  Future<void> close() async {
+    await _changes.cancel();
+    return super.close();
+  }
 
   Future<void> load() async {
     emit(state.copyWith(status: PostDetailStatus.loading));
@@ -63,14 +82,28 @@ class PostDetailCubit extends Cubit<PostDetailState> {
   /// comentarios, para que el contador quede al día.
   Future<void> refresh() => _fetch(silent: true);
 
+  /// Releer en medio de un like traería el dato de antes del segundo toque y
+  /// el corazón parpadearía: se espera a que termine.
+  void _onChange() {
+    if (state.status != PostDetailStatus.ready) return;
+    if (_inFlight > 0) {
+      _refreshPending = true;
+      return;
+    }
+    unawaited(refresh());
+  }
+
   Future<void> _fetch({required bool silent}) async {
     try {
       final post = await _posts.get(postId);
-      if (!isClosed) {
-        emit(state.copyWith(status: PostDetailStatus.ready, post: post));
-      }
+      // Borrada desde acá mientras se releía: la View ya la está cerrando.
+      if (isClosed || state.status == PostDetailStatus.deleted) return;
+      emit(
+        state.copyWith(status: PostDetailStatus.ready, post: _keepLocal(post)),
+      );
     } on NotFoundFailure {
-      if (!isClosed) emit(state.copyWith(status: PostDetailStatus.notFound));
+      if (isClosed || state.status == PostDetailStatus.deleted) return;
+      emit(state.copyWith(status: PostDetailStatus.notFound));
     } on Failure {
       // Un refresco que falla no tapa lo que ya se ve.
       if (isClosed || (silent && state.post != null)) return;
@@ -92,6 +125,7 @@ class PostDetailCubit extends Cubit<PostDetailState> {
         ),
       ),
     );
+    _inFlight++;
     try {
       final result = await _posts.setLiked(post.id, liked: liked);
       final latest = state.post;
@@ -106,7 +140,22 @@ class PostDetailCubit extends Cubit<PostDetailState> {
       if (isClosed) return;
       emit(state.copyWith(post: post));
       _notify(PostDetailNotice.likeFailed);
+    } finally {
+      _inFlight--;
+      if (_inFlight == 0 && _refreshPending && !isClosed) {
+        _refreshPending = false;
+        unawaited(refresh());
+      }
     }
+  }
+
+  /// Lo local no viaja al servidor: una publicación releída o editada vuelve
+  /// sin "guardado" y sin saber que su autor se sigue. Se copia de la que ya
+  /// se mostraba.
+  Post _keepLocal(Post fresh) {
+    final shown = state.post;
+    if (shown == null || shown.id != fresh.id) return fresh;
+    return fresh.copyWith(isSaved: shown.isSaved, isFollowed: shown.isFollowed);
   }
 
   /// Guardar todavía no tiene backend: es local, como en el feed.
@@ -124,7 +173,7 @@ class PostDetailCubit extends Cubit<PostDetailState> {
     try {
       final updated = await _posts.update(postId, body: body);
       if (isClosed) return;
-      emit(state.copyWith(post: updated));
+      emit(state.copyWith(post: _keepLocal(updated)));
       _notify(PostDetailNotice.edited);
     } on Failure catch (failure) {
       _notify(_noticeFor(failure));

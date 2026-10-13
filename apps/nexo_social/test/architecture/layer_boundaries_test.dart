@@ -91,11 +91,18 @@ void main() {
         final offenders = <String>[];
         for (final file in files.where((file) => file.isPresentation)) {
           if (allowed.containsKey(file.path)) continue;
-          for (final line in file.lines) {
+          for (var index = 0; index < file.lines.length; index++) {
+            final line = file.lines[index];
             final usesLocator = line.contains('sl<') || line.contains('sl()');
             if (!usesLocator) continue;
             // The common, sanctioned shape: `create: (_) => sl<X>()`.
             if (line.contains('create:') || line.contains('=> sl')) continue;
+            // The same shape after the formatter wraps it:
+            // `create: (_) =>` and the constructor on the next line.
+            final previous = index > 0 ? file.lines[index - 1].trim() : '';
+            if (previous.startsWith('create:') && previous.endsWith('=>')) {
+              continue;
+            }
             offenders.add('${file.path}: ${line.trim()}');
           }
         }

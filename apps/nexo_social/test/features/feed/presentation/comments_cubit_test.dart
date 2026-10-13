@@ -39,15 +39,24 @@ void main() {
     expect(repository.threads, isEmpty);
   });
 
-  /// `forbidden` al comentar es un post con los comentarios cerrados: se
-  /// dice eso, no un error genérico.
-  test('a closed thread says so, and the text is kept', () async {
+  /// `forbidden` al comentar puede ser un post cerrado o una sesión que el
+  /// servidor no reconoce: llegan con el mismo tipo, así que el aviso no
+  /// afirma que el post esté cerrado. Regresión: un visitante leía "no
+  /// acepta comentarios" en un post abierto.
+  test('a forbidden comment does not claim the post is closed', () async {
     repository.failNext = const ForbiddenFailure('comments off');
 
     final sent = await cubit.send('Hola');
 
     expect(sent, isFalse);
-    expect(cubit.state.notice, CommentsNotice.closed);
+    expect(cubit.state.notice, CommentsNotice.cannotComment);
+  });
+
+  test('a muted account is told its account cannot', () async {
+    repository.failNext = const MutedFailure('muted');
+
+    expect(await cubit.send('Hola'), isFalse);
+    expect(cubit.state.notice, CommentsNotice.forbidden);
   });
 
   test('deleting removes it; reporting sends the typed reason', () async {

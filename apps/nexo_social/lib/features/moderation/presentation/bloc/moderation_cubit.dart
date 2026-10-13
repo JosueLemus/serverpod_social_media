@@ -15,32 +15,56 @@ class ModerationState extends Equatable {
     this.reports = const [],
     this.actions = const [],
     this.isLoading = true,
-    this.issue,
+    this.isWorking = false,
+    this.loadIssue,
+    this.actionIssue,
   });
 
   final List<ModerationReport> reports;
   final List<ModerationAction> actions;
   final bool isLoading;
 
-  /// Si la cola no se pudo leer (sin permiso, por ejemplo) o la última acción
-  /// se rechazó. Un estado propio: sin él, un rechazo del servidor se ve
-  /// igual que una cola vacía.
-  final ModerationIssue? issue;
+  /// Una acción en curso. Deshabilita los botones de la cola: un doble tap
+  /// sobre "Expulsar" no puede ser dos sanciones.
+  final bool isWorking;
+
+  /// Por qué no se pudo leer la cola. Un estado propio: sin él, un rechazo
+  /// del servidor se ve igual que una cola vacía.
+  final ModerationIssue? loadIssue;
+
+  /// Por qué se rechazó la última acción. Aparte de [loadIssue] porque dicen
+  /// cosas distintas: "no pudimos leer" pide reintentar la lectura; "no
+  /// pudimos aplicar" deja la cola como estaba.
+  final ModerationIssue? actionIssue;
+
+  /// La cola no se pudo leer y no hay nada anterior que mostrar.
+  bool get failedToLoad => loadIssue != null && reports.isEmpty;
 
   ModerationState copyWith({
     List<ModerationReport>? reports,
     List<ModerationAction>? actions,
     bool? isLoading,
-    ModerationIssue? Function()? issue,
+    bool? isWorking,
+    ModerationIssue? Function()? loadIssue,
+    ModerationIssue? Function()? actionIssue,
   }) => ModerationState(
     reports: reports ?? this.reports,
     actions: actions ?? this.actions,
     isLoading: isLoading ?? this.isLoading,
-    issue: issue == null ? this.issue : issue(),
+    isWorking: isWorking ?? this.isWorking,
+    loadIssue: loadIssue == null ? this.loadIssue : loadIssue(),
+    actionIssue: actionIssue == null ? this.actionIssue : actionIssue(),
   );
 
   @override
-  List<Object?> get props => [reports, actions, isLoading, issue];
+  List<Object?> get props => [
+    reports,
+    actions,
+    isLoading,
+    isWorking,
+    loadIssue,
+    actionIssue,
+  ];
 }
 
 class ModerationCubit extends Cubit<ModerationState> {
@@ -67,12 +91,16 @@ class ModerationCubit extends Cubit<ModerationState> {
           reports: reports,
           actions: actions,
           isLoading: false,
-          issue: () => null,
+          loadIssue: () => null,
         ),
       );
     } on Failure catch (failure) {
       if (isClosed) return;
-      emit(ModerationState(isLoading: false, issue: _issueFor(failure)));
+      // Lo que ya se mostraba se queda: una relectura fallida (desde otra
+      // pestaña, un tirón para refrescar) no vacía la cola en pantalla.
+      emit(
+        state.copyWith(isLoading: false, loadIssue: () => _issueFor(failure)),
+      );
     }
   }
 
@@ -99,11 +127,18 @@ class ModerationCubit extends Cubit<ModerationState> {
       _act(() => _repository.dismiss(report.id));
 
   Future<void> _act(Future<void> Function() action) async {
+    if (state.isWorking) return;
+    emit(state.copyWith(isWorking: true, actionIssue: () => null));
     try {
       await action();
       await _read();
+      if (isClosed) return;
+      emit(state.copyWith(isWorking: false));
     } on Failure catch (failure) {
-      emit(state.copyWith(issue: () => _issueFor(failure)));
+      if (isClosed) return;
+      emit(
+        state.copyWith(isWorking: false, actionIssue: () => _issueFor(failure)),
+      );
     }
   }
 
