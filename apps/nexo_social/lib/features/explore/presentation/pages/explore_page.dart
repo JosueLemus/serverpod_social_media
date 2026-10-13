@@ -6,13 +6,16 @@ import '../../../../app/theme/app_tokens.dart';
 import '../../../../core/animations/app_motion.dart';
 import '../../../../core/layout/nexo_page.dart';
 import '../../../../core/widgets/app_state_views.dart';
+import '../../../../core/widgets/nexo_icon.dart';
 import '../../../../core/widgets/nexo_mascot.dart';
 import '../../../../core/widgets/search_field.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../live/domain/entities/live_session.dart';
 import '../../../live/presentation/widgets/live_card.dart';
 import '../bloc/explore_cubit.dart';
+import '../bloc/search_cubit.dart';
 import '../widgets/discovery_sections.dart';
+import '../widgets/search_results_view.dart';
 import '../../../live/presentation/utils/live_navigation.dart';
 
 /// Descubrimiento: vivos, temas y creadores.
@@ -25,43 +28,115 @@ class ExplorePage extends StatelessWidget {
   const ExplorePage({super.key});
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) => ExploreCubit(sl(), sl())..load(),
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(create: (_) => ExploreCubit(sl(), sl())..load()),
+      BlocProvider(create: (_) => SearchCubit(sl(), sl())),
+    ],
     child: const _ExploreView(),
   );
 }
 
-class _ExploreView extends StatelessWidget {
+class _ExploreView extends StatefulWidget {
   const _ExploreView();
 
   @override
-  Widget build(BuildContext context) => BlocBuilder<ExploreCubit, ExploreState>(
-    builder: (context, state) {
-      final cubit = context.read<ExploreCubit>();
-      return NexoPage(
-        section: 'Explorar',
-        onRefresh: cubit.load,
-        children: [
-          const SearchField(hint: 'Buscar creadores, temas o transmisiones…'),
-          if (state.isLoading)
-            const _ExploreSkeleton()
-          else if (state.hasFailed)
-            AppErrorView(onRetry: cubit.load)
-          else ...[
-            ..._liveSections(context, state),
-            TrendingTopicsSection(
-              topics: state.topics,
-              onToggle: cubit.toggleTopic,
-            ),
-            SuggestedCreatorsSection(
-              creators: state.creators,
-              onToggle: cubit.toggleCreator,
-            ),
-          ],
-        ],
-      );
-    },
+  State<_ExploreView> createState() => _ExploreViewState();
+}
+
+class _ExploreViewState extends State<_ExploreView> {
+  // La View es dueña del campo; el cubit, de la búsqueda. Tocar una etiqueta
+  // reemplaza el texto, y eso sólo se puede desde el controller.
+  final _query = TextEditingController();
+
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
+  void _search(String text) {
+    _query.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    context.read<SearchCubit>().changed(text);
+  }
+
+  void _clear() => _search('');
+
+  @override
+  Widget build(BuildContext context) => BlocListener<SearchCubit, SearchState>(
+    listenWhen: (previous, current) =>
+        current.notice != null && previous.noticeSerial != current.noticeSerial,
+    listener: (context, state) => ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'No pudimos actualizar a quién sigues. Inténtalo de nuevo.',
+        ),
+      ),
+    ),
+    child: BlocBuilder<SearchCubit, SearchState>(
+      builder: (context, search) =>
+          search.isSearching ? _results(context, search) : _explore(context),
+    ),
   );
+
+  Widget _searchField(BuildContext context) => SearchField(
+    key: const Key('explore-search'),
+    hint: 'Buscar creadores, temas o transmisiones…',
+    controller: _query,
+    onChanged: context.read<SearchCubit>().changed,
+    trailing: ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _query,
+      builder: (context, value, _) => value.text.isEmpty
+          ? const SizedBox.shrink()
+          : IconButton(
+              key: const Key('explore-search-clear'),
+              tooltip: 'Borrar búsqueda',
+              onPressed: _clear,
+              icon: const NexoIcon(NexoGlyph.close, size: 18),
+            ),
+    ),
+  );
+
+  Widget _results(BuildContext context, SearchState search) => NexoPage(
+    section: 'Explorar',
+    onRefresh: context.read<SearchCubit>().retry,
+    children: [
+      _searchField(context),
+      SearchResultsView(state: search, onTag: _search, onClear: _clear),
+    ],
+  );
+
+  Widget _explore(BuildContext context) =>
+      BlocBuilder<ExploreCubit, ExploreState>(
+        builder: (context, state) {
+          final cubit = context.read<ExploreCubit>();
+          return NexoPage(
+            section: 'Explorar',
+            onRefresh: cubit.load,
+            children: [
+              _searchField(context),
+              if (state.isLoading)
+                const _ExploreSkeleton()
+              else if (state.hasFailed)
+                AppErrorView(onRetry: cubit.load)
+              else ...[
+                ..._liveSections(context, state),
+                TrendingTopicsSection(
+                  topics: state.topics,
+                  onToggle: cubit.toggleTopic,
+                ),
+                SuggestedCreatorsSection(
+                  creators: state.creators,
+                  onToggle: cubit.toggleCreator,
+                ),
+              ],
+            ],
+          );
+        },
+      );
 
   /// Agrupados por lo que el usuario puede hacer con cada uno: entrar ahora,
   /// que le avisen, o ver el replay. Una lista plana hace imposible encontrar

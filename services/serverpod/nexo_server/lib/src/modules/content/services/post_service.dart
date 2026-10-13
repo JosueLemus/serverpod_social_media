@@ -117,6 +117,77 @@ class PostService {
     );
   }
 
+  /// Los posts que la sesión puede ver cuyo cuerpo o alguna etiqueta
+  /// coincide con [pattern], un patrón de `ILIKE` ya escapado
+  /// (`SearchRules.containsPattern`). Del más nuevo al más viejo, con la
+  /// misma visibilidad que cualquier lectura.
+  Future<List<PostView>> search(
+    Session session,
+    String pattern, {
+    required int limit,
+  }) async {
+    final followees = await _followeesOf(session);
+    final tagged = await _idsWithTagLike(session, pattern);
+    final rows = await Post.db.find(
+      session,
+      where: (t) {
+        var matches = t.body.ilike(pattern);
+        if (tagged.isNotEmpty) matches = matches | t.id.inSet(tagged);
+        return _visibleWhere(t, session, followees) & matches;
+      },
+      orderByList: (t) => [t.createdAt.desc(), t.id.desc()],
+      limit: limit,
+      include: _withMedia,
+    );
+    return _toViews(session, rows);
+  }
+
+  /// Las etiquetas de posts públicos que coinciden con [pattern], de la más
+  /// usada a la menos. Sólo públicos: el nombre de una etiqueta también dice
+  /// algo de un post que no se puede ver.
+  Future<List<String>> tagsLike(
+    Session session,
+    String pattern, {
+    required int limit,
+  }) async {
+    // `tags` es una columna `json`: el ORM no la desarma, así que va en SQL,
+    // con todo lo que viene de afuera como parámetro.
+    final rows = await session.db.unsafeQuery(
+      'SELECT lower(tag) AS tag, count(*) AS uses '
+      'FROM post, json_array_elements_text(post.tags) AS tag '
+      'WHERE post."deletedAt" IS NULL AND post.visibility = @public '
+      r"AND lower(tag) LIKE @pattern ESCAPE '\' "
+      'GROUP BY lower(tag) ORDER BY uses DESC, tag ASC LIMIT @limit',
+      parameters: QueryParameters.named({
+        'public': PostVisibility.public.name,
+        'pattern': pattern,
+        'limit': limit,
+      }),
+    );
+    return [for (final row in rows) row[0] as String];
+  }
+
+  /// Los ids de posts con alguna etiqueta que coincide con [pattern]. La
+  /// visibilidad la aplica quien los usa.
+  Future<Set<int>> _idsWithTagLike(Session session, String pattern) async {
+    final rows = await session.db.unsafeQuery(
+      'SELECT DISTINCT post.id '
+      'FROM post, json_array_elements_text(post.tags) AS tag '
+      'WHERE post."deletedAt" IS NULL '
+      r"AND lower(tag) LIKE @pattern ESCAPE '\' "
+      'LIMIT @cap',
+      parameters: QueryParameters.named({
+        'pattern': pattern,
+        'cap': _searchTagCandidates,
+      }),
+    );
+    return {for (final row in rows) row[0] as int};
+  }
+
+  /// Tope de candidatos por etiqueta: la búsqueda muestra una página, no
+  /// recorre la tabla entera.
+  static const _searchTagCandidates = 500;
+
   /// Las etiquetas de los posts que [userId] likeó en los últimos [days]
   /// días, para `discover`.
   Future<Set<String>> likedTags(

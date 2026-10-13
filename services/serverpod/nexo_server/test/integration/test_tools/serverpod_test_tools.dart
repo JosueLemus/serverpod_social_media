@@ -66,6 +66,8 @@ import 'package:nexo_server/src/generated/modules/notifications/models/notificat
     as _ipub6cbi;
 import 'package:nexo_server/src/generated/modules/notifications/models/notification_view.dart'
     as _inq3pu5l;
+import 'package:nexo_server/src/generated/modules/search/models/search_results.dart'
+    as _ie52x6b0;
 import 'package:nexo_server/src/generated/modules/social/models/follow_page.dart'
     as _idfdyb7z;
 import 'package:nexo_server/src/generated/modules/social/models/follow_state.dart'
@@ -235,6 +237,8 @@ class TestEndpoints {
 
   late final _NotificationsEndpoint notifications;
 
+  late final _SearchEndpoint search;
+
   late final _CommentsEndpoint comments;
 
   late final _FollowsEndpoint follows;
@@ -280,6 +284,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     notifications = _NotificationsEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    search = _SearchEndpoint(
       endpoints,
       serializationManager,
     );
@@ -1906,6 +1914,52 @@ class _NotificationsEndpoint {
       _localTestStreamManager.outputStreamController,
     );
     return _localTestStreamManager.outputStreamController.stream;
+  }
+}
+
+class _SearchEndpoint {
+  _SearchEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ie52x6b0.SearchResults> query(
+    _ist.TestSessionBuilder sessionBuilder,
+    String text, {
+    int? limit,
+  }) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'search',
+            method: 'query',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'search',
+          methodName: 'query',
+          parameters: _ist.testObjectToJson({
+            'text': text,
+            'limit': limit,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ie52x6b0.SearchResults>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
   }
 }
 

@@ -73,6 +73,9 @@ import '../../features/notifications/data/repositories/serverpod_notification_re
 import '../../features/notifications/domain/repositories/notification_repository.dart';
 import '../../features/notifications/presentation/bloc/activity_cubit.dart';
 import '../../features/notifications/presentation/bloc/unread_activity_cubit.dart';
+import '../../features/explore/data/repositories/mock_search_repository.dart';
+import '../../features/explore/data/repositories/serverpod_search_repository.dart';
+import '../../features/explore/domain/repositories/search_repository.dart';
 
 final sl = GetIt.instance;
 
@@ -224,6 +227,12 @@ Future<void> configureDependencies({
   );
   sl.registerLazySingleton(() => ScheduleShow(sl()));
   sl.registerFactory(() => ScheduleShowCubit(sl(), sl()));
+  // El buscador de Explorar: con cuentas reales, `client.search`.
+  sl.registerLazySingleton<SearchRepository>(
+    () => resolvedAuthSource == AuthSourceMode.mock
+        ? MockSearchRepository(sl(), sl())
+        : ServerpodSearchRepository(sl<serverpod.Client>()),
+  );
   sl.registerLazySingleton<DiscoveryRepository>(
     () => resolvedAuthSource == AuthSourceMode.mock
         ? MockDiscoveryRepository()
