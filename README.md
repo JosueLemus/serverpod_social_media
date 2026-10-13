@@ -5,10 +5,33 @@ videos, vivos con chat en tiempo real y una moderación que el servidor aplica
 y deja auditada. Flutter en el cliente, **Serverpod** de punta a punta en el
 servidor.
 
-## Probarlo en un comando
+## Probarlo ya, sin instalar nada
+
+Nexo está desplegado en AWS. Cada push a `main` se despliega solo.
+
+| | |
+|---|---|
+| **App web** | **https://52-45-123-215.sslip.io/** |
+| **API (Serverpod)** | https://api.52-45-123-215.sslip.io/ |
+| **App Android** | APK de release (pedila al equipo). Apunta a la misma API |
+| **Video de la demo** | _(link pendiente)_ |
+
+Entrá con **"Elegir cuenta de demo"** en la pantalla de bienvenida, o con
+cualquiera de las [cuentas de demo](#cuentas-de-demo) (contraseña
+`nexo-demo-2026`). Para ver el tiempo real, abrí dos sesiones con cuentas
+distintas, por ejemplo Elena en un teléfono y Tomás en la web: un vivo, un
+comentario, un mensaje directo o un seguimiento aparecen en el otro lado sin
+recargar.
+
+## Probarlo en un comando (local)
 
 Requisitos: **Flutter 3.47.5 o superior** y Chrome. No hace falta Docker: la
 base de datos es un PostgreSQL embebido que levanta Serverpod.
+
+> **Cloná el repo en una ruta sin espacios** (por ejemplo `~/dev/nexo`, no
+> `~/mis proyectos/nexo`). El PostgreSQL embebido de Serverpod no arranca si
+> su carpeta de datos queda en una ruta con espacios. `tool/demo.sh` lo
+> esquiva para la base de desarrollo, pero los tests del servidor no.
 
 ```bash
 git clone https://github.com/JosueLemus/serverpod_social_media.git
