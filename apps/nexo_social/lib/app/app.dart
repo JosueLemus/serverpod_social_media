@@ -36,7 +36,11 @@ class _NexoAppState extends State<NexoApp> {
     NexoThemes.activate(NexoThemes.byId(_theme.state.themeId));
     // El conteo de la campana sigue a la sesión desde que arranca la app, no
     // desde que alguien abre Actividad.
-    _router = createRouter(_auth, unread: sl<UnreadActivityCubit>());
+    _router = createRouter(
+      _auth,
+      unread: sl<UnreadActivityCubit>(),
+      unreadMessages: sl<UnreadMessagesCubit>(),
+    );
     // Not awaited: the redirect keeps the user on the splash while the state
     // is AuthLoading and moves them on by itself once the session resolves.
     _auth.restore();

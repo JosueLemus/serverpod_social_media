@@ -64,27 +64,36 @@ abstract final class ShellDestinations {
       label: 'Explorar',
       glyph: NexoGlyph.explore,
     ),
+    // Al lado del +: con el compositor en el medio, la barra del teléfono
+    // queda Inicio · Explorar · + · Mensajes · Actividad · Perfil. Mensajes y
+    // Actividad son las dos bandejas, y van juntas a la derecha del +.
     ShellDestination(
       branch: 2,
+      path: AppRoutes.messages,
+      label: 'Mensajes',
+      glyph: NexoGlyph.comment,
+    ),
+    ShellDestination(
+      branch: 3,
       path: AppRoutes.activity,
       label: 'Actividad',
       glyph: NexoGlyph.activity,
     ),
     ShellDestination(
-      branch: 3,
+      branch: 4,
       path: AppRoutes.profile,
       label: 'Perfil',
       glyph: NexoGlyph.profile,
     ),
     ShellDestination(
-      branch: 4,
+      branch: 5,
       path: AppRoutes.studio,
       label: 'Studio',
       glyph: NexoGlyph.studio,
       desktopOnly: true,
     ),
     ShellDestination(
-      branch: 5,
+      branch: 6,
       path: AppRoutes.moderation,
       label: 'Moderación',
       glyph: NexoGlyph.moderation,
@@ -92,7 +101,7 @@ abstract final class ShellDestinations {
       access: ShellAccess.moderator,
     ),
     ShellDestination(
-      branch: 6,
+      branch: 7,
       path: AppRoutes.admin,
       label: 'Consola',
       glyph: NexoGlyph.console,
