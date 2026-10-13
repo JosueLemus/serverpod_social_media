@@ -118,6 +118,11 @@ class LiveChatLine extends StatelessWidget {
       author: comment.author,
       comment: comment.body,
       canModerate: cubit.state.canModerate,
+      // Ni el repositorio de vivos ni el de moderación silencian o bloquean
+      // a alguien desde un directo: sólo resuelven reportes de la consola.
+      // La hoja las muestra apagadas, "Próximamente", en vez de confirmar
+      // una sanción que nunca llegó al servidor.
+      sanctionsAvailable: false,
     );
     if (decision == null) return;
 
@@ -126,10 +131,13 @@ class LiveChatLine extends StatelessWidget {
         await cubit.hideComment(comment);
       case ModerationType.report:
         await cubit.reportComment(comment);
+      // No se ofrecen desde el directo (ver arriba). Si llegaran, no se
+      // confirma nada: un "Usuario silenciado" sin sanción real es peor que
+      // ningún aviso.
       case ModerationType.muteUser ||
           ModerationType.banUser ||
           ModerationType.dismissReport:
-        cubit.recordModeration('${decision.confirmation} (${comment.author})');
+        return;
     }
     // Si el servidor lo rechazó, el listener ya avisó por qué.
     if (cubit.state.issue != null && cubit.state.issueSerial != issueBefore) {
@@ -237,6 +245,7 @@ class LiveChatComposer extends StatelessWidget {
     this.fieldKey = const Key('live-comment-field'),
     this.sendKey = const Key('live-send'),
     this.liftAboveKeyboard = true,
+    this.disabledNotice,
   });
 
   final TextEditingController controller;
@@ -244,6 +253,10 @@ class LiveChatComposer extends StatelessWidget {
   final List<Widget> trailing;
   final Key fieldKey;
   final Key sendKey;
+
+  /// No se puede comentar, y por qué. El campo no se dibuja: un campo que
+  /// acepta texto y después no lo envía se lee como un chat roto.
+  final String? disabledNotice;
 
   /// En la sala el Scaffold no se redimensiona con el teclado, así que el
   /// campo se sube solo. En el Studio la página sí se acomoda, y subirlo de
@@ -253,6 +266,7 @@ class LiveChatComposer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final notice = disabledNotice;
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpacing.sm,
@@ -264,53 +278,77 @@ class LiveChatComposer extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              height: AppSizes.searchHeight,
-              padding: const EdgeInsets.only(left: AppSpacing.md),
-              decoration: BoxDecoration(
-                color: _glass,
-                borderRadius: AppRadii.pill,
-                border: Border.all(color: _glassEdge),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: fieldKey,
-                      controller: controller,
-                      style: text.bodyMedium?.copyWith(
-                        color: AppColors.onMedia,
-                      ),
-                      cursorColor: AppColors.primary,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => onSend(),
-                      decoration: InputDecoration(
-                        hintText: 'Escribe un comentario',
-                        hintStyle: text.bodyMedium?.copyWith(
+            child: notice != null
+                ? LiveGlassPill(
+                    key: const Key('live-comments-off'),
+                    child: Row(
+                      children: [
+                        const NexoIcon(
+                          NexoGlyph.comment,
+                          size: 18,
                           color: AppColors.onMediaSecondary,
                         ),
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Expanded(
+                          child: Text(
+                            notice,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.bodySmall?.copyWith(
+                              color: AppColors.onMediaSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    height: AppSizes.searchHeight,
+                    padding: const EdgeInsets.only(left: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: _glass,
+                      borderRadius: AppRadii.pill,
+                      border: Border.all(color: _glassEdge),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            key: fieldKey,
+                            controller: controller,
+                            style: text.bodyMedium?.copyWith(
+                              color: AppColors.onMedia,
+                            ),
+                            cursorColor: AppColors.primary,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => onSend(),
+                            decoration: InputDecoration(
+                              hintText: 'Escribe un comentario',
+                              hintStyle: text.bodyMedium?.copyWith(
+                                color: AppColors.onMediaSecondary,
+                              ),
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          key: sendKey,
+                          tooltip: 'Enviar',
+                          onPressed: onSend,
+                          icon: const NexoIcon(
+                            NexoGlyph.send,
+                            size: 20,
+                            color: AppColors.onMedia,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  IconButton(
-                    key: sendKey,
-                    tooltip: 'Enviar',
-                    onPressed: onSend,
-                    icon: NexoIcon(
-                      NexoGlyph.send,
-                      size: 20,
-                      color: AppColors.onMedia,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
           for (final control in trailing) ...[
             const SizedBox(width: AppSpacing.xs),

@@ -18,6 +18,8 @@ class _FakeLiveRepository implements LiveRepository {
   final watched = <String>[];
   List<LiveSession> shows = const [];
   Object? postError;
+  Object? mineError;
+  final changed = StreamController<void>.broadcast();
 
   StreamController<LiveRoomEvent> get room => rooms.last;
 
@@ -30,7 +32,10 @@ class _FakeLiveRepository implements LiveRepository {
   }
 
   @override
-  Future<List<LiveSession>> mine() async => shows;
+  Future<List<LiveSession>> mine() async {
+    if (mineError != null) throw mineError!;
+    return shows;
+  }
 
   @override
   Future<LiveComment> postComment(String liveId, String body) async {
@@ -46,7 +51,7 @@ class _FakeLiveRepository implements LiveRepository {
       _session(id: id, status: status);
 
   @override
-  Stream<void> changes() => const Stream.empty();
+  Stream<void> changes() => changed.stream;
 
   @override
   Future<List<LiveSession>> list() async => shows;
@@ -252,7 +257,125 @@ void main() {
       await cubit.loadStudio();
 
       expect(cubit.state.notFound, isTrue);
+      expect(cubit.state.loadFailed, isFalse);
       expect(repository.watched, isEmpty);
     });
+
+    test('a server failure is an error, not an empty studio', () async {
+      repository.mineError = const NetworkFailure('down');
+
+      await cubit.loadStudio();
+
+      expect(cubit.state.loadFailed, isTrue);
+      expect(cubit.state.notFound, isFalse);
+      expect(cubit.state.isLoading, isFalse);
+
+      // Reintentar con el servidor de vuelta limpia el error.
+      repository.mineError = null;
+      await cubit.loadStudio();
+      expect(cubit.state.loadFailed, isFalse);
+      expect(cubit.state.notFound, isTrue);
+    });
+
+    test('a show scheduled while the studio is empty shows up', () async {
+      await cubit.loadStudio();
+      expect(cubit.state.notFound, isTrue);
+
+      repository.shows = [_session(id: 'nuevo', status: LiveStatus.scheduled)];
+      repository.changed.add(null);
+      await settle();
+      await settle();
+
+      expect(repository.watched, ['nuevo']);
+    });
+
+    test('opens the requested show, not the next one', () async {
+      repository.shows = [
+        _session(
+          id: 'mañana',
+          status: LiveStatus.scheduled,
+          scheduledAt: now.add(const Duration(days: 1)),
+        ),
+        _session(
+          id: 'viernes',
+          status: LiveStatus.scheduled,
+          scheduledAt: now.add(const Duration(days: 4)),
+        ),
+      ];
+
+      unawaited(cubit.loadStudio(requested: 'viernes'));
+      await settle();
+      await settle();
+
+      expect(repository.watched, ['viernes']);
+    });
+  });
+
+  group('visibility', () {
+    test(
+      'paused, the room stops listening; resumed, it listens again',
+      () async {
+        await open();
+
+        cubit.pause();
+        await settle();
+        expect(repository.room.hasListener, isFalse);
+        // Pausada no reintenta: no hay nadie mirando.
+        await settle();
+        expect(repository.rooms, hasLength(1));
+
+        cubit.resume();
+        await settle();
+        expect(repository.rooms, hasLength(2));
+        expect(repository.room.hasListener, isTrue);
+      },
+    );
+
+    test('handed off to the studio, the room never listens again', () async {
+      await open();
+
+      cubit.handOffToStudio();
+      cubit.resume();
+      await settle();
+
+      expect(cubit.state.handedOff, isTrue);
+      expect(repository.rooms, hasLength(1));
+      expect(repository.room.hasListener, isFalse);
+    });
+  });
+
+  test('a dropped room before the first snapshot is not notFound', () async {
+    final loading = cubit.load('12');
+    await settle();
+    repository.room.addError(const NetworkFailure('socket closed'));
+    await loading;
+
+    expect(cubit.state.session, isNull);
+    expect(cubit.state.notFound, isFalse);
+    expect(cubit.state.reconnecting, isTrue);
+  });
+
+  test('a rejected comment reports false so the field keeps it', () async {
+    await open();
+    repository.postError = const MutedFailure('muted');
+
+    expect(await cubit.sendComment('hola'), isFalse);
+    repository.postError = null;
+    expect(await cubit.sendComment('hola'), isTrue);
+  });
+
+  test('with questions off the audience cannot comment', () async {
+    await open(
+      session: const LiveSession(
+        id: '12',
+        title: 'Masterclass',
+        hostName: 'Elena Vega',
+        status: LiveStatus.live,
+        allowQuestions: false,
+      ),
+    );
+
+    expect(cubit.state.canComment, isFalse);
+    expect(await cubit.sendComment('hola'), isFalse);
   });
 }
