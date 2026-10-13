@@ -40,10 +40,30 @@ class ConflictFailure extends Failure {
   const ConflictFailure(super.message);
 }
 
+/// Qué sanción dejó a la cuenta fuera. Vive acá y no en el dominio de auth:
+/// `core/` no importa features.
+enum AccountSanction { suspended, banned }
+
 /// `NexoErrorCode.accountSuspended`: la sesión ya no vale. El cliente la
 /// cierra y muestra la pantalla de cuenta suspendida.
+///
+/// [sanction] es null cuando quien lanzó no sabe cuál fue (el servidor manda
+/// el mismo código para las dos). Asumir "suspendida" le prometía a una
+/// cuenta dada de baja que la sanción iba a terminar.
 class AccountSuspendedFailure extends Failure {
-  const AccountSuspendedFailure(super.message);
+  const AccountSuspendedFailure(
+    super.message, {
+    this.sanction,
+    this.accountId,
+  });
+
+  final AccountSanction? sanction;
+
+  /// La cuenta sancionada, si se conoce: con ella se busca el motivo.
+  final String? accountId;
+
+  @override
+  List<Object?> get props => [message, sanction, accountId];
 }
 
 /// Public, typed reasons for an authentication form failure. The server's

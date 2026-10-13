@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -655,106 +657,187 @@ class _SocialButton extends StatelessWidget {
 }
 
 void _showSignInSheet(BuildContext context) {
-  // Captured while the context is alive. The sheet outlives the widget that
-  // opened it, so reading the cubit inside the callback can hit a deactivated
-  // element.
-  final auth = context.read<AuthCubit>();
-  final email = TextEditingController();
-  final password = TextEditingController();
-  showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (sheetContext) => BlocListener<AuthCubit, AuthState>(
-      listener: (context, state) {
-        if (state is AuthAuthenticated && Navigator.canPop(sheetContext)) {
-          Navigator.pop(sheetContext);
-        }
-      },
-      child: BlocBuilder<AuthCubit, AuthState>(
-        builder: (context, state) {
-          final form = state is AuthUnauthenticated ? state : null;
-          final busy = form?.isBusy ?? false;
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              0,
-              AppSpacing.lg,
-              MediaQuery.viewInsetsOf(sheetContext).bottom + AppSpacing.lg,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Iniciar sesión',
-                  style: Theme.of(sheetContext).textTheme.titleLarge,
-                ),
-                if (Environment.authSourceMode == AuthSourceMode.mock) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Modo demo: un correo desconocido entra como Elena. Para otro '
-                    'rol usa ${DemoAccounts.operator.email} o '
-                    '${DemoAccounts.moderator.email}.',
-                    key: const Key('sign-in-demo-hint'),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(sheetContext).textTheme.bodySmall,
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                TextField(
-                  key: const Key('sheet-email'),
-                  controller: email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                TextField(
-                  controller: password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Contraseña'),
-                ),
-                const SizedBox(height: AppSpacing.md),
-                if (form?.failure != null) ...[
-                  _AuthError(reason: form!.failure!),
-                  const SizedBox(height: AppSpacing.sm),
-                ],
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(AppSizes.buttonHeight),
-                  ),
-                  onPressed: busy
-                      ? null
-                      : () => auth.signIn(email.text, password.text),
-                  child: busy
-                      ? const SizedBox.square(
-                          dimension: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Continuar'),
-                ),
-                // La única entrada al reset. Estaba en una variante de
-                // `AuthForm` que ninguna ruta construye, así que el flujo
-                // existía, conectado al servidor, y nadie podía llegar a él.
-                TextButton(
-                  key: const Key('sheet-forgot-password'),
-                  onPressed: busy
-                      ? null
-                      : () {
-                          Navigator.pop(sheetContext);
-                          context.go(AppRoutes.passwordReset);
-                        },
-                  child: const Text('Olvidé mi contraseña'),
-                ),
-              ],
-            ),
-          );
-        },
+  // El estado del formulario es uno para todas las pantallas de acceso: sin
+  // limpiarlo, la hoja abría con el error o el paso de otra.
+  context.read<AuthCubit>().resetForm();
+  unawaited(
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _SignInSheet(
+        onForgotPassword: () => context.go(AppRoutes.passwordReset),
       ),
     ),
-  ).whenComplete(() {
-    email.dispose();
-    password.dispose();
+  );
+}
+
+/// La hoja de inicio de sesión. `StatefulWidget` porque es dueña de sus
+/// controllers: creados en la función que abre la hoja, se liberaban en
+/// `whenComplete` mientras la hoja todavía animaba su salida con ellos.
+class _SignInSheet extends StatefulWidget {
+  const _SignInSheet({required this.onForgotPassword});
+
+  /// Navega desde el contexto que abrió la hoja, que sigue vivo cuando ésta
+  /// ya se cerró.
+  final VoidCallback onForgotPassword;
+
+  @override
+  State<_SignInSheet> createState() => _SignInSheetState();
+}
+
+class _SignInSheetState extends State<_SignInSheet> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  AuthInputIssue? _inputIssue;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final issue = AuthInput.check(
+      email: _email.text,
+      password: _password.text,
+    );
+    setState(() => _inputIssue = issue);
+    if (issue != null) return;
+    unawaited(context.read<AuthCubit>().signIn(_email.text, _password.text));
+  }
+
+  @override
+  Widget build(BuildContext context) => BlocListener<AuthCubit, AuthState>(
+    listener: (context, state) {
+      if (state is AuthAuthenticated && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    },
+    child: BlocBuilder<AuthCubit, AuthState>(
+      builder: (context, state) {
+        final form = state is AuthUnauthenticated ? state : null;
+        final busy = form?.isBusy ?? false;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            0,
+            AppSpacing.lg,
+            MediaQuery.viewInsetsOf(context).bottom + AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Iniciar sesión',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              if (Environment.authSourceMode == AuthSourceMode.mock) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Modo demo: un correo desconocido entra como Elena. Para otro '
+                  'rol usa ${DemoAccounts.operator.email} o '
+                  '${DemoAccounts.moderator.email}.',
+                  key: const Key('sign-in-demo-hint'),
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                key: const Key('sheet-email'),
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              _PasswordField(
+                fieldKey: const Key('sheet-password'),
+                controller: _password,
+                label: 'Contraseña',
+              ),
+              const SizedBox(height: AppSpacing.md),
+              if (_inputIssue != null) ...[
+                _AuthError(input: _inputIssue),
+                const SizedBox(height: AppSpacing.sm),
+              ] else if (form?.failure != null) ...[
+                _AuthError(reason: form!.failure),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+              FilledButton(
+                key: const Key('sheet-submit'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(AppSizes.buttonHeight),
+                ),
+                onPressed: busy ? null : _submit,
+                child: busy
+                    ? const SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Continuar'),
+              ),
+              // La única entrada al reset. Estaba en una variante de
+              // `AuthForm` que ninguna ruta construye, así que el flujo
+              // existía, conectado al servidor, y nadie podía llegar a él.
+              TextButton(
+                key: const Key('sheet-forgot-password'),
+                onPressed: busy
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                        widget.onForgotPassword();
+                      },
+                child: const Text('Olvidé mi contraseña'),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Un campo de contraseña con el ojo para mostrarla. Escribir a ciegas una
+/// contraseña nueva, dos veces, es la forma de crear una que no se recuerda.
+class _PasswordField extends StatefulWidget {
+  const _PasswordField({
+    required this.fieldKey,
+    required this.controller,
+    required this.label,
   });
+
+  final Key fieldKey;
+  final TextEditingController controller;
+  final String label;
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  var _obscured = true;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    key: widget.fieldKey,
+    controller: widget.controller,
+    obscureText: _obscured,
+    decoration: InputDecoration(
+      labelText: widget.label,
+      // Sin glifo propio para el ojo: va el de Material.
+      suffixIcon: IconButton(
+        key: ValueKey('${widget.fieldKey}-toggle'),
+        tooltip: _obscured ? 'Mostrar contraseña' : 'Ocultar contraseña',
+        onPressed: () => setState(() => _obscured = !_obscured),
+        icon: Icon(
+          _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    ),
+  );
 }
 
 class AuthForm extends StatefulWidget {
@@ -770,6 +853,7 @@ class AuthForm extends StatefulWidget {
 class _AuthFormState extends State<AuthForm> {
   final email = TextEditingController();
   final password = TextEditingController();
+  final passwordConfirmation = TextEditingController();
   final verificationCode = TextEditingController();
   bool _resetComplete = false;
 
@@ -777,17 +861,60 @@ class _AuthFormState extends State<AuthForm> {
   /// botón que no da señal se toca dos veces y manda dos correos.
   bool _resent = false;
 
+  /// Lo que el formulario rechazó antes de llamar al servidor.
+  AuthInputIssue? _inputIssue;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cada pantalla de acceso arranca de cero: el error o el paso que quedó
+    // de otra no son de ésta.
+    context.read<AuthCubit>().resetForm();
+  }
+
   @override
   void dispose() {
     email.dispose();
     password.dispose();
+    passwordConfirmation.dispose();
     verificationCode.dispose();
     super.dispose();
   }
 
+  /// La regla de cada paso: qué campos pide y cuáles se confirman.
+  AuthInputIssue? _check(AuthOperation operation) {
+    final awaitingCode =
+        operation == AuthOperation.awaitingRegistrationCode ||
+        operation == AuthOperation.awaitingResetCode;
+    if (widget.resetPassword) {
+      return AuthInput.check(
+        email: email.text,
+        code: awaitingCode ? verificationCode.text : null,
+        password: awaitingCode ? password.text : null,
+        confirmation: awaitingCode ? passwordConfirmation.text : null,
+      );
+    }
+    if (widget.signUp) {
+      // La contraseña viaja recién con el código: pedir el código no la
+      // necesita, así que se valida en ese paso.
+      return AuthInput.check(
+        email: email.text,
+        code: awaitingCode ? verificationCode.text : null,
+        password: awaitingCode ? password.text : null,
+        confirmation: awaitingCode ? passwordConfirmation.text : null,
+      );
+    }
+    return AuthInput.check(email: email.text, password: password.text);
+  }
+
   Future<void> _submit(AuthOperation operation) async {
     final auth = context.read<AuthCubit>();
-    setState(() => _resent = false);
+    final issue = _check(operation);
+    setState(() {
+      _resent = false;
+      _inputIssue = issue;
+    });
+    if (issue != null) return;
     if (widget.resetPassword) {
       if (operation == AuthOperation.awaitingResetCode) {
         await auth.finishPasswordReset(
@@ -819,6 +946,7 @@ class _AuthFormState extends State<AuthForm> {
   Future<void> _resend(bool isReset) async {
     final auth = context.read<AuthCubit>();
     verificationCode.clear();
+    setState(() => _inputIssue = null);
     await (isReset
         ? auth.startPasswordReset(email.text)
         : auth.startRegistration(email.text));
@@ -835,6 +963,10 @@ class _AuthFormState extends State<AuthForm> {
           operation == AuthOperation.awaitingResetCode;
       final busy = authState?.isBusy ?? false;
       final isReset = widget.resetPassword;
+      // En el reset la contraseña es la nueva, y sólo se pide junto con el
+      // código: en el primer paso era un campo que nadie leía.
+      final showPassword = !isReset || awaitingCode;
+      final confirmsPassword = widget.signUp || (isReset && awaitingCode);
       final title = isReset
           ? awaitingCode
                 ? 'Confirma el código.'
@@ -908,15 +1040,32 @@ class _AuthFormState extends State<AuthForm> {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                   ],
-                  TextField(
-                    key: const Key('auth-password'),
-                    controller: password,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Contraseña'),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (authState?.failure != null) ...[
-                    _AuthError(reason: authState!.failure!),
+                  if (showPassword) ...[
+                    _PasswordField(
+                      fieldKey: const Key('auth-password'),
+                      controller: password,
+                      label: isReset ? 'Nueva contraseña' : 'Contraseña',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  if (confirmsPassword) ...[
+                    _PasswordField(
+                      fieldKey: const Key('auth-password-confirm'),
+                      controller: passwordConfirmation,
+                      label: isReset
+                          ? 'Repite la nueva contraseña'
+                          : 'Repite la contraseña',
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
+                  const SizedBox(height: AppSpacing.xs),
+                  // Lo que rechazó el formulario va primero: es lo último
+                  // que la persona hizo, y el error del servidor es anterior.
+                  if (_inputIssue != null) ...[
+                    _AuthError(input: _inputIssue),
+                    const SizedBox(height: AppSpacing.sm),
+                  ] else if (authState?.failure != null) ...[
+                    _AuthError(reason: authState!.failure),
                     const SizedBox(height: AppSpacing.sm),
                   ],
                   if (_resetComplete) ...[
@@ -983,13 +1132,18 @@ class _AuthFormState extends State<AuthForm> {
   );
 }
 
+/// Un error del formulario: del servidor ([reason]) o de lo escrito
+/// ([input]). Uno de los dos.
 class _AuthError extends StatelessWidget {
-  const _AuthError({required this.reason});
+  const _AuthError({this.reason, this.input})
+    : assert((reason == null) != (input == null));
 
-  final AuthFailureReason reason;
+  final AuthFailureReason? reason;
+  final AuthInputIssue? input;
 
   @override
   Widget build(BuildContext context) => Container(
+    key: const Key('auth-error'),
     padding: const EdgeInsets.symmetric(
       horizontal: AppSpacing.md,
       vertical: AppSpacing.sm,
@@ -1001,7 +1155,16 @@ class _AuthError extends StatelessWidget {
     child: Text(_message, style: Theme.of(context).textTheme.bodyMedium),
   );
 
-  String get _message => switch (reason) {
+  String get _message => switch (input) {
+    AuthInputIssue.invalidEmail => 'Escribe un correo válido.',
+    AuthInputIssue.emptyPassword => 'Escribe tu contraseña.',
+    AuthInputIssue.passwordMismatch => 'Las contraseñas no coinciden.',
+    AuthInputIssue.invalidCode =>
+      'El código tiene 8 números. Revísalo en el correo.',
+    null => _serverMessage(reason!),
+  };
+
+  static String _serverMessage(AuthFailureReason reason) => switch (reason) {
     AuthFailureReason.invalidCredentials =>
       'El correo o la contraseña no son correctos.',
     AuthFailureReason.invalidCode =>

@@ -68,6 +68,61 @@ class _ConsoleView extends StatefulWidget {
 class _ConsoleViewState extends State<_ConsoleView> {
   var _section = AdminSection.reports;
 
+  /// Cuánto se espera a que la persona deje de tipear antes de leer.
+  static const _debounce = Duration(milliseconds: 300);
+
+  // Los buscadores son de esta pantalla y no de cada sección: una sección
+  // se desmonta al cambiar de chip, y con ella se iba lo escrito mientras el
+  // filtro seguía aplicado.
+  late final TextEditingController _accountQuery;
+  late final TextEditingController _auditActor;
+  Timer? _accountTimer;
+  Timer? _auditTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountQuery = TextEditingController(
+      text: context.read<AdminConsoleCubit>().state.query,
+    );
+    _auditActor = TextEditingController(
+      text: context.read<AuditLogCubit>().state.filter.actor ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _accountTimer?.cancel();
+    _auditTimer?.cancel();
+    _accountQuery.dispose();
+    _auditActor.dispose();
+    super.dispose();
+  }
+
+  void _searchAccounts(String query) {
+    _accountTimer?.cancel();
+    final cubit = context.read<AdminConsoleCubit>();
+    _accountTimer = Timer(_debounce, () => unawaited(cubit.search(query)));
+  }
+
+  void _filterActor(String actor) {
+    _auditTimer?.cancel();
+    final cubit = context.read<AuditLogCubit>();
+    _auditTimer = Timer(_debounce, () {
+      final filter = cubit.state.filter;
+      unawaited(
+        cubit.load(
+          AuditFilter(
+            actor: actor,
+            entity: filter.entity,
+            action: filter.action,
+            since: filter.since,
+          ),
+        ),
+      );
+    });
+  }
+
   void _select(AdminSection section) {
     setState(() => _section = section);
     // La auditoría no escucha en vivo (una tabla que se reordena mientras se
@@ -111,10 +166,17 @@ class _ConsoleViewState extends State<_ConsoleView> {
                 AdminSection.reports => const ReportQueueSection(
                   showAudit: false,
                 ),
-                AdminSection.accounts => _AccountsSection(state: state),
+                AdminSection.accounts => _AccountsSection(
+                  state: state,
+                  query: _accountQuery,
+                  onQueryChanged: _searchAccounts,
+                ),
                 AdminSection.creators => _CreatorsSection(state: state),
-                AdminSection.lives => _LivesSection(lives: state.lives),
-                AdminSection.audit => const _AuditSection(),
+                AdminSection.lives => _LivesSection(state: state),
+                AdminSection.audit => _AuditSection(
+                  actor: _auditActor,
+                  onActorChanged: _filterActor,
+                ),
               },
               const SizedBox(height: AppSpacing.xl),
               const _ResetDemo(),
@@ -263,10 +325,28 @@ class _SectionPicker extends StatelessWidget {
 // Cuentas
 // -----------------------------------------------------------------------------
 
+/// La consola no se pudo leer y la sección no tiene nada anterior que
+/// mostrar. Sin esto, un fallo se leía como "ninguna cuenta coincide".
+class _ConsoleLoadError extends StatelessWidget {
+  const _ConsoleLoadError();
+
+  @override
+  Widget build(BuildContext context) => AppErrorView(
+    key: const Key('admin-load-error'),
+    onRetry: () => unawaited(context.read<AdminConsoleCubit>().load()),
+  );
+}
+
 class _AccountsSection extends StatelessWidget {
-  const _AccountsSection({required this.state});
+  const _AccountsSection({
+    required this.state,
+    required this.query,
+    required this.onQueryChanged,
+  });
 
   final AdminConsoleState state;
+  final TextEditingController query;
+  final ValueChanged<String> onQueryChanged;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -275,11 +355,13 @@ class _AccountsSection extends StatelessWidget {
       SearchField(
         key: const Key('admin-account-search'),
         hint: 'Buscar por correo, usuario o id',
-        onChanged: (query) =>
-            unawaited(context.read<AdminConsoleCubit>().search(query)),
+        controller: query,
+        onChanged: onQueryChanged,
       ),
       const SizedBox(height: AppSpacing.sm),
-      if (state.accounts.isEmpty)
+      if (state.loadFailed && state.accounts.isEmpty)
+        const _ConsoleLoadError()
+      else if (state.accounts.isEmpty)
         _QuietLine(
           glyph: NexoGlyph.search,
           text: 'Ninguna cuenta coincide con "${state.query}".',
@@ -453,7 +535,9 @@ class _CreatorsSection extends StatelessWidget {
           style: text.bodySmall,
         ),
         const SizedBox(height: AppSpacing.sm),
-        if (state.creators.isEmpty)
+        if (state.loadFailed && state.creators.isEmpty)
+          const _ConsoleLoadError()
+        else if (state.creators.isEmpty)
           const _QuietLine(
             glyph: NexoGlyph.verified,
             text: 'No hay creadores registrados.',
@@ -516,9 +600,11 @@ class _CreatorsSection extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _LivesSection extends StatelessWidget {
-  const _LivesSection({required this.lives});
+  const _LivesSection({required this.state});
 
-  final List<LiveSession> lives;
+  final AdminConsoleState state;
+
+  List<LiveSession> get lives => state.lives;
 
   Future<void> _end(BuildContext context, LiveSession live) async {
     final cubit = context.read<AdminConsoleCubit>();
@@ -536,6 +622,7 @@ class _LivesSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (state.loadFailed && lives.isEmpty) return const _ConsoleLoadError();
     if (lives.isEmpty) {
       return const _QuietLine(
         glyph: NexoGlyph.live,
@@ -605,7 +692,10 @@ class _LivesSection extends StatelessWidget {
 // -----------------------------------------------------------------------------
 
 class _AuditSection extends StatelessWidget {
-  const _AuditSection();
+  const _AuditSection({required this.actor, required this.onActorChanged});
+
+  final TextEditingController actor;
+  final ValueChanged<String> onActorChanged;
 
   @override
   Widget build(BuildContext context) =>
@@ -619,27 +709,29 @@ class _AuditSection extends StatelessWidget {
               SearchField(
                 key: const Key('audit-actor'),
                 hint: 'Filtrar por actor (@usuario)',
-                onChanged: (actor) => unawaited(
-                  cubit.load(
-                    AuditFilter(
-                      actor: actor,
-                      entity: filter.entity,
-                      action: filter.action,
-                      since: filter.since,
-                    ),
-                  ),
-                ),
+                controller: actor,
+                onChanged: onActorChanged,
               ),
               const SizedBox(height: AppSpacing.sm),
               Wrap(
                 spacing: AppSpacing.xs,
                 runSpacing: AppSpacing.xs,
                 children: [
+                  // Cada pastilla cambia sólo lo suyo: "Todo" y las entidades
+                  // descartaban el "Últimas 24 h" que seguía encendido.
                   FilterPill(
+                    key: const Key('audit-entity-all'),
                     label: 'Todo',
                     selected: filter.entity == null,
-                    onTap: () =>
-                        unawaited(cubit.load(AuditFilter(actor: filter.actor))),
+                    onTap: () => unawaited(
+                      cubit.load(
+                        AuditFilter(
+                          actor: filter.actor,
+                          action: filter.action,
+                          since: filter.since,
+                        ),
+                      ),
+                    ),
                   ),
                   for (final entity in AuditEntity.values)
                     FilterPill(
@@ -648,11 +740,17 @@ class _AuditSection extends StatelessWidget {
                       selected: filter.entity == entity,
                       onTap: () => unawaited(
                         cubit.load(
-                          AuditFilter(actor: filter.actor, entity: entity),
+                          AuditFilter(
+                            actor: filter.actor,
+                            entity: entity,
+                            action: filter.action,
+                            since: filter.since,
+                          ),
                         ),
                       ),
                     ),
                   FilterPill(
+                    key: const Key('audit-since'),
                     label: 'Últimas 24 h',
                     selected: filter.since != null,
                     onTap: () => unawaited(
@@ -660,6 +758,7 @@ class _AuditSection extends StatelessWidget {
                         AuditFilter(
                           actor: filter.actor,
                           entity: filter.entity,
+                          action: filter.action,
                           since: filter.since == null
                               ? DateTime.now().subtract(
                                   const Duration(hours: 24),

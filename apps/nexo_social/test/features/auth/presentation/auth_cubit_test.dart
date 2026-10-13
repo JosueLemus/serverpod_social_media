@@ -72,7 +72,14 @@ void main() {
 
     await cubit.signIn(DemoAccounts.troll.email, 'demo');
 
-    expect(cubit.state, isA<AuthSuspended>());
+    // Baneada y no suspendida: la pantalla no puede prometerle un final.
+    expect(
+      cubit.state,
+      const AuthSuspended(
+        status: AccountStatus.banned,
+        reason: ModerationReason.spam,
+      ),
+    );
   });
 
   test('a revoked verification reaches the session', () async {

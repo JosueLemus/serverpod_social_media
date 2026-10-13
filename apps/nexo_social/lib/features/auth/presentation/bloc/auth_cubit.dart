@@ -65,11 +65,45 @@ class AuthAuthenticated extends AuthState {
 class AuthSuspended extends AuthState {
   const AuthSuspended({required this.status, this.reason});
 
-  final AccountStatus status;
+  /// [AccountStatus.suspended] o [AccountStatus.banned]. Null cuando el
+  /// servidor no dijo cuál: la pantalla no promete que la sanción termina.
+  final AccountStatus? status;
   final ModerationReason? reason;
 
   @override
   List<Object?> get props => [status, reason];
+}
+
+/// Lo que el formulario detecta antes de molestar al servidor. La View lo
+/// traduce, como a [AuthFailureReason].
+enum AuthInputIssue { invalidEmail, emptyPassword, passwordMismatch, invalidCode }
+
+/// Las reglas del formulario de acceso, en un solo lugar. Un campo vacío
+/// llegaba al servidor y volvía como "no pudimos completar la operación",
+/// que no dice qué corregir.
+abstract final class AuthInput {
+  static final _email = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  static final _code = RegExp(r'^\d{8}$');
+
+  /// Cada argumento nulo es un campo que ese paso no pide.
+  static AuthInputIssue? check({
+    required String email,
+    String? password,
+    String? confirmation,
+    String? code,
+  }) {
+    if (!_email.hasMatch(email.trim())) return AuthInputIssue.invalidEmail;
+    if (code != null && !_code.hasMatch(code)) {
+      return AuthInputIssue.invalidCode;
+    }
+    if (password != null && password.isEmpty) {
+      return AuthInputIssue.emptyPassword;
+    }
+    if (confirmation != null && confirmation != password) {
+      return AuthInputIssue.passwordMismatch;
+    }
+    return null;
+  }
 }
 
 class AuthCubit extends Cubit<AuthState> {
@@ -98,8 +132,8 @@ class AuthCubit extends Cubit<AuthState> {
       _emit(
         user == null ? const AuthUnauthenticated() : AuthAuthenticated(user),
       );
-    } on AccountSuspendedFailure {
-      if (_isCurrent(version)) await _toSuspended();
+    } on AccountSuspendedFailure catch (failure) {
+      if (_isCurrent(version)) await _toSuspended(failure: failure);
     } on AuthenticationFailure catch (failure) {
       if (_isCurrent(version)) {
         _emit(AuthUnauthenticated(failure: failure.reason));
@@ -128,14 +162,31 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Deja el formulario limpio: sin el error ni el paso de otra pantalla.
+  ///
+  /// [AuthUnauthenticated] es uno solo para todas las pantallas de acceso, así
+  /// que sin esto un error del login aparecía en "Recupera tu acceso" y el
+  /// registro abría en "Confirma tu correo" con el correo vacío y bloqueado.
+  ///
+  /// No hace nada con una sesión activa ni con una operación en vuelo: la
+  /// primera no es un formulario, y descartar la segunda perdería su
+  /// resultado (un inicio de sesión que el servidor sí aceptó).
+  void resetForm() {
+    final current = state;
+    if (current is! AuthUnauthenticated || current.isBusy) return;
+    _registration = null;
+    _passwordReset = null;
+    _emit(const AuthUnauthenticated());
+  }
+
   Future<void> signIn(String email, String password) async {
     final version = ++_operationVersion;
     _emit(const AuthUnauthenticated(operation: AuthOperation.signingIn));
     try {
       final user = await _repository.signIn(email: email, password: password);
       if (_isCurrent(version)) _emit(AuthAuthenticated(user));
-    } on AccountSuspendedFailure {
-      if (_isCurrent(version)) await _toSuspended();
+    } on AccountSuspendedFailure catch (failure) {
+      if (_isCurrent(version)) await _toSuspended(failure: failure);
     } on AuthenticationFailure catch (failure) {
       if (_isCurrent(version)) _formFailure(failure.reason);
     } on Failure {
@@ -191,8 +242,8 @@ class AuthCubit extends Cubit<AuthState> {
       if (!_isCurrent(version)) return;
       _registration = null;
       _emit(AuthAuthenticated(user));
-    } on AccountSuspendedFailure {
-      if (_isCurrent(version)) await _toSuspended();
+    } on AccountSuspendedFailure catch (failure) {
+      if (_isCurrent(version)) await _toSuspended(failure: failure);
     } on AuthenticationFailure catch (failure) {
       if (_isCurrent(version)) {
         // A token may have been consumed before finalisation. Never preserve it
@@ -319,27 +370,41 @@ class AuthCubit extends Cubit<AuthState> {
     if (user.id != current.user.id) return;
     if (!user.isActive) {
       ++_operationVersion;
-      await _toSuspended(user);
+      await _toSuspended(user: user);
       return;
     }
     if (user != current.user) _emit(AuthAuthenticated(user));
   }
 
-  Future<void> _toSuspended([AppUser? user]) async {
-    final reason = user == null
-        ? null
-        : await _repository.sanctionReason(user.id);
+  /// La sanción sale de la cuenta leída o del fallo que la rechazó. Antes
+  /// caía en "suspendida" siempre que no hubiera cuenta, así que una cuenta
+  /// dada de baja leía que su sanción iba a terminar.
+  Future<void> _toSuspended({
+    AppUser? user,
+    AccountSuspendedFailure? failure,
+  }) async {
+    final status =
+        user?.status ??
+        switch (failure?.sanction) {
+          AccountSanction.banned => AccountStatus.banned,
+          AccountSanction.suspended => AccountStatus.suspended,
+          null => null,
+        };
+    final accountId = user?.id ?? failure?.accountId;
+    ModerationReason? reason;
+    if (accountId != null) {
+      try {
+        reason = await _repository.sanctionReason(accountId);
+      } on Failure {
+        // Sin motivo se explica igual la sanción; no vale frenar la salida.
+      }
+    }
     try {
       await _repository.signOut();
     } on Failure {
       // The client must still stop authorising the private interface.
     }
-    _emit(
-      AuthSuspended(
-        status: user?.status ?? AccountStatus.suspended,
-        reason: reason,
-      ),
-    );
+    _emit(AuthSuspended(status: status, reason: reason));
   }
 
   bool _isCurrent(int version) => !isClosed && version == _operationVersion;
