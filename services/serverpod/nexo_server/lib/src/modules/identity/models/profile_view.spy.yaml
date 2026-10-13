@@ -6,6 +6,9 @@ fields:
   displayName: String
   bio: String?
   avatarUrl: String?
+  ### El banner del perfil, si tiene.
+  coverUrl: String?
+  website: String?
   isCreator: bool
   verification: VerificationStatus
   ### Público a propósito: una sanción que no se ve desde afuera no se puede
@@ -13,6 +16,9 @@ fields:
   status: AccountStatus
   followerCount: int, default=0
   followingCount: int, default=0
+  ### Publicaciones no borradas de la cuenta. Se cuenta en el servidor, por
+  ### lote: la grilla del perfil pagina y su largo no es el total.
+  postCount: int, default=0
   ### Si quien pregunta sigue a esta cuenta. Siempre `false` para un
   ### invitado y para el propio perfil.
   viewerFollows: bool, default=false

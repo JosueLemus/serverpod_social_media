@@ -7,8 +7,9 @@ import '../../../shared/auth/auth_context.dart';
 import '../../../shared/gateways/media_storage_gateway.dart';
 import '../../../shared/gateways/serverpod_media_storage_gateway.dart';
 import '../../../shared/profiles/avatar_lookup.dart';
-import 'avatar_policy.dart';
+import 'profile_image_policy.dart';
 import 'username_rules.dart';
+import 'website_rules.dart';
 
 /// El perfil de Nexo de cada cuenta: nombre de usuario, si crea contenido,
 /// su verificación y su estado.
@@ -65,6 +66,14 @@ class IdentityService {
         user.authUserId: user,
     };
     final avatars = await avatarsOf(session, ids, storage: _storage);
+    final covers = <UuidValue, String>{};
+    for (final account in accounts) {
+      final key = account.coverKey;
+      if (key == null) continue;
+      final url = await _storage.publicUrl(session, key);
+      if (url != null) covers[account.authUserId] = url.toString();
+    }
+    final posts = await _postCounts(session, ids);
     final viewer = session.userIdOrNull;
     final followed = viewer == null
         ? const <UuidValue>{}
@@ -82,6 +91,8 @@ class IdentityService {
           account,
           users[account.authUserId],
           avatarUrl: avatars[account.authUserId],
+          coverUrl: covers[account.authUserId],
+          postCount: posts[account.authUserId] ?? 0,
           viewerFollows: followed.contains(account.authUserId),
         ),
     ];
@@ -115,6 +126,14 @@ class IdentityService {
         'La bio supera los ${UsernameRules.maxBioLength} caracteres.',
       );
     }
+    // `null` no toca el enlace; un texto vacío lo quita.
+    final website = edit.website == null
+        ? null
+        : WebsiteRules.normalize(edit.website!);
+    if (website != null) {
+      final problem = WebsiteRules.problemWith(website);
+      if (problem != null) throw _error(NexoErrorCode.invalidInput, problem);
+    }
 
     await session.db.transaction((tx) async {
       final account = (await AccountProfile.db.findFirstRow(
@@ -143,6 +162,7 @@ class IdentityService {
         account.copyWith(
           username: username ?? account.username,
           bio: bio == null ? account.bio : (bio.isEmpty ? null : bio),
+          website: edit.website == null ? account.website : website,
           updatedAt: DateTime.now().toUtc(),
         ),
         transaction: tx,
@@ -165,29 +185,65 @@ class IdentityService {
     Session session, {
     required String contentType,
     required int sizeBytes,
+  }) => _requestImageUpload(
+    session,
+    ProfileImagePolicy.avatar,
+    contentType: contentType,
+    sizeBytes: sizeBytes,
+  );
+
+  /// El permiso para subir el banner del perfil: JPEG, PNG o WebP de hasta
+  /// 8 MB, confirmado después con [setCover].
+  Future<MediaUploadTicket> requestCoverUpload(
+    Session session, {
+    required String contentType,
+    required int sizeBytes,
+  }) => _requestImageUpload(
+    session,
+    ProfileImagePolicy.cover,
+    contentType: contentType,
+    sizeBytes: sizeBytes,
+  );
+
+  /// Confirma [key] como avatar de la sesión, o lo quita con `null`. La
+  /// clave tiene que ser de [requestAvatarUpload], de la misma cuenta y ya
+  /// subida. El archivo anterior queda en el storage.
+  Future<AccountView> setAvatar(Session session, String? key) =>
+      _setImage(session, ProfileImagePolicy.avatar, key);
+
+  /// Confirma [key] como banner de la sesión, o lo quita con `null`. Mismas
+  /// reglas que [setAvatar].
+  Future<AccountView> setCover(Session session, String? key) =>
+      _setImage(session, ProfileImagePolicy.cover, key);
+
+  Future<MediaUploadTicket> _requestImageUpload(
+    Session session,
+    ProfileImagePolicy policy, {
+    required String contentType,
+    required int sizeBytes,
   }) async {
     final userId = session.requireUserId;
-    final ext = AvatarPolicy.extensionFor(contentType);
+    final ext = policy.extensionFor(contentType);
     if (ext == null) {
       throw _error(
         NexoErrorCode.invalidInput,
-        'El avatar tiene que ser JPEG, PNG o WebP.',
+        '${policy.label} tiene que ser JPEG, PNG o WebP.',
       );
     }
-    if (sizeBytes <= 0 || sizeBytes > AvatarPolicy.maxBytes) {
+    if (sizeBytes <= 0 || sizeBytes > policy.maxBytes) {
       throw _error(
         NexoErrorCode.invalidInput,
-        'El avatar supera el máximo de '
-        '${AvatarPolicy.maxBytes ~/ (1024 * 1024)} MB.',
+        '${policy.label} supera el máximo de '
+        '${policy.maxBytes ~/ (1024 * 1024)} MB.',
       );
     }
-    final key = AvatarPolicy.newKey(userId, ext);
+    final key = policy.newKey(userId, ext);
     final description = await _storage.createUploadDescription(
       session,
       key,
       contentType: contentType.toLowerCase(),
       contentLength: sizeBytes,
-      maxBytes: AvatarPolicy.maxBytes,
+      maxBytes: policy.maxBytes,
     );
     if (description == null) {
       throw StateError('El storage configurado no admite subidas directas.');
@@ -195,18 +251,19 @@ class IdentityService {
     return MediaUploadTicket(
       key: key,
       uploadDescription: description,
-      maxBytes: AvatarPolicy.maxBytes,
+      maxBytes: policy.maxBytes,
     );
   }
 
-  /// Confirma [key] como avatar de la sesión, o lo quita con `null`. La
-  /// clave tiene que ser de [requestAvatarUpload], de la misma cuenta y ya
-  /// subida. El archivo anterior queda en el storage.
-  Future<AccountView> setAvatar(Session session, String? key) async {
+  Future<AccountView> _setImage(
+    Session session,
+    ProfileImagePolicy policy,
+    String? key,
+  ) async {
     final userId = session.requireUserId;
     await requireActive(session, userId);
     if (key != null) {
-      final owner = AvatarPolicy.ownerOf(key);
+      final owner = policy.ownerOf(key);
       if (owner == null) {
         throw _error(NexoErrorCode.invalidInput, 'Archivo no válido.');
       }
@@ -216,11 +273,12 @@ class IdentityService {
       if (!await _storage.verifyUpload(session, key)) {
         throw _error(
           NexoErrorCode.invalidInput,
-          'El avatar todavía no terminó de subirse.',
+          '${policy.label} todavía no terminó de subirse.',
         );
       }
     }
 
+    final isCover = identical(policy, ProfileImagePolicy.cover);
     await session.db.transaction((tx) async {
       final account = (await AccountProfile.db.findFirstRow(
         session,
@@ -228,16 +286,19 @@ class IdentityService {
         transaction: tx,
         lockMode: LockMode.forUpdate,
       ))!;
+      final now = DateTime.now().toUtc();
       await AccountProfile.db.updateRow(
         session,
-        account.copyWith(avatarKey: key, updatedAt: DateTime.now().toUtc()),
-        columns: (t) => [t.avatarKey, t.updatedAt],
+        isCover
+            ? account.copyWith(coverKey: key, updatedAt: now)
+            : account.copyWith(avatarKey: key, updatedAt: now),
+        columns: (t) => [isCover ? t.coverKey : t.avatarKey, t.updatedAt],
         transaction: tx,
       );
       await _audit.record(
         session,
         actorId: userId,
-        action: 'identity.setAvatar',
+        action: isCover ? 'identity.setCover' : 'identity.setAvatar',
         entityType: 'account',
         entityId: '$userId',
         metadata: {'removed': key == null},
@@ -337,6 +398,25 @@ class IdentityService {
 
   // --- Internos ------------------------------------------------------------
 
+  /// Publicaciones no borradas de cada cuenta en [ids], en una consulta.
+  /// Los ids son `UuidValue` validados: interpolarlos no abre una inyección.
+  Future<Map<UuidValue, int>> _postCounts(
+    Session session,
+    Set<UuidValue> ids,
+  ) async {
+    if (ids.isEmpty) return const {};
+    final list = ids.map((id) => "'$id'").join(',');
+    final rows = await session.db.unsafeQuery(
+      'SELECT "authorId"::text, COUNT(*)::int FROM "post" '
+      'WHERE "deletedAt" IS NULL AND "authorId" IN ($list) '
+      'GROUP BY "authorId"',
+    );
+    return {
+      for (final row in rows)
+        UuidValue.withValidation(row[0] as String): row[1] as int,
+    };
+  }
+
   Future<AccountProfile?> _account(Session session, UuidValue userId) =>
       AccountProfile.db.findFirstRow(
         session,
@@ -400,6 +480,8 @@ class IdentityService {
     AccountProfile account,
     UserProfile? user, {
     String? avatarUrl,
+    String? coverUrl,
+    int postCount = 0,
     bool viewerFollows = false,
   }) => ProfileView(
     userId: account.authUserId,
@@ -409,6 +491,9 @@ class IdentityService {
         : account.username,
     bio: account.bio,
     avatarUrl: avatarUrl ?? user?.image?.url.toString(),
+    coverUrl: coverUrl,
+    website: account.website,
+    postCount: postCount,
     isCreator: account.isCreator,
     verification: account.verification,
     status: account.status,

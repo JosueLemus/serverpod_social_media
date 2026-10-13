@@ -619,6 +619,50 @@ class Endpoints extends _is.EndpointDispatch {
                     params['key'],
                   ),
         ),
+        'requestCoverUpload': _is.MethodConnector(
+          name: 'requestCoverUpload',
+          params: {
+            'contentType': _is.ParameterDescription(
+              name: 'contentType',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'sizeBytes': _is.ParameterDescription(
+              name: 'sizeBytes',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .requestCoverUpload(
+                    session,
+                    contentType: params['contentType'],
+                    sizeBytes: params['sizeBytes'],
+                  ),
+        ),
+        'setCover': _is.MethodConnector(
+          name: 'setCover',
+          params: {
+            'key': _is.ParameterDescription(
+              name: 'key',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['profiles'] as _ijchdihn.ProfilesEndpoint)
+                  .setCover(
+                    session,
+                    params['key'],
+                  ),
+        ),
         'becomeCreator': _is.MethodConnector(
           name: 'becomeCreator',
           params: {},
