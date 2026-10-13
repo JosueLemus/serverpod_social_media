@@ -36,7 +36,6 @@ class LiveRoomState extends Equatable {
     this.loved = false,
     this.comments = const [],
     this.pinnedComment,
-    this.pendingGuests = const [],
     this.audit = const [],
     this.isLoading = true,
     this.notFound = false,
@@ -68,7 +67,6 @@ class LiveRoomState extends Equatable {
   /// fijados no destacan nada, y el chat de un vivo sólo tiene espacio para
   /// una cosa que importe más que lo que está pasando.
   final LiveComment? pinnedComment;
-  final List<String> pendingGuests;
 
   /// Every moderation action, newest last. The demo shows this to prove the
   /// action was recorded and not just hidden from view.
@@ -126,7 +124,6 @@ class LiveRoomState extends Equatable {
     bool? loved,
     List<LiveComment>? comments,
     LiveComment? pinnedComment,
-    List<String>? pendingGuests,
     List<String>? audit,
     bool? isLoading,
     bool? notFound,
@@ -149,7 +146,6 @@ class LiveRoomState extends Equatable {
     loved: loved ?? this.loved,
     comments: comments ?? this.comments,
     pinnedComment: clearPinned ? null : pinnedComment ?? this.pinnedComment,
-    pendingGuests: pendingGuests ?? this.pendingGuests,
     audit: audit ?? this.audit,
     isLoading: isLoading ?? this.isLoading,
     notFound: notFound ?? this.notFound,
@@ -174,7 +170,6 @@ class LiveRoomState extends Equatable {
     loved,
     comments,
     pinnedComment,
-    pendingGuests,
     audit,
     isLoading,
     notFound,
@@ -558,26 +553,6 @@ class LiveRoomCubit extends Cubit<LiveRoomState> {
 
   Future<void> _moderate(Future<void> Function(String liveId) action) =>
       _onStage(action);
-
-  void approveGuest(String guest) => emit(
-    state.copyWith(
-      pendingGuests: state.pendingGuests
-          .where((item) => item != guest)
-          .toList(),
-      audit: [...state.audit, '$guest fue aprobado como cohost'],
-    ),
-  );
-
-  /// "Rechazar" llamaba a [approveGuest]: el invitado se iba de la lista y la
-  /// auditoría decía que había sido aprobado.
-  void rejectGuest(String guest) => emit(
-    state.copyWith(
-      pendingGuests: state.pendingGuests
-          .where((item) => item != guest)
-          .toList(),
-      audit: [...state.audit, 'Se rechazó la solicitud de $guest'],
-    ),
-  );
 
   // --- Escenario (SDD 0011) -------------------------------------------------
   //

@@ -34,7 +34,12 @@ void main() {
 
   test('el oyente ve el escenario y puede pedir la palabra', () async {
     expect(cubit.state.role, LiveRole.audience);
-    expect(cubit.state.stage.speakers.single.role, LiveRole.host);
+    // La semilla pone al host en el escenario junto a los invitados de la
+    // agenda; cualquiera de los dos sirve para afirmar que la sala arrancó.
+    expect(
+      cubit.state.stage.speakers.any((s) => s.role == LiveRole.host),
+      isTrue,
+    );
     expect(cubit.state.can(LiveAction.raiseHand), isTrue);
     expect(cubit.state.can(LiveAction.speak), isFalse);
 

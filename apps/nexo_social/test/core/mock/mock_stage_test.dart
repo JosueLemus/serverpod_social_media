@@ -3,6 +3,7 @@ import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/core/mock/demo_accounts.dart';
 import 'package:nexo_social/core/mock/mock_platform.dart';
 import 'package:nexo_social/features/live/domain/entities/live_session.dart';
+import 'package:nexo_social/features/live/domain/entities/live_stage.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,9 +22,14 @@ void main() {
 
   test('un vivo al aire arranca con el host en el escenario', () {
     final stage = platform.stage(live);
-    expect(stage.speakers.single.userId, DemoAccounts.elena.id);
-    expect(stage.speakers.single.role, LiveRole.host);
-    expect(stage.speakers.single.isMe, isTrue);
+    // La semilla pone a Elena como host y a los `cohostIds` de la agenda al
+    // escenario, así que el "arranque" es host + invitados — no sólo el host.
+    final host = stage.speakers.firstWhere((s) => s.role == LiveRole.host);
+    expect(host.userId, DemoAccounts.elena.id);
+    expect(host.isMe, isTrue);
+    // La agenda de `live-1` suma tres cohosts (Ana, Marcos y la moderadora
+    // Lucía).
+    expect(stage.speakers.length, 4);
   });
 
   test('pedir la palabra y que el host apruebe sube al oyente', () {
@@ -37,7 +43,12 @@ void main() {
     as(DemoAccounts.viewer);
     expect(platform.stage(live).meOnStage, isTrue);
     expect(platform.roleIn(live), LiveRole.cohost);
-    expect(platform.stage(live).hands, isEmpty);
+    // La semilla deja a Luz y Sofía con la mano levantada; aprobar al viewer
+    // le baja la mano a él, no a los demás.
+    expect(
+      platform.stage(live).hands.any((h) => h.userId == DemoAccounts.viewer.id),
+      isFalse,
+    );
   });
 
   test('aprobar a quien no pidió la palabra es un conflicto', () {
@@ -75,7 +86,11 @@ void main() {
     platform
       ..inviteToStage(live, DemoAccounts.viewer.id)
       ..setMicMuted(live, DemoAccounts.viewer.id, muted: true);
-    expect(platform.stage(live).speakers.last.micMuted, isTrue);
+    LiveSpeaker viewerOnStage() => platform
+        .stage(live)
+        .speakers
+        .firstWhere((s) => s.userId == DemoAccounts.viewer.id);
+    expect(viewerOnStage().micMuted, isTrue);
     expect(
       () => platform.setMicMuted(live, DemoAccounts.viewer.id, muted: false),
       throwsA(isA<ForbiddenFailure>()),
@@ -83,7 +98,7 @@ void main() {
 
     as(DemoAccounts.viewer);
     platform.setMicMuted(live, DemoAccounts.viewer.id, muted: false);
-    expect(platform.stage(live).speakers.last.micMuted, isFalse);
+    expect(viewerOnStage().micMuted, isFalse);
   });
 
   test('nadie silencia al host', () {

@@ -127,9 +127,8 @@ void main() {
     expect(find.text('@elena_ux'), findsOneWidget);
   });
 
-  testWidgets('el regalo está apagado, no finge funcionar', (tester) async {
-    await pumpRoom(tester);
-
-    expect(find.byTooltip('Regalos: muy pronto'), findsOneWidget);
-  });
+  // El botón de "regalos" no vive en la sala tipo podcast (SDD 0011, Etapa 4):
+  // la barra de abajo son los controles de participación (pedir la palabra,
+  // mic, cámara, bajarse), que son los que la sala podcast ofrece. Los
+  // regalos vuelven cuando exista monetización y van en otra franja.
 }

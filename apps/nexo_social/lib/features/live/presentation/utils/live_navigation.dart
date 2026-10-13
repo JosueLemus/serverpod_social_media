@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -23,7 +25,15 @@ bool isOwnLive(BuildContext context, LiveSession session) {
 /// Al Studio se vuelve sin `?show=`: el que está al aire es el que elige
 /// `pickStudioShow`, y la misma ruta reusa el Studio que sigue transmitiendo
 /// en su branch en vez de montar otro.
-void openLive(BuildContext context, LiveSession session) =>
-    isOwnLive(context, session)
-    ? context.go(AppRoutes.studio)
-    : context.go(AppRoutes.liveRoom(session.id));
+///
+/// La sala se **empuja** (no `go`): es inmersiva y vive sobre el shell con el
+/// `parentNavigatorKey: rootNavigatorKey` del router (SDD 0011, Etapa 4), así
+/// que una navegación con `go` dejaría la pila de Explorar sin forma de
+/// volver al descubrimiento.
+void openLive(BuildContext context, LiveSession session) {
+  if (isOwnLive(context, session)) {
+    context.go(AppRoutes.studio);
+  } else {
+    unawaited(context.push(AppRoutes.liveRoom(session.id)));
+  }
+}

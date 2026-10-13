@@ -185,8 +185,15 @@ GoRouter createRouter(
                 // vivo desde el descubrimiento, y ponerla en otro branch sería
                 // el empuje entre branches que deja la página en un Navigator
                 // que no está en pantalla.
+                //
+                // `parentNavigatorKey: rootNavigatorKey` la empuja **sobre** el
+                // shell en vez de dentro de él: la barra de navegación se tapa
+                // porque la sala es inmersiva (SDD 0011, Etapa 4), pero sigue
+                // siendo una ruta del branch de Explorar, así que volver atrás
+                // vuelve al descubrimiento y la pila de Explorar sobrevive.
                 GoRoute(
                   path: AppRoutes.liveRoomSegment,
+                  parentNavigatorKey: rootNavigatorKey,
                   builder: (context, state) => LiveRoomPage(
                     liveId: state.pathParameters['liveId'] ?? 'preview',
                   ),

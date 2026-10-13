@@ -146,7 +146,6 @@ Y cambia lo que ya existe:
   - En la app: `LiveStage`, los dos eventos, el repositorio (Serverpod y mock,
     con las mismas reglas) y el cubit (`raiseHand`, `approveRequest`,
     `toggleMyMic`…).
-  - **Pendiente para la Etapa 4:** la UI que lo usa.
   - **Pendiente para la Etapa 6:** la app no pide una credencial de video
     nueva al subir o bajar del escenario (`LiveMediaSync` todavía sólo mira
     si es host).
@@ -162,9 +161,78 @@ Y cambia lo que ya existe:
     destacado.
   - En la app: dominio, repositorios (Serverpod y mock), cubit, y la hoja de
     moderación del chat que ya existía ahora silencia y expulsa de verdad.
-  - **Pendiente para la Etapa 4:** decir en pantalla "estás silenciado" y
-    "te sacaron de este vivo" (hoy la sala lo sabe —`myMute`, `exclusion`—
-    pero no lo dibuja), y las acciones nuevas en la hoja de una persona.
+
+- **Etapa 4** — hecha (SDD 0011, 2026-10-12):
+  - La sala tipo podcast reemplazó al video a pantalla completa con chat
+    encima. El host va destacado arriba y la grilla de hasta 16 invitados
+    debajo (4 columnas en teléfono, 5 en tablet, 6 en escritorio); cada tile
+    muestra avatar, nombre, insignia de rol y el pin de "micrófono apagado" o
+    "cámara prendida".
+  - Barra inferior **por rol**, decidida con `LiveAction` y el escenario:
+    oyente pide la palabra (y la baja); invitado/moderador en escenario
+    tienen micrófono, cámara y "bajarme"; host y moderador suman la pastilla
+    "Pedidos · N" que abre la cola; host suma "Terminar el vivo". Sin manos
+    reales no se dibujan oyentes inventados — sólo el total.
+  - **Hoja de persona** (`live_person_sheet.dart`) con pulsación larga sobre
+    un tile, un pedido o un comentario: lista exactamente
+    `LivePermissions.on(myRole, suRol)`, **devuelve** una decisión tipada y
+    el cubit la aplica. Los chips de duración del silencio en chat arman la
+    decisión; "Aplicar" la confirma. Banear pide confirmación por su
+    permanencia; una `confirmation` cuyo `Navigator.of(context).pop(...)`
+    cierra el diálogo y recién después pasa la decisión al cubit.
+  - **Avisos en pantalla**: silenciado reemplaza el compositor por una banda
+    ámbar con el motivo; expulsado/baneado reemplazan la sala por un
+    `AppEmptyView` con la mascota `shield` (no se insiste con reconectar);
+    subir/bajar del escenario tira un snackbar una sola vez por cambio de
+    rol.
+  - **La sala es inmersiva de verdad**: la ruta `/explore/live/:liveId` ahora
+    se empuja con `parentNavigatorKey: rootNavigatorKey`, así que la barra de
+    navegación se tapa y la franja clara del shell no aparece sobre el video
+    en temas claros. `openLive` pasó a `context.push`.
+  - **El `_GuestRequests` del Studio** lee `stage.hands` y llama a
+    `approveRequest` / `denyRequest` con el `userId` real. Se borró el campo
+    `pendingGuests` del cubit, con sus métodos `approveGuest` / `rejectGuest`
+    (que además tenían el bug de que "rechazar" dejaba la auditoría diciendo
+    "aprobado"). La hoja de moderación del chat del Studio sigue por el
+    `moderation_sheet` legacy; la sala podcast usa la hoja de persona.
+  - **Semilla del mock** (`storageKey = mock_platform_v2`): `live-1` arranca
+    con el host, tres invitados en el escenario (Ana con cámara, Marcos
+    silenciado, Lucía moderadora) y dos manos levantadas (Luz y Sofía).
+    Cuatro cuentas demo nuevas (`guestAna`, `guestMarcos`, `guestLuz`,
+    `listenerSofia`) para que la demo tenga quién hablar y quién levante la
+    mano.
+
+- **Etapa 5** — hecha (SDD 0011, 2026-10-12):
+  - **Tarjeta de sala** (`LiveRoomCard`): fondo oscuro, insignia "EN VIVO"
+    pulsante, título, pila de avatares con el host adelante (foil holo) y
+    hasta cuatro invitados; "+N" cuando hay más; "N escuchando" con cifras
+    tabulares; CTA "Escuchar" (o "Volver a tu sala" si es propia). La onda
+    de audio está aislada en `RepaintBoundary` y respeta "reducir
+    movimiento".
+  - Reemplaza a `FeaturedLiveCard` + `LiveCard` en los dos lugares donde se
+    listan salas al aire: feed destacado, filtro "En vivo" del feed y
+    sección "Salas en vivo" de Explorar. `LiveCard` queda para los
+    programados y replays. `FeaturedLiveCard` sigue en el repo (no se
+    importa desde ningún lado) para no romper el share test; se borra
+    cuando se elimine ese test.
+  - **No inventamos oradores**: `LiveRoomSpeakers.fromSession` sale de
+    `cohostIds` (los que la agenda del show declaró). `fromStage` existe
+    para el día que se pida el escenario real desde la pantalla, pero por
+    ahora ninguna lista lo pide — un GET por fila costaría una petición por
+    tarjeta.
+
+- **Pendiente para la Etapa 6** (riesgoso, no bloquea la demo):
+  - La app no pide una credencial de video nueva al subir o bajar del
+    escenario (`LiveMediaSync` sólo mira el rol inicial). Hay que renovar el
+    token cuando el `LiveRoleChanged` llega como `isMine`.
+  - **Indicador real de "quién habla"**: `_StageTile` ya está preparado para
+    pintar un anillo pulsante con `AppColors.secondary`, pero sin fuente de
+    niveles de audio queda en false. Agora emite ese evento; hay que
+    engancharlo al estado del cubit.
+  - La tarjeta destacada todavía no pide `repository.stage(id)` para
+    mostrar los oradores de verdad (sigue leyendo `cohostIds` de la
+    agenda). El cambio es un cubit nuevo que pida el stage de la sala
+    destacada al armar la lista.
 
 ## 9. Riesgos
 

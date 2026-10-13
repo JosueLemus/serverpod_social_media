@@ -35,6 +35,7 @@ class LiveChatOverlay extends StatelessWidget {
     this.emptyLabel = 'Sé la primera persona en comentar',
     this.maxHeight,
     this.hostId,
+    this.onLongPress,
   });
 
   final List<LiveComment> comments;
@@ -48,6 +49,13 @@ class LiveChatOverlay extends StatelessWidget {
   /// Quién transmite. Sus mensajes llevan la insignia HOST: en un chat que
   /// corre rápido, la respuesta del host es la que la gente busca.
   final String? hostId;
+
+  /// Qué hacer con una pulsación larga sobre un mensaje. Sin valor, la sala
+  /// abre su propia hoja (`moderation_sheet`) con la clasificación vieja. La
+  /// sala tipo podcast lo reemplaza con la hoja de persona, que **devuelve**
+  /// una decisión en vez de aplicarla y filtra las acciones por la tabla de
+  /// permisos.
+  final ValueChanged<LiveComment>? onLongPress;
 
   bool _byHost(LiveComment comment) {
     final host = hostId;
@@ -87,7 +95,11 @@ class LiveChatOverlay extends StatelessWidget {
         itemCount: comments.length,
         itemBuilder: (context, index) {
           final comment = comments[comments.length - 1 - index];
-          return LiveChatLine(comment: comment, byHost: _byHost(comment));
+          return LiveChatLine(
+            comment: comment,
+            byHost: _byHost(comment),
+            onLongPress: onLongPress,
+          );
         },
       ),
     );
@@ -100,12 +112,21 @@ const _legibility = [
 ];
 
 class LiveChatLine extends StatelessWidget {
-  const LiveChatLine({super.key, required this.comment, this.byHost = false});
+  const LiveChatLine({
+    super.key,
+    required this.comment,
+    this.byHost = false,
+    this.onLongPress,
+  });
 
   final LiveComment comment;
 
   /// Lo escribió quien transmite.
   final bool byHost;
+
+  /// Qué hacer con la pulsación larga. Sin valor, se usa la hoja clásica de
+  /// moderación por compatibilidad con el Studio y con el chat de posts.
+  final ValueChanged<LiveComment>? onLongPress;
 
   /// Moderar sale de una pulsación larga sobre el mensaje, no de un ícono por
   /// fila: con seis acciones disponibles, un control por comentario convierte
@@ -177,7 +198,9 @@ class LiveChatLine extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 key: Key('chat-${comment.id}'),
-                onLongPress: () => unawaited(_moderate(context)),
+                onLongPress: () => onLongPress != null
+                    ? onLongPress!(comment)
+                    : unawaited(_moderate(context)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.sm,

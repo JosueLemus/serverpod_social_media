@@ -45,8 +45,11 @@ class MockPlatform {
   }
 
   /// Versionada: si la forma del estado cambia, una clave vieja se ignora en
-  /// vez de romper el parseo.
-  static const storageKey = 'mock_platform_v1';
+  /// vez de romper el parseo. La semilla de `live-1` cambió al agregar oradores
+  /// con cámara, micrófono apagado y manos levantadas; sin bumpear la clave,
+  /// el simulador seguiría dibujando el escenario viejo (sólo el host) hasta
+  /// que alguien borre los datos a mano.
+  static const storageKey = 'mock_platform_v2';
 
   static const _pageSize = 20;
 
@@ -1480,6 +1483,12 @@ class MockPlatform {
         account(DemoAccounts.viewer, daysAgo: 60),
         account(DemoAccounts.troll, daysAgo: 3),
         account(DemoAccounts.spammer, daysAgo: 1),
+        // Oradores y oyentes de la sala podcast. Son cuentas comunes; su papel
+        // en la sala lo decide el escenario y las manos levantadas, no el rol.
+        account(DemoAccounts.guestAna, daysAgo: 180),
+        account(DemoAccounts.guestMarcos, daysAgo: 90),
+        account(DemoAccounts.guestLuz, daysAgo: 45),
+        account(DemoAccounts.listenerSofia, daysAgo: 20),
       ])
         item.user.id: item,
     };
@@ -1491,14 +1500,28 @@ class MockPlatform {
           title: 'Masterclass de Diseño Mobile',
           hostId: DemoAccounts.elena.id,
           hostName: DemoAccounts.elena.name,
+          hostUsername: DemoAccounts.elena.username,
           status: LiveStatus.live,
           viewers: 2845,
+          // La agenda sembrada: `_seedStage` los sube al escenario como
+          // cohosts al salir al aire. El invitado que la sala va a sumar
+          // "en vivo" (Luz, pidiendo la palabra) **no** va en la agenda, para
+          // que la cola de pedidos tenga alguien real al abrir la demo.
+          cohostIds: [
+            DemoAccounts.guestAna.id,
+            DemoAccounts.guestMarcos.id,
+            DemoAccounts.moderator.id,
+          ],
+          description:
+              'Conversamos cómo diseñar interacciones móviles con nuestros '
+              'invitados.',
         ),
         LiveSession(
           id: 'live-2',
           title: 'Café entre creadores',
           hostId: DemoAccounts.elena.id,
           hostName: DemoAccounts.elena.name,
+          hostUsername: DemoAccounts.elena.username,
           status: LiveStatus.scheduled,
           viewers: 120,
         ),
@@ -1516,6 +1539,7 @@ class MockPlatform {
           title: 'Sistemas de diseño en Figma',
           hostId: DemoAccounts.carlos.id,
           hostName: DemoAccounts.carlos.name,
+          hostUsername: DemoAccounts.carlos.username,
           status: LiveStatus.live,
           viewers: 530,
         ),
@@ -1596,6 +1620,38 @@ class MockPlatform {
     _highlighted = {};
     for (final live in _lives.values) {
       if (live.status == LiveStatus.live) _seedStage(live);
+    }
+    // La semilla con oradores de verdad: Ana con cámara prendida, Marcos
+    // silenciado, Lucía como moderadora, Luz pidiendo la palabra (todavía no
+    // en el escenario, es una fila) y Sofía también como oyente que pide
+    // hablar. Sin esto la sala arranca con el host solo y la demo no muestra
+    // ni el escenario lleno ni la cola.
+    const live1 = 'live-1';
+    _Participant? find(String userId) {
+      for (final p in _participants) {
+        if (p.liveId == live1 && p.userId == userId) return p;
+      }
+      return null;
+    }
+
+    find(DemoAccounts.guestAna.id)?.cameraOn = true;
+    find(DemoAccounts.guestMarcos.id)?.micMuted = true;
+    final mod = find(DemoAccounts.moderator.id);
+    if (mod != null) mod.role = LiveRole.moderator;
+
+    for (final (userId, offset) in [
+      (DemoAccounts.guestLuz.id, const Duration(minutes: 3)),
+      (DemoAccounts.listenerSofia.id, const Duration(minutes: 1)),
+    ]) {
+      _participants.add(
+        _Participant(
+          seq: _sequence++,
+          liveId: live1,
+          userId: userId,
+          role: LiveRole.audience,
+          handRaisedAt: now.subtract(offset),
+        ),
+      );
     }
   }
 
