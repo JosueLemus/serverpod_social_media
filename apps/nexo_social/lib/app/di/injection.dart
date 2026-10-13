@@ -258,7 +258,7 @@ Future<void> configureDependencies({
   );
   sl.registerLazySingleton(() => ScheduleShow(sl()));
   sl.registerFactory(() => ScheduleShowCubit(sl(), sl()));
-  // El buscador de Explorar: con cuentas reales, `client.search`.
+  // El buscador de Inicio: con cuentas reales, `client.search`.
   sl.registerLazySingleton<SearchRepository>(
     () => resolvedAuthSource == AuthSourceMode.mock
         ? MockSearchRepository(sl(), sl())

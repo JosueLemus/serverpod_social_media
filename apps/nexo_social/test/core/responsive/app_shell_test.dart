@@ -8,6 +8,7 @@ import 'package:nexo_social/app/theme/app_theme.dart';
 import 'package:nexo_social/core/responsive/shell_destinations.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/feed/presentation/widgets/post_card.dart';
+import 'package:nexo_social/features/messages/presentation/pages/messages_inbox_page.dart';
 
 import '../../support/app_harness.dart';
 import 'package:nexo_social/features/messages/presentation/bloc/unread_messages_cubit.dart';
@@ -50,8 +51,18 @@ void main() {
       await pumpShell(tester, const Size(390, 900));
 
       expect(find.byType(NavigationRail), findsNothing);
-      expect(find.text('Inicio'), findsOneWidget);
-      expect(find.text('Explorar'), findsOneWidget);
+      // Inicio · Mensajes · + · Actividad · Perfil. Explorar ya no es una
+      // pestaña: el descubrimiento vive en Inicio.
+      for (final path in [
+        AppRoutes.feed,
+        AppRoutes.messages,
+        AppRoutes.activity,
+        AppRoutes.profile,
+      ]) {
+        expect(find.byKey(Key('tab-$path')), findsOneWidget);
+      }
+      expect(find.byKey(const Key('tab-/explore')), findsNothing);
+      expect(find.text('Explorar'), findsNothing);
       // El botón de componer no tiene etiqueta —es una acción, no un
       // destino— así que se busca por su semántica.
       expect(find.bySemanticsLabel('Crear publicación'), findsOneWidget);
@@ -147,12 +158,13 @@ void main() {
 
       expect(find.byType(PostCard), findsWidgets);
 
-      // By the tab's key, not by text: "En vivo" is also the label of a feed
-      // filter chip, so `find.text` is ambiguous on this screen.
-      await tester.tap(find.byKey(const Key('tab-/explore')));
+      // Por la key de la pestaña, no por texto: "Mensajes" también puede
+      // aparecer en el contenido.
+      await tester.tap(find.byKey(const Key('tab-${AppRoutes.messages}')));
       await AppHarness.settle(tester);
 
-      expect(find.text('En vivo ahora'), findsWidgets);
+      expect(find.byType(MessagesInboxPage), findsOneWidget);
+      expect(find.byType(PostCard), findsNothing);
     });
 
     /// The whole reason for StatefulShellRoute. The old shell rebuilt the

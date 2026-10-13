@@ -86,7 +86,7 @@ void main() {
     test('con SHARE_BASE_URL el vivo y el perfil llevan su enlace', () {
       expect(
         liveShareText(onAir, baseUrl: 'https://nexo.example/'),
-        endsWith('\n\nhttps://nexo.example/explore/live/7'),
+        endsWith('\n\nhttps://nexo.example/live/7'),
       );
       const profile = PublicProfile(
         id: 'u1',

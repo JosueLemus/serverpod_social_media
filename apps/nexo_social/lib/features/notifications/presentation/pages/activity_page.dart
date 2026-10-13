@@ -136,7 +136,7 @@ class _ActivityView extends StatelessWidget {
                   'Cuando alguien te siga, reaccione a lo que publicas o '
                   'salga en vivo, aparece aquí.',
               actionLabel: 'Explorar',
-              onAction: () => context.go(AppRoutes.explore),
+              onAction: () => context.go(AppRoutes.feed),
             )
           : AppEmptyView(
               mascot: NexoMascot.bell,

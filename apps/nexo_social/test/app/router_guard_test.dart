@@ -54,7 +54,7 @@ void main() {
     test('every location is held at the splash', () {
       for (final location in [
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.signIn,
       ]) {
         expect(
@@ -120,7 +120,7 @@ void main() {
     test('any app route bounces to sign-in', () {
       for (final location in [
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.activity,
         AppRoutes.profile,
         AppRoutes.create,
@@ -143,7 +143,8 @@ void main() {
   group('visitor (guest session)', () {
     test('browsing is public', () {
       expect(guardRedirect(visitor, AppRoutes.feed), isNull);
-      expect(guardRedirect(visitor, AppRoutes.explore), isNull);
+      // La sala del vivo vive en Inicio y también es pública.
+      expect(guardRedirect(visitor, AppRoutes.liveRoom('5')), isNull);
       expect(guardRedirect(visitor, AppRoutes.activity), isNull);
       expect(guardRedirect(visitor, AppRoutes.profile), isNull);
     });
@@ -261,12 +262,12 @@ void main() {
     // location loops until go_router throws. Following each answer once and
     // requiring the second hop to be null proves there is no two-step cycle.
     test('no location redirects to another location that redirects', () {
-      const locations = [
+      final locations = [
         AppRoutes.splash,
         AppRoutes.signIn,
         AppRoutes.signUp,
         AppRoutes.feed,
-        AppRoutes.explore,
+        AppRoutes.liveRoom('5'),
         AppRoutes.activity,
         AppRoutes.profile,
         AppRoutes.create,

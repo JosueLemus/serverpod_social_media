@@ -71,8 +71,8 @@ class _InboxView extends StatelessWidget {
                   message:
                       'Escríbele a alguien desde su perfil: el botón de '
                       'mensaje está al lado de Seguir.',
-                  actionLabel: 'Explorar',
-                  onAction: () => context.go(AppRoutes.explore),
+                  actionLabel: 'Ir a Inicio',
+                  onAction: () => context.go(AppRoutes.feed),
                 ),
               ],
               InboxStatus.ready => [

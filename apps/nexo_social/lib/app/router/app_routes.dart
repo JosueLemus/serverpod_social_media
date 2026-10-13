@@ -10,15 +10,16 @@ abstract final class AppRoutes {
   static const signUp = '/sign-up';
   static const passwordReset = '/password-reset';
 
+  /// Inicio: el feed y, desde que Explorar dejó de ser una pestaña, también el
+  /// descubrimiento (buscador, próximos vivos, replays y tendencias). Menos
+  /// pestañas fue decisión del equipo: descubrir es algo que se hace desde el
+  /// feed, no una sección aparte a la que hay que acordarse de ir.
   static const feed = '/';
 
-  /// Descubrimiento: vivos, temas en tendencia y creadores.
-  ///
-  /// La pestaña se llama **Explorar**, no "En vivo". Lo dicen el diseño y el
-  /// Notion: los vivos son un tipo de contenido dentro del descubrimiento, no
-  /// una sección hermana del feed — y una pestaña dedicada a ellos deja sin
-  /// entrada a perfiles y categorías.
-  static const explore = '/explore';
+  /// La pestaña Explorar ya no existe. La ruta queda sólo para que un enlace
+  /// viejo (`/explore`, `/explore/live/<id>`) redirija a donde vive ahora ese
+  /// contenido en vez de dar una pantalla en blanco.
+  static const legacyExplore = '/explore';
 
   static const activity = '/activity';
 
@@ -83,10 +84,11 @@ abstract final class AppRoutes {
   static const liveRoomSegment = 'live/:liveId';
   static const userProfilePath = '$userProfile/:username';
 
-  /// La sala vive **dentro** del branch de Explorar, no en uno propio: se
-  /// entra a un vivo desde el descubrimiento, y una sala en otro branch sería
-  /// justamente el empuje entre branches que la nota de arriba prohíbe.
-  static String liveRoom(String id) => '$explore/live/$id';
+  /// La sala vive **dentro** del branch de Inicio, no en uno propio: se entra
+  /// a un vivo desde el feed (historias, vivo destacado, próximos, búsqueda),
+  /// y una sala en otro branch sería justamente el empuje entre branches que
+  /// la nota de arriba prohíbe.
+  static String liveRoom(String id) => '/live/$id';
 
   /// La ficha de una cuenta, dentro del branch de la consola.
   static const adminAccountSegment = 'account/:accountId';

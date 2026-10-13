@@ -103,7 +103,7 @@ void main() {
   });
 
   /// Un router mínimo: la sala, el Studio y una página de partida que muestra
-  /// [start] con la misma decisión que usan el feed, Explorar y el perfil.
+  /// [start] con la misma decisión que usan el feed, la búsqueda y el perfil.
   GoRouter router(String initialLocation, {Widget? start}) => GoRouter(
     initialLocation: initialLocation,
     routes: [
@@ -116,7 +116,7 @@ void main() {
         builder: (_, _) => const Scaffold(body: Text('studio-page')),
       ),
       GoRoute(
-        path: '${AppRoutes.explore}/${AppRoutes.liveRoomSegment}',
+        path: '/${AppRoutes.liveRoomSegment}',
         builder: (_, state) =>
             LiveRoomPage(liveId: state.pathParameters['liveId']!),
       ),

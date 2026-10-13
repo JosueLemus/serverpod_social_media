@@ -101,10 +101,10 @@ void main() {
     expect(find.text('Hola comunidad'), findsOneWidget);
     expect(find.byKey(const Key('create-post-field')), findsNothing);
 
-    // Los vivos viven dentro de Explorar, que es la segunda pestaña.
-    await tester.tap(find.byKey(const Key('tab-/explore')));
+    // Los vivos se descubren desde Inicio: el chip "En vivo" lista los que
+    // están al aire. Explorar ya no es una pestaña.
+    await tester.tap(find.byKey(const Key('filter-live')));
     await settle(tester);
-    expect(find.text('En vivo ahora'), findsWidgets);
 
     await tester.tap(find.text('Masterclass de Diseño Mobile').last);
     await settle(tester);
