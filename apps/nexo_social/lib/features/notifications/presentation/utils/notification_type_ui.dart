@@ -88,10 +88,12 @@ extension AppNotificationUI on AppNotification {
       showId == null ? null : NotificationDestination.live,
     NotificationType.follow =>
       actorUsername == null ? null : NotificationDestination.actorProfile,
-    // No hay pantalla de detalle de un post: el aviso lleva al perfil propio,
-    // donde está la publicación con sus likes y comentarios.
-    NotificationType.like ||
-    NotificationType.comment => NotificationDestination.ownProfile,
+    // A la publicación que recibió el like o el comentario. Sin id (un aviso
+    // del mock), al perfil propio, donde está la publicación.
+    NotificationType.like || NotificationType.comment =>
+      postId == null
+          ? NotificationDestination.ownProfile
+          : NotificationDestination.post,
     NotificationType.membership || NotificationType.moderation => null,
   };
 
@@ -100,8 +102,9 @@ extension AppNotificationUI on AppNotification {
   String? get actionLabel => switch (destination) {
     NotificationDestination.live => 'Ver ahora',
     NotificationDestination.actorProfile => 'Ver perfil',
+    NotificationDestination.post => 'Ver publicación',
     NotificationDestination.ownProfile || null => null,
   };
 }
 
-enum NotificationDestination { live, actorProfile, ownProfile }
+enum NotificationDestination { live, actorProfile, post, ownProfile }

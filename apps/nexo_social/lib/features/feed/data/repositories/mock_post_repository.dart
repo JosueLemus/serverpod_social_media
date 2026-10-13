@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/mock_social_store.dart';
 import '../../../moderation/domain/entities/moderation_action.dart';
 import '../../domain/entities/post.dart';
@@ -28,6 +29,14 @@ class MockPostRepository implements PostRepository {
   @override
   Future<PostPage> feed({String? cursor}) async =>
       PostPage(cursor == null ? _store.readPosts() : const []);
+
+  @override
+  Future<Post> get(String postId) async {
+    for (final post in _store.readPosts()) {
+      if (post.id == postId) return post;
+    }
+    throw NotFoundFailure('post $postId');
+  }
 
   @override
   Future<Post> create(PostDraftInput input) async {

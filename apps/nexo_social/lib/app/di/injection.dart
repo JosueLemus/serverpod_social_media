@@ -20,6 +20,7 @@ import '../../features/feed/data/repositories/serverpod_post_repository.dart';
 import '../../features/feed/domain/repositories/home_feed_repository.dart';
 import '../../features/feed/domain/repositories/post_repository.dart';
 import '../../features/feed/presentation/bloc/comments_cubit.dart';
+import '../../features/feed/presentation/bloc/post_detail_cubit.dart';
 import '../../features/feed/presentation/bloc/feed_cubit.dart';
 import '../../features/auth/data/datasources/auth_local_data_source.dart';
 import '../../features/auth/data/datasources/serverpod_auth_storage.dart';
@@ -175,6 +176,9 @@ Future<void> configureDependencies({
         : ServerpodHomeFeedRepository(sl<serverpod.Client>()),
   );
   sl.registerFactory(() => FeedCubit(sl(), sl(), sl()));
+  sl.registerFactoryParam<PostDetailCubit, String, void>(
+    (postId, _) => PostDetailCubit(sl(), postId),
+  );
   sl.registerFactoryParam<CommentsCubit, String, void>(
     (postId, _) => CommentsCubit(sl(), postId),
   );

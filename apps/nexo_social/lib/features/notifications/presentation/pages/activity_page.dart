@@ -46,6 +46,9 @@ class _ActivityView extends StatelessWidget {
       case NotificationDestination.actorProfile:
         // El perfil ajeno es una ruta raíz sobre el shell: se apila.
         unawaited(context.push(AppRoutes.profileOf(item.actorUsername!)));
+      case NotificationDestination.post:
+        // La publicación es una ruta raíz sobre el shell: se apila.
+        unawaited(context.push(AppRoutes.post(item.postId!)));
       case NotificationDestination.ownProfile:
         context.go(AppRoutes.profile);
       case null:

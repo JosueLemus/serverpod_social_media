@@ -29,6 +29,14 @@ class ServerpodPostRepository implements PostRepository {
   });
 
   @override
+  Future<Post> get(String postId) => _guard(() async {
+    final id = int.tryParse(postId);
+    // Un id que no es número viene de un enlace a mano: no existe.
+    if (id == null) throw NotFoundFailure('post $postId');
+    return toPost(await _client.posts.get(id));
+  });
+
+  @override
   Future<Post> create(PostDraftInput input) => _guard(() async {
     final keys = <String>[];
     final attachment = input.attachment;

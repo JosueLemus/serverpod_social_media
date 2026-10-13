@@ -17,6 +17,7 @@ import '../../domain/entities/post.dart';
 import '../../../../core/share/share_sheet.dart';
 import '../utils/post_share_text.dart';
 import 'dart:async';
+import 'photo_viewer.dart';
 
 /// Una publicación, pegada directo sobre el liner.
 ///
@@ -32,6 +33,7 @@ class PostCard extends StatelessWidget {
     this.onComment,
     this.onMore,
     this.onShowLikers,
+    this.onOpen,
   });
 
   final Post post;
@@ -44,6 +46,10 @@ class PostCard extends StatelessWidget {
   final VoidCallback? onMore;
   final VoidCallback? onShowLikers;
 
+  /// Abre la publicación entera al tocar el texto. Null en la propia
+  /// pantalla de publicación, donde ya se está.
+  final VoidCallback? onOpen;
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -53,7 +59,13 @@ class PostCard extends StatelessWidget {
       children: [
         _PostHeader(post: post, onMore: onMore),
         const SizedBox(height: AppSpacing.xs),
-        Text(post.body, style: text.bodyMedium?.copyWith(height: 1.45)),
+        _OpenOnTap(
+          onOpen: onOpen,
+          child: Text(
+            post.body,
+            style: text.bodyMedium?.copyWith(height: 1.45),
+          ),
+        ),
         if (post.media != null) ...[
           const SizedBox(height: AppSpacing.sm),
           // La media es el sticker del post: troquel blanco, despegado del
@@ -221,18 +233,23 @@ class _PostMedia extends StatelessWidget {
   Widget build(BuildContext context) {
     final source = url;
     if (source != null && kind == PostMedia.image) {
-      return AspectRatio(
-        aspectRatio: 4 / 5,
-        child: Image.network(
-          source,
-          key: const Key('post-image'),
-          fit: BoxFit.cover,
-          // Se decodifica al ancho en que se muestra: Flutter guarda el
-          // bitmap a resolución nativa si no se le dice otra cosa.
-          cacheWidth: 1080,
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : const _MediaPlaceholder(),
-          errorBuilder: (context, error, stack) => const _MediaPlaceholder(),
+      // Tocar la foto la abre a pantalla completa, con zoom.
+      return GestureDetector(
+        key: const Key('post-image-open'),
+        onTap: () => unawaited(showPhotoViewer(context, url: source)),
+        child: AspectRatio(
+          aspectRatio: 4 / 5,
+          child: Image.network(
+            source,
+            key: const Key('post-image'),
+            fit: BoxFit.cover,
+            // Se decodifica al ancho en que se muestra: Flutter guarda el
+            // bitmap a resolución nativa si no se le dice otra cosa.
+            cacheWidth: 1080,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : const _MediaPlaceholder(),
+            errorBuilder: (context, error, stack) => const _MediaPlaceholder(),
+          ),
         ),
       );
     }
@@ -554,6 +571,27 @@ class _ActionButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// El texto de una publicación abre la publicación entera, como en cualquier
+/// red social. Sin [onOpen] (la propia pantalla de publicación) es sólo texto.
+class _OpenOnTap extends StatelessWidget {
+  const _OpenOnTap({required this.onOpen, required this.child});
+
+  final VoidCallback? onOpen;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final open = onOpen;
+    if (open == null) return child;
+    return InkWell(
+      key: const Key('post-open'),
+      onTap: open,
+      borderRadius: AppRadii.small,
+      child: child,
     );
   }
 }

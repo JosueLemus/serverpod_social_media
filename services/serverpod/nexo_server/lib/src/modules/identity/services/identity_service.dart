@@ -281,6 +281,21 @@ class IdentityService {
     final base = UsernameRules.suggestFrom(user?.userName ?? user?.email);
     try {
       return await session.db.transaction((tx) async {
+        // Un lock por cuenta: la app pide `profiles.me` dos veces al entrar
+        // con una cuenta recién creada, y sin él las dos transacciones
+        // intentaban crear el perfil y una chocaba contra el índice único.
+        // Con el lock se ordenan y la segunda encuentra la fila de la primera.
+        await session.db.unsafeExecute(
+          'SELECT pg_advisory_xact_lock(hashtext(@key))',
+          parameters: QueryParameters.named({'key': 'account:$userId'}),
+          transaction: tx,
+        );
+        final raced = await AccountProfile.db.findFirstRow(
+          session,
+          where: (t) => t.authUserId.equals(userId),
+          transaction: tx,
+        );
+        if (raced != null) return raced;
         final username = await _freeUsername(session, base, tx);
         final created = await AccountProfile.db.insertRow(
           session,
@@ -296,8 +311,8 @@ class IdentityService {
         return created;
       });
     } on DatabaseQueryException {
-      // Dos pedidos simultáneos de la misma cuenta nueva: el índice único lo
-      // frenó y el otro ya lo creó.
+      // Red de seguridad: otro camino que cree el perfil sin pasar por este
+      // lock. El índice único lo frena y la fila ya está.
       final raced = await _account(session, userId);
       if (raced != null) return raced;
       rethrow;

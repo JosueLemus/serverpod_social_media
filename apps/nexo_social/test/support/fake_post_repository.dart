@@ -61,6 +61,15 @@ class FakePostRepository implements PostRepository {
   Stream<void> changes() => _changes.stream;
 
   @override
+  Future<Post> get(String postId) async {
+    _maybeFail();
+    for (final post in posts) {
+      if (post.id == postId) return post;
+    }
+    throw NotFoundFailure('post $postId');
+  }
+
+  @override
   Future<PostPage> feed({String? cursor}) async {
     _maybeFail();
     final start = int.tryParse(cursor ?? '') ?? 0;

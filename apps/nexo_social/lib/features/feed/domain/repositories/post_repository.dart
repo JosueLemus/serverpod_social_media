@@ -12,6 +12,11 @@ abstract interface class PostRepository {
   /// anterior para seguir.
   Future<PostPage> feed({String? cursor});
 
+  /// Una publicación sola: la pantalla de publicación y los enlaces
+  /// compartidos. `NotFoundFailure` si no existe, se borró o no es visible
+  /// para quien pregunta.
+  Future<Post> get(String postId);
+
   /// Publica. Si hay adjunto, primero lo sube y después publica.
   Future<Post> create(PostDraftInput input);
 
