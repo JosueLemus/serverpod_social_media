@@ -30,6 +30,7 @@ Future<ModerationDecision?> showModerationSheet(
   int reports = 0,
   String? comment,
   bool canModerate = true,
+  bool sanctionsAvailable = true,
 }) => showModalBottomSheet<ModerationDecision>(
   context: context,
   showDragHandle: true,
@@ -40,6 +41,7 @@ Future<ModerationDecision?> showModerationSheet(
     reports: reports,
     comment: comment,
     canModerate: canModerate,
+    sanctionsAvailable: sanctionsAvailable,
   ),
 );
 
@@ -49,6 +51,7 @@ class _ModerationSheet extends StatefulWidget {
     required this.reports,
     required this.comment,
     required this.canModerate,
+    required this.sanctionsAvailable,
   });
 
   final String author;
@@ -58,6 +61,11 @@ class _ModerationSheet extends StatefulWidget {
   /// Sin permiso de moderación la hoja sólo ofrece reportar. El servidor
   /// rechazaría lo demás igual; mostrarlo sería ofrecer algo que falla.
   final bool canModerate;
+
+  /// Silenciar y bloquear tienen dónde aplicarse. Sin eso se muestran
+  /// apagadas, "Próximamente": confirmar una sanción que no llega al
+  /// servidor hace creer al moderador que el usuario ya no puede comentar.
+  final bool sanctionsAvailable;
 
   @override
   State<_ModerationSheet> createState() => _ModerationSheetState();
@@ -190,7 +198,9 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                           style: text.titleMedium,
                         ),
                         Text(
-                          'No podrá comentar durante el tiempo elegido',
+                          widget.sanctionsAvailable
+                              ? 'No podrá comentar durante el tiempo elegido'
+                              : 'Próximamente',
                           style: text.bodySmall,
                         ),
                       ],
@@ -204,28 +214,36 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                   // Wrap: a 320 las tres duraciones y "Aplicar" no entran en
                   // un renglón, y repartir el ancho recortaba "24 horas".
                   Expanded(
-                    child: Wrap(
-                      spacing: AppSpacing.xs,
-                      runSpacing: AppSpacing.xs,
-                      children: [
-                        for (final option in MuteDuration.values)
-                          FilterPill(
-                            key: Key('mute-${option.name}'),
-                            label: option.label,
-                            selected: _mute == option,
-                            // Elegir la duración no silencia: sólo arma la
-                            // decisión. Aplicar en el tap del chip dejaría al
-                            // moderador sin forma de corregirse antes de
-                            // confirmar.
-                            onTap: () => setState(() => _mute = option),
-                          ),
-                      ],
+                    child: IgnorePointer(
+                      ignoring: !widget.sanctionsAvailable,
+                      child: Opacity(
+                        opacity: widget.sanctionsAvailable ? 1 : .45,
+                        child: Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: [
+                            for (final option in MuteDuration.values)
+                              FilterPill(
+                                key: Key('mute-${option.name}'),
+                                label: option.label,
+                                selected: _mute == option,
+                                // Elegir la duración no silencia: sólo arma la
+                                // decisión. Aplicar en el tap del chip dejaría al
+                                // moderador sin forma de corregirse antes de
+                                // confirmar.
+                                onTap: () => setState(() => _mute = option),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   FilledButton(
                     key: const Key('moderate-mute'),
-                    onPressed: () => _decide(ModerationType.muteUser),
+                    onPressed: widget.sanctionsAvailable
+                        ? () => _decide(ModerationType.muteUser)
+                        : null,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(0, AppSizes.chipHeight),
                       padding: const EdgeInsets.symmetric(
@@ -261,8 +279,12 @@ class _ModerationSheetState extends State<_ModerationSheet> {
                 glyphColor: AppColors.onError,
                 outline: AppColors.error,
                 title: 'Bloquear usuario del canal',
-                detail: 'No podrá volver a ingresar ni comentar',
-                onTap: () => _decide(ModerationType.banUser),
+                detail: widget.sanctionsAvailable
+                    ? 'No podrá volver a ingresar ni comentar'
+                    : 'Próximamente',
+                onTap: widget.sanctionsAvailable
+                    ? () => _decide(ModerationType.banUser)
+                    : null,
               ),
             ],
           ],
@@ -289,7 +311,9 @@ class _ActionRow extends StatelessWidget {
   final NexoGlyph glyph;
   final String title;
   final String detail;
-  final VoidCallback onTap;
+
+  /// Null la deja apagada.
+  final VoidCallback? onTap;
   final Widget? trailing;
   final Color? discColor;
   final Color? glyphColor;
@@ -300,7 +324,7 @@ class _ActionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    return Material(
+    final row = Material(
       color: Colors.transparent,
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
@@ -338,6 +362,9 @@ class _ActionRow extends StatelessWidget {
         ),
       ),
     );
+    // Apagada se ve apagada: una fila que no responde y se ve igual que las
+    // otras se lee como una hoja rota.
+    return onTap == null ? Opacity(opacity: .45, child: row) : row;
   }
 }
 

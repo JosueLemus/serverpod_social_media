@@ -214,6 +214,10 @@ void main() {
         find.byKey(const Key('auth-password')),
         'Secreta-123',
       );
+      await tester.enterText(
+        find.byKey(const Key('auth-password-confirm')),
+        'Secreta-123',
+      );
       await tester.tap(find.byKey(const Key('auth-submit')));
       await tester.pump();
       await tester.pump();

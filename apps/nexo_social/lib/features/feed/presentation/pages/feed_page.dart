@@ -115,9 +115,29 @@ class _FeedViewState extends State<_FeedView> {
             ),
       ),
     ],
+    // Una sola página con el buscador siempre primero, y debajo lo que toca:
+    // los resultados mientras hay texto, el feed cuando no. Antes eran dos
+    // `NexoPage` distintas, así que al pasar la segunda letra el campo se
+    // montaba de nuevo: perdía el foco y el teclado se cerraba en medio de la
+    // palabra. Borrar el texto trae el feed de vuelta con sus filtros.
     child: BlocBuilder<SearchCubit, SearchState>(
-      builder: (context, search) =>
-          search.isSearching ? _results(context, search) : _feed(context),
+      builder: (context, search) => BlocBuilder<FeedCubit, FeedState>(
+        builder: (context, state) => NexoPage(
+          section: 'Feed',
+          // Mensajes no va acá: es una pestaña de la barra, con su badge. Y el
+          // buscador ya está en la página, no detrás de un ícono.
+          onRefresh: search.isSearching
+              ? context.read<SearchCubit>().retry
+              : () => _refreshFeed(context),
+          children: [
+            _searchField(context),
+            if (search.isSearching)
+              SearchResultsView(state: search, onTag: _search, onClear: _clear)
+            else
+              ..._feed(context, state),
+          ],
+        ),
+      ),
     ),
   );
 
@@ -129,6 +149,8 @@ class _FeedViewState extends State<_FeedView> {
     controller: _query,
     focusNode: _searchFocus,
     onChanged: context.read<SearchCubit>().changed,
+    // La tecla de buscar del teclado: buscar ya, sin esperar el debounce.
+    onSubmitted: (_) => unawaited(context.read<SearchCubit>().retry()),
     trailing: ValueListenableBuilder<TextEditingValue>(
       valueListenable: _query,
       builder: (context, value, _) => value.text.isEmpty
@@ -142,69 +164,53 @@ class _FeedViewState extends State<_FeedView> {
     ),
   );
 
-  /// Mientras hay texto, los resultados reemplazan al feed. Borrar el texto lo
-  /// trae de vuelta, con su scroll y sus filtros intactos.
-  Widget _results(BuildContext context, SearchState search) => NexoPage(
-    section: 'Feed',
-    onRefresh: context.read<SearchCubit>().retry,
-    children: [
-      _searchField(context),
-      SearchResultsView(state: search, onTag: _search, onClear: _clear),
-    ],
-  );
+  /// Los cubits se resuelven antes del await: después de él este context
+  /// puede estar desmontado, y leer un provider desde un Element muerto
+  /// revienta sin mensaje legible.
+  Future<void> _refreshFeed(BuildContext context) {
+    final feed = context.read<FeedCubit>();
+    final live = context.read<LiveListCubit>();
+    final discover = context.read<ExploreCubit>();
+    return Future.wait([feed.refresh(), live.load(), discover.load()]);
+  }
 
-  Widget _feed(BuildContext context) => BlocBuilder<FeedCubit, FeedState>(
-    builder: (context, state) {
-      final cubit = context.read<FeedCubit>();
-      final loaded = state is FeedLoaded ? state : null;
+  /// El feed, debajo del buscador.
+  List<Widget> _feed(BuildContext context, FeedState state) {
+    final cubit = context.read<FeedCubit>();
+    final loaded = state is FeedLoaded ? state : null;
 
-      return NexoPage(
-        section: 'Feed',
-        // Mensajes no va acá: es una pestaña de la barra, con su badge. Y el
-        // buscador ya está en la página, no detrás de un ícono.
-        // Los cubits se resuelven antes del await: después de él este
-        // context puede estar desmontado, y leer un provider desde un Element
-        // muerto revienta sin mensaje legible.
-        onRefresh: () {
-          final live = context.read<LiveListCubit>();
-          final discover = context.read<ExploreCubit>();
-          return Future.wait([cubit.refresh(), live.load(), discover.load()]);
-        },
-        children: [
-          _searchField(context),
-          const SizedBox(height: AppSpacing.sm),
-          const StaffShortcutCard(),
-          // El primer vistazo: la plancha de avatares, los filtros y el vivo
-          // destacado, en ese orden.
-          const _LiveStories(),
-          const SizedBox(height: AppSpacing.md),
-          // La fila de filtros queda montada en todos los estados: perder el
-          // control que acabás de tocar mientras refresca se lee como que el
-          // tap rompió algo.
-          _FilterRow(
-            selected: loaded?.filter ?? FeedFilter.forYou,
-            onSelected: cubit.selectFilter,
-            // Los vivos al aire, no los posts marcados: con Serverpod un post
-            // nunca dice que está en vivo, y el contador quedaba en 0 con un
-            // vivo al aire.
-            liveCount: context.select<LiveListCubit, int?>(
-              (live) => switch (live.state) {
-                LiveListLoaded(:final sessions) =>
-                  sessions.where((session) => session.status.isOnAir).length,
-                _ => null,
-              },
-            ),
-          ),
-          // Con el chip "En vivo" la lista de abajo ya son los vivos: la
-          // tarjeta destacada repetiría la misma transmisión dos veces
-          // seguidas. Las historias quedan: están arriba de los filtros, y
-          // esconderlas haría saltar la fila que se acaba de tocar.
-          if (loaded?.filter != FeedFilter.live) const _FeaturedLive(),
-          ..._body(context, state),
-        ],
-      );
-    },
-  );
+    return [
+      const SizedBox(height: AppSpacing.sm),
+      const StaffShortcutCard(),
+      // El primer vistazo: la plancha de avatares, los filtros y el vivo
+      // destacado, en ese orden.
+      const _LiveStories(),
+      const SizedBox(height: AppSpacing.md),
+      // La fila de filtros queda montada en todos los estados: perder el
+      // control que acabás de tocar mientras refresca se lee como que el
+      // tap rompió algo.
+      _FilterRow(
+        selected: loaded?.filter ?? FeedFilter.forYou,
+        onSelected: cubit.selectFilter,
+        // Los vivos al aire, no los posts marcados: con Serverpod un post
+        // nunca dice que está en vivo, y el contador quedaba en 0 con un
+        // vivo al aire.
+        liveCount: context.select<LiveListCubit, int?>(
+          (live) => switch (live.state) {
+            LiveListLoaded(:final sessions) =>
+              sessions.where((session) => session.status.isOnAir).length,
+            _ => null,
+          },
+        ),
+      ),
+      // Con el chip "En vivo" la lista de abajo ya son los vivos: la
+      // tarjeta destacada repetiría la misma transmisión dos veces
+      // seguidas. Las historias quedan: están arriba de los filtros, y
+      // esconderlas haría saltar la fila que se acaba de tocar.
+      if (loaded?.filter != FeedFilter.live) const _FeaturedLive(),
+      ..._body(context, state),
+    ];
+  }
 
   List<Widget> _body(BuildContext context, FeedState state) {
     final cubit = context.read<FeedCubit>();

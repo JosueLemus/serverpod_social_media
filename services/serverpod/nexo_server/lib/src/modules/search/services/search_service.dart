@@ -1,5 +1,4 @@
 import 'package:serverpod/serverpod.dart';
-import 'package:serverpod_auth_idp_server/core.dart';
 
 import '../../../generated/protocol.dart';
 import '../../../shared/profiles/profile_lookup.dart';
@@ -24,9 +23,9 @@ class SearchService {
   final PostService _posts;
   final LiveService _live;
 
-  /// Candidatos por fuente antes de ordenar: más que el límite, para que el
-  /// orden (empieza con / contiene) elija entre suficientes.
-  static const _accountCandidates = 50;
+  /// Candidatos antes de ordenar: más que el límite, para que el orden
+  /// (empieza con / contiene) elija entre suficientes.
+  static const _accountCandidates = 100;
 
   Future<SearchResults> query(
     Session session,
@@ -70,30 +69,31 @@ class SearchService {
     String pattern,
     int limit,
   ) async {
-    final byUsername = await AccountProfile.db.find(
-      session,
-      where: (t) =>
-          t.status.equals(AccountStatus.active) & t.username.ilike(pattern),
-      limit: _accountCandidates,
+    // Nombre de usuario o nombre visible, plegados (sin tildes) en SQL: el
+    // ORM no compara una columna transformada. Lo de afuera va como
+    // parámetro; la columna plegada la escribe `SearchRules.foldSql`.
+    final username = SearchRules.foldSql('a.username');
+    final fullName = SearchRules.foldSql('p."fullName"');
+    final rows = await session.db.unsafeQuery(
+      'SELECT a.id FROM account_profile AS a '
+      'LEFT JOIN serverpod_auth_core_profile AS p '
+      'ON p."authUserId" = a."authUserId" '
+      'WHERE a.status = @active '
+      "AND ($username ILIKE @pattern ESCAPE '\\' "
+      "OR $fullName ILIKE @pattern ESCAPE '\\') "
+      'LIMIT @cap',
+      parameters: QueryParameters.named({
+        'active': AccountStatus.active.name,
+        'pattern': pattern,
+        'cap': _accountCandidates,
+      }),
     );
-    final byName = await UserProfile.db.find(
+    final ids = {for (final row in rows) row[0] as int};
+    if (ids.isEmpty) return const [];
+    final accounts = await AccountProfile.db.find(
       session,
-      where: (t) => t.fullName.ilike(pattern),
-      limit: _accountCandidates,
+      where: (t) => t.id.inSet(ids),
     );
-    final missing = {for (final user in byName) user.authUserId}
-      ..removeAll(byUsername.map((a) => a.authUserId));
-    final accounts = [
-      ...byUsername,
-      if (missing.isNotEmpty)
-        ...await AccountProfile.db.find(
-          session,
-          where: (t) =>
-              t.status.equals(AccountStatus.active) &
-              t.authUserId.inSet(missing),
-        ),
-    ];
-    if (accounts.isEmpty) return const [];
 
     final names = await profilesOf(session, accounts.map((a) => a.authUserId));
     int rank(AccountProfile a) =>

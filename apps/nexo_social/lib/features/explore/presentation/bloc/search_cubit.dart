@@ -87,8 +87,11 @@ class SearchCubit extends Cubit<SearchState> {
 
   void changed(String text) {
     _timer?.cancel();
+    // Cada tecla invalida lo que estaba en vuelo, no sólo la próxima
+    // consulta: si "elena" contesta mientras corre el debounce de "elenav",
+    // pintaría resultados de un texto que ya no está en el campo.
+    _request++;
     if (!isSearchable(text)) {
-      _request++; // Lo que estaba en vuelo ya no importa.
       emit(
         SearchState(
           text: text,

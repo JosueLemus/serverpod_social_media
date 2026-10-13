@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:nexo_social/core/errors/failures.dart';
@@ -37,6 +39,7 @@ void main() {
   late _MockProfiles profiles;
   late _MockLives lives;
   late _MockFollows follows;
+  late StreamController<void> followChanges;
 
   setUpAll(() {
     registerFallbackValue(_carlos);
@@ -47,6 +50,8 @@ void main() {
     profiles = _MockProfiles();
     lives = _MockLives();
     follows = _MockFollows();
+    followChanges = StreamController<void>.broadcast();
+    when(() => follows.changes()).thenAnswer((_) => followChanges.stream);
     when(() => lives.list()).thenAnswer((_) async => const []);
     when(
       () => profiles.byUsername('carlos_mendez'),
@@ -125,6 +130,33 @@ void main() {
         ProfileNotice.signInToFollow,
       );
       await cubit.close();
+    });
+
+    // Regresión: seguir desde el feed o la búsqueda dejaba el perfil abierto
+    // diciendo "Seguir" con el contador viejo.
+    test('following from another screen refreshes the account', () async {
+      final cubit = await loaded();
+      when(() => profiles.byUsername('carlos_mendez')).thenAnswer(
+        (_) async => _carlos.copyWith(viewerFollows: true, followers: () => 11),
+      );
+
+      followChanges.add(null);
+      await pumpEventQueue();
+
+      expect(profileOf(cubit).viewerFollows, isTrue);
+      expect(profileOf(cubit).followers, 11);
+      // Sólo la cuenta: las publicaciones no se vuelven a pedir.
+      verify(
+        () => profiles.postsOf(any(), cursor: any(named: 'cursor')),
+      ).called(1);
+      await cubit.close();
+    });
+
+    test('closing stops listening to follows', () async {
+      final cubit = await loaded();
+      await cubit.close();
+
+      expect(followChanges.hasListener, isFalse);
     });
   });
 

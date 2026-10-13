@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexo_social/app/di/injection.dart';
+import 'package:nexo_social/core/errors/failures.dart';
 import 'package:nexo_social/core/media/live_media_engine.dart';
 import 'package:nexo_social/features/auth/presentation/bloc/auth_cubit.dart';
 import 'package:nexo_social/features/live/domain/entities/live_comment.dart';
@@ -21,12 +22,17 @@ class _FakeLiveRepository implements LiveRepository {
   final calls = <String>[];
   var seeded = <LiveComment>[];
   final _rooms = <String, StreamController<LiveRoomEvent>>{};
+  Object? mineError;
+  final changed = StreamController<void>.broadcast();
 
   StreamController<LiveRoomEvent> room(String id) =>
       _rooms.putIfAbsent(id, StreamController<LiveRoomEvent>.broadcast);
 
   @override
-  Future<List<LiveSession>> mine() async => List.of(shows);
+  Future<List<LiveSession>> mine() async {
+    if (mineError != null) throw mineError!;
+    return List.of(shows);
+  }
 
   @override
   Future<List<LiveSession>> list() async => List.of(shows);
@@ -92,7 +98,7 @@ class _FakeLiveRepository implements LiveRepository {
   Future<LiveRole> roleIn(String liveId) async => LiveRole.host;
 
   @override
-  Stream<void> changes() => const Stream.empty();
+  Stream<void> changes() => changed.stream;
 }
 
 /// Un motor con cámara "real" que registra lo que se le pide.
@@ -366,6 +372,79 @@ void main() {
       find.textContaining('gracias por venir', findRichText: true),
       findsOneWidget,
     );
+  });
+
+  testWidgets('un servidor caído es un error con reintento, no "sin vivos"', (
+    tester,
+  ) async {
+    repository.mineError = const NetworkFailure('down');
+    await pumpStudio(tester);
+
+    expect(find.text('Algo no salió como esperábamos'), findsOneWidget);
+    expect(find.text('Todavía no tienes un vivo'), findsNothing);
+
+    repository
+      ..mineError = null
+      ..shows.add(scheduled);
+    await tester.tap(find.text('Reintentar'));
+    await AppHarness.settle(tester);
+
+    expect(find.byKey(const Key('studio-start')), findsOneWidget);
+  });
+
+  testWidgets('un show recién programado aparece sin recargar', (tester) async {
+    await pumpStudio(tester);
+    expect(find.text('Todavía no tienes un vivo'), findsOneWidget);
+
+    // Lo que pasa al volver de "Programar show": el servidor avisa que
+    // cambió un vivo.
+    repository.shows.add(scheduled);
+    repository.changed.add(null);
+    await AppHarness.settle(tester);
+
+    expect(find.text('Todavía no tienes un vivo'), findsNothing);
+    expect(find.text(scheduled.title), findsOneWidget);
+  });
+
+  testWidgets('sin grabación no se ofrece publicar el replay', (tester) async {
+    repository.shows.add(
+      const LiveSession(
+        id: 'show-1',
+        title: 'Masterclass de Diseño Mobile',
+        hostName: 'Elena Vega',
+        status: LiveStatus.live,
+        recordReplay: false,
+      ),
+    );
+    await pumpStudio(tester);
+
+    // Al abrir, el Studio elige el vivo al aire, no uno ya terminado: el
+    // estado "grabado" se alcanza finalizando.
+    await tester.tap(find.byKey(const Key('studio-end')));
+    await AppHarness.settle(tester);
+
+    expect(find.byKey(const Key('studio-publish')), findsNothing);
+    expect(find.byKey(const Key('studio-new-live')), findsOneWidget);
+  });
+
+  testWidgets('un show programado se cancela con confirmación', (tester) async {
+    repository.shows.add(scheduled);
+    await pumpStudio(tester);
+
+    await tester.tap(find.byKey(const Key('studio-cancel')));
+    await AppHarness.settle(tester);
+    // Arrepentirse no cancela.
+    await tester.tap(find.text('Mantener'));
+    await AppHarness.settle(tester);
+    expect(repository.calls, isEmpty);
+
+    await tester.tap(find.byKey(const Key('studio-cancel')));
+    await AppHarness.settle(tester);
+    await tester.tap(find.byKey(const Key('studio-cancel-confirm')));
+    await AppHarness.settle(tester);
+
+    expect(repository.calls, ['transition show-1 cancelled']);
+    expect(find.byKey(const Key('studio-start')), findsNothing);
   });
 
   testWidgets('antes de salir al aire no hay campo para comentar', (

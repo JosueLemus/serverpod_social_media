@@ -49,6 +49,7 @@ abstract interface class PostRepository {
   );
 
   /// Emite cuando algo cambió por una acción de esta app (publicar, editar,
-  /// eliminar), para que el feed se refresque sin recargar.
+  /// eliminar, dar like, comentar), para que el feed se refresque sin
+  /// recargar.
   Stream<void> changes();
 }
